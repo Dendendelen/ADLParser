@@ -11,6 +11,9 @@ enum AST_type{
     // Set if an error has occurred in the AST
     AST_ERROR,
 
+    // AST node for an epsilon expression - empty, and detected by parser as a key to remove this node from consideration
+    AST_EPSILON,
+
     // Terminal - if detected, then the parsed token matters
     TERMINAL,
 
@@ -86,9 +89,17 @@ class Node {
         
         void set_parent(std::shared_ptr<Node> parent);
         std::shared_ptr<Node> get_parent();
-        
 
+        void add_child(std::shared_ptr<Node> child);
+        std::vector<std::shared_ptr<Node>> get_children();
+        
+        void set_token(std::shared_ptr<Token> tok);
+        std::shared_ptr<Token> get_token();
+
+        AST_type get_ast_type();
 };
+
+typedef std::shared_ptr<Node> PNode;
 
 class Tree {
     private:
@@ -97,6 +108,7 @@ class Tree {
     public:
         Tree(AST_type in);
         std::shared_ptr<Node> get_root();
+
 };
 
 #endif

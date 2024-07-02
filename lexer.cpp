@@ -1,6 +1,7 @@
 #include "lexer.h"
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <regex>
 #include <sstream>
@@ -67,230 +68,230 @@ Lexer::Lexer() {
 
 }
 
-Token Lexer::identify_token(std::string &token) {
+Token_type Lexer::identify_token(std::string &token) {
     std::string uppercase_token = convert_to_uppercase(token);
 
     if (verbose) std::cout << "Lexing " << token << std::endl;
     
     // If we start with a hash, then this is instantly a comment
-    if (token.front() == '#') return Token(LEXER_COMMENT);
-    if (std::regex_match(token, std::regex("\\s+"))) return Token(LEXER_SPACE);
+    if (token.front() == '#') return LEXER_COMMENT;
+    if (std::regex_match(token, std::regex("\\s+"))) return LEXER_SPACE;
 
-    if (uppercase_token == "DEF" || uppercase_token == "DEFINE") return Token(DEF);
-    if (uppercase_token == "CMD" || uppercase_token == "CUT" || uppercase_token == "SELECT") return Token(CMD);
-    if (uppercase_token == "REJECT") return Token(REJEC);
-    if (uppercase_token == "OBJ" || uppercase_token == "OBJECT") return Token(OBJ);
+    if (uppercase_token == "DEF" || uppercase_token == "DEFINE") return DEF;
+    if (uppercase_token == "CMD" || uppercase_token == "CUT" || uppercase_token == "SELECT") return CMD;
+    if (uppercase_token == "REJECT") return REJEC;
+    if (uppercase_token == "OBJ" || uppercase_token == "OBJECT") return OBJ;
 
-    if (uppercase_token == "ALGORITHM" || uppercase_token == "ALGO" || uppercase_token == "REGION") return Token(ALGO);
-    if (token == "TRGe") return Token(TRGE);
-    if (token == "TRGm") return Token(TRGM);
-    if (uppercase_token == "INFO") return Token(ADLINFO);
+    if (uppercase_token == "ALGORITHM" || uppercase_token == "ALGO" || uppercase_token == "REGION") return ALGO;
+    if (token == "TRGe") return TRGE;
+    if (token == "TRGm") return TRGM;
+    if (uppercase_token == "INFO") return ADLINFO;
 
-    if (token == "experiment") return Token(PAP_EXPERIMENT);
-    if (token == "id") return Token(PAP_ID);
-    if (uppercase_token == "TITLE") return Token(PAP_TITLE);
-    if (token == "publication") return Token(PAP_PUBLICATION);
-    if (token == "sqrtS") return Token(PAP_SQRTS);
-    if (token == "lumi" ) return Token(PAP_LUMI);
-    if (token == "arXiv") return Token(PAP_ARXIV);
-    if (token == "hepdata") return Token(PAP_HEPDATA);
-    if (token == "doi"   ) return Token(PAP_DOI);
+    if (token == "experiment") return PAP_EXPERIMENT;
+    if (token == "id") return PAP_ID;
+    if (uppercase_token == "TITLE") return PAP_TITLE;
+    if (token == "publication") return PAP_PUBLICATION;
+    if (token == "sqrtS") return PAP_SQRTS;
+    if (token == "lumi" ) return PAP_LUMI;
+    if (token == "arXiv") return PAP_ARXIV;
+    if (token == "hepdata") return PAP_HEPDATA;
+    if (token == "doi"   ) return PAP_DOI;
 
-    if (token == "counts" ) return Token(COUNTS);
-    if (token == "countsformat") return Token(COUNTSFORMAT);
-    if (token == "stat") return Token(ERR_STAT);
-    if (token == "syst") return Token(ERR_SYST);
-    if (token == "process") return Token(PROCESS);
+    if (token == "counts" ) return COUNTS;
+    if (token == "countsformat") return COUNTSFORMAT;
+    if (token == "stat") return ERR_STAT;
+    if (token == "syst") return ERR_SYST;
+    if (token == "process") return PROCESS;
 
-    if (token == "systematic") return Token(SYSTEMATIC);
-    if (token == "ttree") return Token(SYST_TTREE);
-    if (token == "weight_mc") return Token(SYST_WEIGHT_MC);
-    if (token == "weight_pileup") return Token(SYST_WEIGHT_PILEUP);
-    if (token == "weight_jvt") return Token(SYST_WEIGHT_JVT);
-    if (token == "weight_leptonSF") return Token(SYST_WEIGHT_LEPTON_SF);
-    if (token == "weight_BTagSF") return Token(SYST_WEIGHT_BTAG_SF);
-    if (token == "RunYear") return Token(RUNYEAR);
-    if (token == "mcChannelNumber") return Token(MC_CHANNEL_NUMBER);
-    if (uppercase_token == "EVENTNO") return Token(EVENT_NO);
-    if (uppercase_token == "RUNNO") return Token(RUN_NO);
-    if (uppercase_token == "LBNO") return Token(LB_NO);
-    if (token == "OME") return Token(OME);
+    if (token == "systematic") return SYSTEMATIC;
+    if (token == "ttree") return SYST_TTREE;
+    if (token == "weight_mc") return SYST_WEIGHT_MC;
+    if (token == "weight_pileup") return SYST_WEIGHT_PILEUP;
+    if (token == "weight_jvt") return SYST_WEIGHT_JVT;
+    if (token == "weight_leptonSF") return SYST_WEIGHT_LEPTON_SF;
+    if (token == "weight_BTagSF") return SYST_WEIGHT_BTAG_SF;
+    if (token == "RunYear") return RUNYEAR;
+    if (token == "mcChannelNumber") return MC_CHANNEL_NUMBER;
+    if (uppercase_token == "EVENTNO") return EVENT_NO;
+    if (uppercase_token == "RUNNO") return RUN_NO;
+    if (uppercase_token == "LBNO") return LB_NO;
+    if (token == "OME") return OME;
 
-    if (uppercase_token == "PRINT") return Token(PRINT);
-    if (uppercase_token == "ON" || uppercase_token == "TRUE") return Token(TRUE); 
-    if (uppercase_token == "OFF" || uppercase_token == "FALSE") return Token(FALSE); 
-    if (uppercase_token == "NVARS") return Token(NVARS);
-    if (uppercase_token == "ERRORS") return Token(ERRORS);
-    if (uppercase_token == "TABLETYPE") return Token(TABLETYPE);
-    if (uppercase_token == "TAKE" || uppercase_token == "USING") return Token(TAKE);
-    if (uppercase_token == "HISTO") return Token(HISTO);
-    if (uppercase_token == "WEIGHT") return Token(WEIGHT);
-    if (uppercase_token == "TABLE") return Token(TABLE);
-    if (uppercase_token == "SKIPHISTOS") return Token(SKPH);
-    if (uppercase_token == "SKIPEFS") return Token(SKPE);
-    if (uppercase_token == "GEN") return Token(GEN);
-    if (uppercase_token == "ELE"|| token == "Electron"|| token == "electron") return Token(ELECTRON);//particles
-    if (uppercase_token == "MUO" || token == "MUON"| token == "muon") return Token(MUON);
-    if (uppercase_token == "TAU") return Token(TAU);
-    if (uppercase_token == "TRK") return Token(TRACK);
-    if (uppercase_token == "PHO" || uppercase_token == "Photon") return Token(PHOTON);
-    if (uppercase_token == "JET") return Token(JET);
-    if (uppercase_token == "FJET"|| uppercase_token == "FatJet") return Token(FJET);
-    if (uppercase_token == "QGJET") return Token(QGJET);
-    if (uppercase_token == "BIN") return Token(BINS);
-    if (token == "daughters" || token == "constituents") return Token(CONSTITUENTS);
-    if (token == "NUMET") return Token(NUMET);
-    if (token == "METLV") return Token(METLV);
-    if (token == "LEP") return Token(LEPTON);
-    if (uppercase_token == "HLT") return Token(HLT);
-    if (token == "BJET") return Token(BJET);
-    if (uppercase_token == "INDEX") return Token(IDX);
+    if (uppercase_token == "PRINT") return PRINT;
+    if (uppercase_token == "ON" || uppercase_token == "TRUE") return TRUE; 
+    if (uppercase_token == "OFF" || uppercase_token == "FALSE") return FALSE; 
+    if (uppercase_token == "NVARS") return NVARS;
+    if (uppercase_token == "ERRORS") return ERRORS;
+    if (uppercase_token == "TABLETYPE") return TABLETYPE;
+    if (uppercase_token == "TAKE" || uppercase_token == "USING") return TAKE;
+    if (uppercase_token == "HISTO") return HISTO;
+    if (uppercase_token == "WEIGHT") return WEIGHT;
+    if (uppercase_token == "TABLE") return TABLE;
+    if (uppercase_token == "SKIPHISTOS") return SKPH;
+    if (uppercase_token == "SKIPEFS") return SKPE;
+    if (uppercase_token == "GEN") return GEN;
+    if (uppercase_token == "ELE"|| token == "Electron"|| token == "electron") return ELECTRON;//particles
+    if (uppercase_token == "MUO" || token == "MUON"| token == "muon") return MUON;
+    if (uppercase_token == "TAU") return TAU;
+    if (uppercase_token == "TRK") return TRACK;
+    if (uppercase_token == "PHO" || uppercase_token == "PHOTON") return PHOTON;
+    if (uppercase_token == "JET") return JET;
+    if (uppercase_token == "FJET"|| uppercase_token == "FATJET") return FJET;
+    if (uppercase_token == "QGJET") return QGJET;
+    if (uppercase_token == "BIN") return BINS;
+    if (token == "daughters" || token == "constituents") return CONSTITUENTS;
+    if (token == "NUMET") return NUMET;
+    if (token == "METLV") return METLV;
+    if (token == "LEP") return LEPTON;
+    if (uppercase_token == "HLT") return HLT;
+    if (token == "BJET") return BJET;
+    if (uppercase_token == "INDEX") return IDX;
 
-    if (uppercase_token == "METSIG") return Token(METSIGNIF);
-    if (token == "applyHM") return Token(APPLY_HM);
-    if (token == "applyPTF" || token == "scalePT" ) return Token(APPLY_PTF);
-    if (token == "applyEF" || token == "scaleE" ) return Token(APPLY_EF);
-    if (token == "genPartIdx") return Token(GENPART_IDX);
+    if (uppercase_token == "METSIG") return METSIGNIF;
+    if (token == "applyHM") return APPLY_HM;
+    if (token == "applyPTF" || token == "scalePT" ) return APPLY_PTF;
+    if (token == "applyEF" || token == "scaleE" ) return APPLY_EF;
+    if (token == "genPartIdx") return GENPART_IDX;
 
-    if (uppercase_token == "UNION") return Token(UNION);
-    if (uppercase_token == "ALIAS") return Token(ALIAS);
+    if (uppercase_token == "UNION") return UNION;
+    if (uppercase_token == "ALIAS") return ALIAS;
 
-    if (uppercase_token == "BTAG") return Token(IS_BTAG);
-    if (uppercase_token == "CTAG") return Token(IS_CTAG);
-    if (uppercase_token == "TAUTAG") return Token(IS_TAUTAG);
+    if (uppercase_token == "BTAG") return IS_BTAG;
+    if (uppercase_token == "CTAG") return IS_CTAG;
+    if (uppercase_token == "TAUTAG") return IS_TAUTAG;
 
-    if (uppercase_token == "PDGID") return Token(PDG_ID);
-    if (uppercase_token == "FLAVOR" | uppercase_token == "BTAGGER") return Token(FLAVOR);
-    if (uppercase_token == "PTCONE") return Token(PTCONE);
-    if (uppercase_token == "ETCONE") return Token(ETCONE);
+    if (uppercase_token == "PDGID") return PDG_ID;
+    if (uppercase_token == "FLAVOR" | uppercase_token == "BTAGGER") return FLAVOR;
+    if (uppercase_token == "PTCONE") return PTCONE;
+    if (uppercase_token == "ETCONE") return ETCONE;
 
-    if (uppercase_token == "VERTEXT") return Token(VERT);
-    if (uppercase_token == "VERTEXX") return Token(VERX);
-    if (uppercase_token == "VERTEXY") return Token(VERY);
-    if (uppercase_token == "VERTEXZ") return Token(VERZ);
-    if (uppercase_token == "VERTEXTR") return Token(VERTR);
+    if (uppercase_token == "VERTEXT") return VERT;
+    if (uppercase_token == "VERTEXX") return VERX;
+    if (uppercase_token == "VERTEXY") return VERY;
+    if (uppercase_token == "VERTEXZ") return VERZ;
+    if (uppercase_token == "VERTEXTR") return VERTR;
 
-    if (uppercase_token == "ISTIGHT") return Token(IS_TIGHT);
-    if (uppercase_token == "MEDIUM") return Token(IS_MEDIUM);
-    if (uppercase_token == "LOOSE") return Token(IS_LOOSE);
-    if (token == "fmegajets") return Token(FMEGAJETS);
-    if (token == "fhemisphere") return Token(FHEMISPHERE);
-    if (token == "fMR") return Token(FMR);
-    if (token == "fMTR") return Token(FMTR);
-    if (token == "fMT2") return Token(FMT2);
-    if (token == "fMTauTau") return Token(FMTAUTAU);
-    if (uppercase_token == "MINIISO") return Token(MINI_ISO);
-    if (uppercase_token == "ABSISO") return Token(ABS_ISO);
+    if (uppercase_token == "ISTIGHT") return IS_TIGHT;
+    if (uppercase_token == "MEDIUM") return IS_MEDIUM;
+    if (uppercase_token == "LOOSE") return IS_LOOSE;
+    if (token == "fmegajets") return FMEGAJETS;
+    if (token == "fhemisphere") return FHEMISPHERE;
+    if (token == "fMR") return FMR;
+    if (token == "fMTR") return FMTR;
+    if (token == "fMT2") return FMT2;
+    if (token == "fMTauTau") return FMTAUTAU;
+    if (uppercase_token == "MINIISO") return MINI_ISO;
+    if (uppercase_token == "ABSISO") return ABS_ISO;
 
-    if (token == "dxy"||uppercase_token == "D0") return Token(DXY);
-    if (token == "edxy" || uppercase_token == "ED0") return Token(EDXY);
-    if (token == "dz") return Token(DZ);
-    if (token == "edz") return Token(EDZ);
+    if (token == "dxy"||uppercase_token == "D0") return DXY;
+    if (token == "edxy" || uppercase_token == "ED0") return EDXY;
+    if (token == "dz") return DZ;
+    if (token == "edz") return EDZ;
 
-    if (token == "m_HF_Classification") return Token(HF_CLASSIFICATION); // generalize event variables.
-    if (token == "fTTrr") return Token(TTBAR_NNLOREC);
+    if (token == "m_HF_Classification") return HF_CLASSIFICATION; // generalize event variables.
+    if (token == "fTTrr") return TTBAR_NNLOREC;
 
-    if (uppercase_token == "PHI") return Token(PHI);//functions
-    if (uppercase_token == "ETA") return Token(ETA);
-    if (uppercase_token == "RAP") return Token(RAPIDITY);
-    if (uppercase_token == "EBSETA") return Token(ABS_ETA);
-    if (uppercase_token == "THETA") return Token(THETA);
-    if (uppercase_token == "PT") return Token(PT);
-    if (uppercase_token == "PZ") return Token(PZ);
-    if (uppercase_token == "DR") return Token(DR);
-    if (uppercase_token == "DPHI") return Token(DPHI);
-    if (uppercase_token == "DETA") return Token(DETA);
-    if (uppercase_token == "SIZE" || uppercase_token == "COUNT" || uppercase_token == "NUMOF") return Token(NUMOF);//no arg funcs 
-    if (uppercase_token == "NBJ") return Token(NBF);
-    if (uppercase_token == "FHT") return Token(HT); // attention
-    if (token == "MET") return Token(MET);
-    if (token == "fAplanarity") return Token(APLANARITY);
-    if (token == "fSphericity") return Token(SPHERICITY);
-    if (token == "LEPsf") return Token(LEP_SF);
-    if (token == "bTagSF") return Token(BTAGS_SF);
-    if (token == "XSLumiCorrSF") return Token(XSLUMICORR_SF);
+    if (uppercase_token == "PHI") return PHI;//functions
+    if (uppercase_token == "ETA") return ETA;
+    if (uppercase_token == "RAP") return RAPIDITY;
+    if (uppercase_token == "EBSETA") return ABS_ETA;
+    if (uppercase_token == "THETA") return THETA;
+    if (uppercase_token == "PT") return PT;
+    if (uppercase_token == "PZ") return PZ;
+    if (uppercase_token == "DR") return DR;
+    if (uppercase_token == "DPHI") return DPHI;
+    if (uppercase_token == "DETA") return DETA;
+    if (uppercase_token == "SIZE" || uppercase_token == "COUNT" || uppercase_token == "NUMOF") return NUMOF;//no arg funcs 
+    if (uppercase_token == "NBJ") return NBF;
+    if (uppercase_token == "FHT") return HT; // attention
+    if (token == "MET") return MET;
+    if (token == "fAplanarity") return APLANARITY;
+    if (token == "fSphericity") return SPHERICITY;
+    if (token == "LEPsf") return LEP_SF;
+    if (token == "bTagSF") return BTAGS_SF;
+    if (token == "XSLumiCorrSF") return XSLUMICORR_SF;
 
-    if (uppercase_token == "ANYOF") return Token(ANYOF);
-    if (uppercase_token == "ALLOF") return Token(ALLOF);
-    if (uppercase_token == "ALL") return Token(ALL);
-    if (uppercase_token == "NONE") return Token(NONE);
-    if (token == "=="|| uppercase_token == "EQ") return Token(EQ);//comparison operators
-    if (token == "!="|| uppercase_token == "NE") return Token(NE);
-    if (token == "~!") return Token(MAXIMIZE);
-    if (token == "~=") return Token(MINIMIZE);
-    if (token == "<="|| uppercase_token == "LE") return Token(LE);
-    if (token == ">="|| uppercase_token == "GE") return Token(GE);
-    if (token == "<"|| uppercase_token == "LT") return Token(LT);
-    if (token == ">"|| uppercase_token == "GT") return Token(GT);
-    if (token == "[]") return Token(IRG);
-    if (token == "][") return Token(ERG);
-    if (uppercase_token == "AND" || token == "&&") return Token(AND);//logical ops
-    if (uppercase_token == "OR" || token == "||") return Token(OR);
-    if (uppercase_token == "NOT") return Token(NOT);
+    if (uppercase_token == "ANYOF") return ANYOF;
+    if (uppercase_token == "ALLOF") return ALLOF;
+    if (uppercase_token == "ALL") return ALL;
+    if (uppercase_token == "NONE") return NONE;
+    if (token == "=="|| uppercase_token == "EQ") return EQ;//comparison operators
+    if (token == "!="|| uppercase_token == "NE") return NE;
+    if (token == "~!") return MAXIMIZE;
+    if (token == "~=") return MINIMIZE;
+    if (token == "<="|| uppercase_token == "LE") return LE;
+    if (token == ">="|| uppercase_token == "GE") return GE;
+    if (token == "<"|| uppercase_token == "LT") return LT;
+    if (token == ">"|| uppercase_token == "GT") return GT;
+    if (token == "[]") return IRG;
+    if (token == "][") return ERG;
+    if (uppercase_token == "AND" || token == "&&") return AND;//logical ops
+    if (uppercase_token == "OR" || token == "||") return OR;
+    if (uppercase_token == "NOT") return NOT;
 
-    if (token == "-") return Token(MINUS);
-    if (token == "+") return Token(PLUS);
-    if (token == "*") return Token(MULTIPLY);
-    if (token == "/") return Token(DIVIDE);
+    if (token == "-") return MINUS;
+    if (token == "+") return PLUS;
+    if (token == "*") return MULTIPLY;
+    if (token == "/") return DIVIDE;
 
-    if (token == "&") return Token(AMPERSAND);
-    if (token == "|") return Token(PIPE);
-    if (token == ":") return Token(COLON);
-    if (token == "^") return Token(RAISED_TO_POWER);
+    if (token == "&") return AMPERSAND;
+    if (token == "|") return PIPE;
+    if (token == ":") return COLON;
+    if (token == "^") return RAISED_TO_POWER;
 
 
-    if (token == "(") return Token(OPEN_PAREN);
-    if (token == ")") return Token(CLOSE_PAREN);
-    if (token == "[") return Token(OPEN_SQUARE_BRACE);
-    if (token == "]") return Token(CLOSE_SQUARE_BRACE);
-    if (token == "{") return Token(OPEN_CURLY_BRACE);
-    if (token == "}") return Token(CLOSE_CURLY_BRACE);
-    if (token == "?") return Token(QUESTION);
-    if (token == "=") return Token(ASSIGN);
+    if (token == "(") return OPEN_PAREN;
+    if (token == ")") return CLOSE_PAREN;
+    if (token == "[") return OPEN_SQUARE_BRACE;
+    if (token == "]") return CLOSE_SQUARE_BRACE;
+    if (token == "{") return OPEN_CURLY_BRACE;
+    if (token == "}") return CLOSE_CURLY_BRACE;
+    if (token == "?") return QUESTION;
+    if (token == "=") return ASSIGN;
 
-    if (uppercase_token == "AVE") return Token(AVE);
-    if (uppercase_token == "SUM") return Token(SUM);
-    if (uppercase_token == "ADD") return Token(ADD);
-    if (uppercase_token == "SAVE") return Token(SAVE);
-    if (uppercase_token == "CSV") return Token(CSV);
-    if (uppercase_token == "ASCEND") return Token(ASCEND);
-    if (uppercase_token == "DESCEND") return Token(DESCEND);
-    if (uppercase_token == "TAN") return Token(TAN);
-    if (uppercase_token == "SIN") return Token(SIN);
-    if (uppercase_token == "COS") return Token(COS);
-    if (uppercase_token == "SINH") return Token(SINH);
-    if (uppercase_token == "COSH") return Token(COSH);
-    if (uppercase_token == "TANH") return Token(TANH);
-    if (uppercase_token == "EXP") return Token(EXP);
-    if (uppercase_token == "LOG") return Token(LOG);
-    if (uppercase_token == "HSTEP") return Token(HSTEP);
-    if (uppercase_token == "DELTA") return Token(DELTA);
-    if (uppercase_token == "ABS") return Token(ABS);
-    if (uppercase_token == "SQRT") return Token(SQRT);
-    if (uppercase_token == "SORT") return Token(SORT);
-    if (uppercase_token == "COMB") return Token(COMB);
-    if (uppercase_token == "PERM") return Token(PERM);
-    if (uppercase_token == "MIN") return Token(MIN);
-    if (uppercase_token == "MAX") return Token(MAX);
-    if (token == "+-"|| token == "-+") return Token(PM);
-    if (token == ">>") return Token(BWR);
-    if (token == "<<") return Token(BWL);
+    if (uppercase_token == "AVE") return AVE;
+    if (uppercase_token == "SUM") return SUM;
+    if (uppercase_token == "ADD") return ADD;
+    if (uppercase_token == "SAVE") return SAVE;
+    if (uppercase_token == "CSV") return CSV;
+    if (uppercase_token == "ASCEND") return ASCEND;
+    if (uppercase_token == "DESCEND") return DESCEND;
+    if (uppercase_token == "TAN") return TAN;
+    if (uppercase_token == "SIN") return SIN;
+    if (uppercase_token == "COS") return COS;
+    if (uppercase_token == "SINH") return SINH;
+    if (uppercase_token == "COSH") return COSH;
+    if (uppercase_token == "TANH") return TANH;
+    if (uppercase_token == "EXP") return EXP;
+    if (uppercase_token == "LOG") return LOG;
+    if (uppercase_token == "HSTEP") return HSTEP;
+    if (uppercase_token == "DELTA") return DELTA;
+    if (uppercase_token == "ABS") return ABS;
+    if (uppercase_token == "SQRT") return SQRT;
+    if (uppercase_token == "SORT") return SORT;
+    if (uppercase_token == "COMB") return COMB;
+    if (uppercase_token == "PERM") return PERM;
+    if (uppercase_token == "MIN") return MIN;
+    if (uppercase_token == "MAX") return MAX;
+    if (token == "+-"|| token == "-+") return PM;
+    if (token == ">>") return BWR;
+    if (token == "<<") return BWL;
 
-    if (token == ",") return Token(COMMA);
+    if (token == ",") return COMMA;
 
     // We have as of yet failed to lex this - if this is a number, we lex it
-    if (std::regex_match(token, reg_int)) return Token(INTEGER);
-    if (std::regex_match(token, reg_decimal)) return Token(DECIMAL);
-    if (std::regex_match(token, reg_scientific)) return Token(SCIENTIFIC);
+    if (std::regex_match(token, reg_int)) return INTEGER;
+    if (std::regex_match(token, reg_decimal)) return DECIMAL;
+    if (std::regex_match(token, reg_scientific)) return SCIENTIFIC;
 
     // It definintely isn't a number - maybe it's a variable name format?
-    if (std::regex_match(token, reg_varname)) return Token(VARNAME);
+    if (std::regex_match(token, reg_varname)) return VARNAME;
 
     // Not that either - maybe it's just a valid string
-    if (std::regex_match(token, reg_string)) return Token(STRING);
+    if (std::regex_match(token, reg_string)) return STRING;
 
     // Not any sort of valid object, so far as this can tell. Assume this is invalid text, and end our tokenization.
-    return Token(LEXER_ERROR);
+    return LEXER_ERROR;
 }
 
 void Lexer::lex_token(std::string &token, int &line_number, int &column_number) {
@@ -298,9 +299,9 @@ void Lexer::lex_token(std::string &token, int &line_number, int &column_number) 
     // Do not lex an empty token
     if (token.size() == 0) return;
 
-    Token tok = identify_token(token);
+    auto tok = std::shared_ptr<Token>(new Token(identify_token(token)));
 
-    if (tok.get_token() == LEXER_ERROR) {
+    if (tok->get_token() == LEXER_ERROR) {
 
         std::stringstream stream;
         stream << "Malformed token \"" << token << "\", at line " << line_number << ", column " << column_number << std::endl;
@@ -308,7 +309,7 @@ void Lexer::lex_token(std::string &token, int &line_number, int &column_number) 
         throw LexingException(stream.str().c_str());
     }
 
-    tok.set_data(line_number, column_number, token);
+    tok->set_data(line_number, column_number, token);
     tokens.push_back(tok);
 
     // move the lexer along
@@ -353,6 +354,11 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
                 running_token += current_char;
                 lex_token(running_token, line, column);
                 continue;
+            } else if (current_char == '"') {
+                // We are now beginning a quoted scope, within which we want to always add characters to this same token
+                is_quoted_out = true;
+                running_token += current_char;
+                continue;
             }
 
             bool delimiter = is_delimiter(current_char);
@@ -387,8 +393,8 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
         // The line is over, we lex the remainder
         lex_token(running_token, line, column);
 
-        Token endline(LEXER_NEWLINE);
-        endline.set_data(line, column, "\n");
+        auto endline = std::shared_ptr<Token>(new Token(LEXER_NEWLINE));
+        endline->set_data(line, column, "\n");
         tokens.push_back(endline);
 
         // Return to the start of the next line
@@ -399,24 +405,49 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
 
 void Lexer::print() {
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
-        if (it->get_token() == LEXER_NEWLINE) {
+        std::shared_ptr tok = *it;
+        if (tok->get_token() == LEXER_NEWLINE) {
             std::cout << std::endl;
             continue;
         }
-        std::cout << it->get_token() << ": " << it->get_lexeme() << "," << " ";
+        std::cout << tok->get_token() << ": " << tok->get_lexeme() << "," << " ";
     }
 }
 
-Token &Lexer::next() {
-    Token &tok = *current_token;
+void Lexer::erase_whitespace() {
+
+    std::vector<std::shared_ptr<Token>> new_tokens;
+
+    for (auto it = tokens.begin(); it != tokens.end(); ++it) {
+
+        auto tok = *it;
+        switch (tok->get_token()) {
+            // If this is a whitespace or comment, don't even consider it in parsing
+            case LEXER_ERROR: case LEXER_NEWLINE: case LEXER_COMMENT: case LEXER_SPACE:
+                break;
+            default:
+                new_tokens.push_back(tok);
+                break;
+        }
+    }
+
+    tokens = new_tokens;
+}
+
+void Lexer::reset() {
+    current_token = tokens.begin();
+    erase_whitespace();
+}
+
+std::shared_ptr<Token> Lexer::next() {
+    auto tok = *current_token;
     ++current_token;
 
     return tok;
 }
 
-Token &Lexer::peek(int lookahead) {
+std::shared_ptr<Token> Lexer::peek(int lookahead) {
+    auto ahead_tok_it = current_token + lookahead;
 
-    Token &ahead_tok = *(current_token + lookahead);
-
-    return ahead_tok;
+    return *ahead_tok_it;
 }

@@ -26,14 +26,15 @@ class Token {
 
 class Lexer {
     private:
-        Token identify_token(std::string &token);
+        Token_type identify_token(std::string &token);
         void lex_token(std::string &token, int &line_number, int &column_number);
-        std::vector<Token> tokens;
-        std::vector<Token>::iterator current_token;
+        std::vector<std::shared_ptr<Token>> tokens;
+        std::vector<std::shared_ptr<Token>>::iterator current_token;
         bool verbose;
         bool is_symbol (char c);
         bool is_delimiter (char c);
         std::string convert_to_uppercase(std::string &input);
+
 
         std::regex reg_int;
         std::regex reg_decimal;
@@ -45,11 +46,15 @@ class Lexer {
 
     public: 
         Lexer();
-        Token &next();
-        Token &peek(int lookahead);
+        void reset();
+        std::shared_ptr<Token> next();
+        std::shared_ptr<Token> peek(int lookahead);
         void read_lines(std::string filename, bool is_verbose = false);
         void print();
+        void erase_whitespace();
 };
+
+typedef std::shared_ptr<Token> PToken;
 
 class LexingException : public std::runtime_error {
     public:
