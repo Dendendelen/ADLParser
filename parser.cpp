@@ -5,6 +5,9 @@
 
 #include "exceptions.h"
 #include "node.h"
+#include "tokens.h"
+
+
 
 PNode make_terminal(PNode parent, PToken tok) {
     return PNode(new Node(TERMINAL, parent, tok));
@@ -139,7 +142,7 @@ PNode Parser::parse_definition(PNode parent) {
     if (id_tok->get_token() != ID) raise_parsing_exception("Expected an identifier after a definition keyword", id_tok);
 
     auto eq_tok = lexer->next();
-    if (eq_tok->get_token() != EQ && eq_tok->get_token() != COLON) raise_parsing_exception("Unknown token for definition assignment, expected '=' or ':'", id_tok);
+    if (eq_tok->get_token() != ASSIGN && eq_tok->get_token() != COLON) raise_parsing_exception("Unknown token for definition assignment, expected '=' or ':'", id_tok);
 
     definition->add_child(parse_def_rvalue(definition));
     return definition;
@@ -237,7 +240,7 @@ PNode Parser::parse_initialization(PNode parent) {
 
         case TRGE: case TRGM: case SKPH: case SKPE:
         {   // Consume terminal equals
-            lexer->expect_and_consume(EQ);
+            lexer->expect_and_consume(ASSIGN);
             
             PToken next = lexer->next();
             if (next->get_token() != INTEGER) raise_parsing_exception("Invalid non-integer assignment", next);
@@ -342,11 +345,14 @@ PNode Parser::parse_def_rvalue(PNode parent) {
         case OPEN_CURLY_BRACE:
         {
             lexer->expect_and_consume(OPEN_CURLY_BRACE);
-            auto variable_list = parse_variable_list(parent);
+
+            PNode variable_list(new Node(VARIABLE_LIST, parent));
+            parse_variable_list(variable_list);
+
             lexer->expect_and_consume(CLOSE_CURLY_BRACE);
             return variable_list;
         }
-        // DEF_RVALUE -> OME ( DESCRIPTION, VARIABLE_LIST, INDEX)
+        // DEF_RVALUE -> OME ( DESCRIPTION, {VARIABLE_LIST}, INDEX)
         case OME:
         {   
             auto ome = make_terminal(parent, tok);            
@@ -356,7 +362,12 @@ PNode Parser::parse_def_rvalue(PNode parent) {
 
             ome->add_child(parse_description(ome));
             lexer->expect_and_consume(COMMA);
-            ome ->add_child(parse_variable_list(ome));
+
+            lexer->expect_and_consume(OPEN_CURLY_BRACE);
+            PNode var_list(new Node(VARIABLE_LIST, ome));
+            parse_variable_list(var_list);
+            lexer->expect_and_consume(CLOSE_CURLY_BRACE);
+
             lexer->expect_and_consume(COMMA);
             ome->add_child(parse_index(ome));
 
@@ -468,6 +479,17 @@ PNode Parser::parse_obj_rvalue(PNode parent) {
 
             return comb_type;
         }
+
+        // OBJ_RVALUE -> ID CRITERIA
+        case STRING: case VARNAME:
+        {
+            PNode id = parse_id(parent);
+            parse_criteria(id);
+            return id;
+        }
+        default:
+            raise_parsing_exception("Invalid rvalue for an object definition", tok);
+            return PNode(new Node(AST_ERROR, parent));
     }
 }
 
@@ -531,7 +553,84 @@ void Parser::parse_region_commands(PNode parent) {
     }
 }
 
+PNode Parser::parse_region_command_cmd(PNode parent) {
+    // REGION_COMMAND -> cmd none
+    // REGION_COMMAND -> cmd all
+    // REGION_COMMAND -> cmd lepsf
+    // REGION_COMMAND -> cmd btagsf
+    // REGION_COMMAND -> cmd xlumicorrsf
+    auto next = lexer->peek(0);
+    switch(next->get_token()) {
+
+        case NONE: case ALL: case LEP_SF: case BTAGS_SF: case XSLUMICORR_SF:
+            lexer->next();
+            return make_terminal(parent, next);
+
+        // REGION_COMMAND -> cmd hlt DESCRIPTION
+        case HLT:
+        {
+            auto node = make_terminal(parent, next);
+            lexer->next();
+            node->add_child(parse_description(node));
+            return node;
+        }
+
+        // REGION_COMMAND -> cmd applyhm (ID (E, E) eq integer)
+        // REGION_COMMAND -> cmd applyhm (ID (E) eq integer)
+        case APPLY_HM:
+        {
+            auto node = make_terminal(parent, next);
+            lexer->next();
+            lexer->expect_and_consume(OPEN_PAREN);
+            node->add_child(parse_id(node));
+            lexer->expect_and_consume(OPEN_PAREN);
+            node->add_child(parse_expression(node));
+
+            if (lexer->peek(0)->get_token() == COMMA) {
+                lexer->expect_and_consume(COMMA);
+                node->add_child(parse_expression(node));
+            }
+
+            lexer->expect_and_consume(CLOSE_PAREN);
+            lexer->expect_and_consume(EQ);
+            auto integer = lexer->next();
+
+            if (integer->get_token() != INTEGER) raise_parsing_exception("Needs integer type", integer)
+            node->add_child(make_terminal(node, integer));
+
+            return node;
+        }
+
+        // REGION_COMMAND -> cmd ifstatement
+
+        // REGION_COMMAND -> cmd CONDITION
+        default:
+            PNode condition(new Node(CONDITION, parent));
+            return parse_condition(condition);
+    }
+}
+
 PNode Parser::parse_region_command(PNode parent) {
+    // REGION_COMMAND -> cmd CONDITION
+    // REGION_COMMAND -> cmd none
+    // REGION_COMMAND -> cmd all
+    // REGION_COMMAND -> cmd hlt DESCRIPTION
+    // REGION_COMMAND -> cmd lepsf
+    // REGION_COMMAND -> cmd btagsf
+    // REGION_COMMAND -> cmd xlumicorrsf
+    // REGION_COMMAND -> cmd applyhm (ID (E, E) eq integer)
+    // REGION_COMMAND -> cmd applyhm (ID (E) eq integer)
+    // REGION_COMMAND -> cmd ifstatement
+
+
+    auto tok = lexer->next();
+    switch(tok->get_token()) {
+        
+        case CMD:
+            return parse_region_command_cmd(parent);
+        case 
+    
+    }
 
 }
 
@@ -539,8 +638,31 @@ PNode Parser::parse_commands(PNode parent) {
 
 }
 
-PNode Parser::parse_variable_list(PNode parent) {
+void Parser::parse_variable_list(PNode parent) {
+    // VARIABLE_LIST -> E VARIABLE_LIST
+    // VARIABLE_LIST -> E, VARIABLE_LIST
+    // VARIABLE_LIST -> epsilon
 
+    auto tok = lexer->peek(0);
+    switch(tok->get_token()) {
+
+        // VARIABLE_LIST -> epsilon 
+        // this is the follow set for VARIABLE_LIST, and none of them are in the first set of E
+        case CLOSE_CURLY_BRACE: case COLON: case OBJ:  case CMD: case PRINT: case HISTO: case REJEC: case BINS: case SAVE: case WEIGHT: case COUNTS: case SORT: case ADLINFO: case COUNTSFORMAT: case DEF: case TABLE: case ALGO: case COMMA:
+            return;            
+
+        // VARIABLE_LIST -> E VARIABLE_LIST
+        // VARIABLE_LIST -> E, VARIABLE_LIST
+        default:
+            parent->add_child(parse_expression(parent));
+            auto next = lexer->peek(0);
+            if (next->get_token() == COMMA) {
+                lexer->expect_and_consume(COMMA);
+            }
+            parse_variable_list(parent);
+        
+    
+    }
 }
 
 void Parser::parse_particle_list(PNode parent) {
@@ -560,11 +682,26 @@ void Parser::parse_box_list(PNode parent) {
 }
 
 PNode Parser::parse_lepton(PNode parent) {
-
+    auto tok = lexer->next();
+    
+    switch(tok->get_token()) {
+        case ELECTRON: case MUON: case TAU:
+            return make_terminal(parent, tok);
+        default:
+            raise_parsing_exception("This token must be a lepton type", tok);
+            return PNode(new Node(AST_ERROR, parent));
+    }
 }
 
 PNode Parser::parse_syst_vtype(PNode parent) {
-
+    auto tok = lexer->next();
+    switch(tok->get_token()) {
+        case SYST_WEIGHT_MC: case SYST_WEIGHT_JVT: case SYST_WEIGHT_PILEUP: case SYST_WEIGHT_LEPTON_SF: case SYST_WEIGHT_BTAG_SF: case SYST_TTREE:
+            return make_terminal(parent, tok);
+        default:
+            raise_parsing_exception("Expected a valid systematics type", tok);
+            return PNode(new Node(AST_ERROR, parent));
+    }
 }
 
 PNode Parser::parse_hamhum(PNode parent) {

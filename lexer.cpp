@@ -281,6 +281,12 @@ Token_type Lexer::identify_token(std::string &token) {
 
     if (token == ",") return COMMA;
 
+    // these letters are keywords in ADL, and so are their own tokens
+    if (uppercase_token == "Q") return LETTER_Q;
+    if (uppercase_token == "E") return LETTER_E;
+    if (uppercase_token == "P") return LETTER_P;
+    if (uppercase_token == "M") return LETTER_M;
+
     // We have as of yet failed to lex this - if this is a number, we lex it
     if (std::regex_match(token, reg_int)) return INTEGER;
     if (std::regex_match(token, reg_decimal)) return DECIMAL;

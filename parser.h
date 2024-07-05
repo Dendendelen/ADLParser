@@ -50,13 +50,17 @@ class Parser {
         PNode parse_err_type(PNode parent);
 
 
-        PNode parse_variable_list(PNode parent);
+        void parse_variable_list(PNode parent);
         PNode parse_lepton(PNode parent);
 
         void parse_box_list(PNode parent);
 
         PNode parse_syst_vtype(PNode parent);
 
+        PNode parse_region_command_cmd(PNode parent);
+        PNode parse_region_command_bins(PNode parent);
+        PNode parse_region_command_weight(PNode parent);
+        PNode parse_region_command_histo(PNode parent);
 
     public:
         Parser(Lexer *lex);

@@ -227,6 +227,11 @@ enum Token_type {
 
     COMMA,
 
+    LETTER_M,
+    LETTER_Q,
+    LETTER_P,
+    LETTER_E,
+
     INT,
     NB,
     PNB,
