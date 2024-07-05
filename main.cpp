@@ -2,13 +2,16 @@
 #include "parser.h"
 
 int main(int argc, char** argv) {
-    Lexer lexer = Lexer();
+    std::unique_ptr<Lexer> lexer(new Lexer());
 
-    lexer.read_lines("adl_test.adl");
+    lexer->read_lines("adl_test_2.adl");
 
-    lexer.print();
+    lexer->print();
 
-    Parser parser = Parser(lexer);
+    Parser parser = Parser(lexer.release());
+    parser.parse();
+
+    parser.print_parse_dot();
 
     return 0;
 } 

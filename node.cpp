@@ -2,7 +2,13 @@
 #include "node.h"
 #include <memory>
 
-Node::Node(AST_type in, std::shared_ptr<Node> parent): type(in), m_parent(parent) {}
+// private constructor allows node to have no parent
+Node::Node(AST_type in): type(in), has_relevant_token(false) {}
+
+Node::Node(AST_type in, std::shared_ptr<Node> parent): type(in), m_parent(parent), has_relevant_token(false) {}
+
+Node::Node(AST_type in, std::shared_ptr<Node> parent, std::shared_ptr<Token> tok): type(in), m_parent(parent), relevant_token(tok), has_relevant_token(true){}
+
 
 void Node::set_parent(std::shared_ptr<Node> in) {
     m_parent = in;
@@ -23,6 +29,11 @@ std::vector<std::shared_ptr<Node>> Node::get_children() {
 
 void Node::set_token(std::shared_ptr<Token> tok) {
     relevant_token = tok;
+    has_relevant_token = true;
+}
+
+bool Node::has_token() {
+    return has_relevant_token;
 }
 
 std::shared_ptr<Token> Node::get_token() {
@@ -34,7 +45,8 @@ AST_type Node::get_ast_type() {
 }
 
 Tree::Tree(AST_type in) {
-    root = std::shared_ptr<Node>(new Node(in, nullptr));
+    // create a node with no parent - the only node that is allowed to have this property
+    root = std::shared_ptr<Node>(new Node(in));
 }
 
 std::shared_ptr<Node> Tree::get_root() {

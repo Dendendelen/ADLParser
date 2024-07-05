@@ -19,18 +19,28 @@ enum AST_type{
 
     // Nonterminals
     INPUT,
+
+    INFO,
+    COUNT_FORMAT,
+    OBJECT,
+    DEFINITION,
+    TABLE_DEF,
+    REGION,
+
     INITIALIZATIONS,
     INITIALIZATION,
-    COUNT_FORMATS,
-    DEFINITIONS_OBJECTS,
-    OBJECTS_DEFINITIONS,
-    COMMANDS,
+
+    COUNT_PROCESSES,
+    COUNT_PROCESS,
+
+    REGION_COMMANDS,
+    REGION_COMMAND,
+
+    SELECTION_COMMAND,
+
     DESCRIPTION,
     BOOL,
     DEFINITIONS,
-    OBJECTS,
-    DEFINITION,
-    COUNT_FORMAT,
     VARIABLE_LIST,
     NUMBER,
 
@@ -74,6 +84,7 @@ enum AST_type{
 
 class Node {
     private:
+        Node(AST_type in);
         std::vector<std::shared_ptr<Node>> children;
         std::shared_ptr<Node> m_parent;
         int line_number;
@@ -81,11 +92,13 @@ class Node {
         AST_type type;
 
         std::shared_ptr<Token> relevant_token;
+        bool has_relevant_token;
 
         int unique_id;
 
     public:
         Node(AST_type in, std::shared_ptr<Node> parent);
+        Node(AST_type in, std::shared_ptr<Node> parent, std::shared_ptr<Token> tok);
         
         void set_parent(std::shared_ptr<Node> parent);
         std::shared_ptr<Node> get_parent();
@@ -95,8 +108,11 @@ class Node {
         
         void set_token(std::shared_ptr<Token> tok);
         std::shared_ptr<Token> get_token();
+        bool has_token();
 
         AST_type get_ast_type();
+        
+        friend class Tree;
 };
 
 typedef std::shared_ptr<Node> PNode;

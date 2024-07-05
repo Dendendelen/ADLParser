@@ -6,29 +6,69 @@
 
 class Parser {
     private:
-        Lexer &lexer;
+        std::unique_ptr<Lexer> lexer;
         Tree tree;
 
+        void parse_blocks(PNode parent);
+
+        PNode parse_info(PNode parent);
+        PNode parse_count_format(PNode parent);
+        PNode parse_region(PNode parent);
+        PNode parse_object(PNode parent);
+        PNode parse_definition(PNode parent);
+        PNode parse_table(PNode parent);
+
+        void parse_initializations(PNode parent);
+        void parse_count_processes(PNode parent);
+
+        PNode parse_commands(PNode parent);
+        void parse_region_commands(PNode parent);
+        PNode parse_region_command(PNode parent);
+
+        PNode parse_initialization(PNode parent);
+        PNode parse_command(PNode parent);
+
+        PNode parse_obj_rvalue(PNode parent);
+        PNode parse_def_rvalue(PNode parent);
+
+        void parse_criteria(PNode parent);
+        PNode parse_criterion(PNode parent);
+
+        PNode parse_hamhum(PNode parent);
+        PNode parse_index(PNode parent);
+
+        void parse_particle_list(PNode parent);
+        PNode parse_particle(PNode parent);
+
+        PNode parse_expression(PNode parent);
+
+        PNode parse_bool(PNode parent);
+        PNode parse_id(PNode parent);
+
+        PNode parse_description(PNode parent);
+        PNode parse_count_process(PNode parent);
+        PNode parse_err_type(PNode parent);
+
+
+        PNode parse_variable_list(PNode parent);
+        PNode parse_lepton(PNode parent);
+
+        void parse_box_list(PNode parent);
+
+        PNode parse_syst_vtype(PNode parent);
+
+
     public:
-        Parser(Lexer &lex);
+        Parser(Lexer *lex);
         
         void parse();
 
         void parse_input();
-        PNode parse_initializations(PNode parent);
-        PNode parse_count_formats(PNode parent);
-        PNode parse_definitions_and_objects(PNode parent);
-        PNode parse_commands(PNode parent);
 
-        PNode parse_initialization(PNode parent);
-        PNode parse_bool(PNode parent);
-        PNode parse_description(PNode parent);
+        void print_parse_dot();
+
 
 };
 
-class ParsingException : public std::runtime_error {
-    public:
-        ParsingException(const char* what) : runtime_error(what) {}
-};
 
 #endif

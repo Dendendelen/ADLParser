@@ -1,11 +1,13 @@
 #include "lexer.h"
+
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <ostream>
 #include <regex>
-#include <sstream>
 #include <vector>
+
+#include "exceptions.h"
 
 Token::Token(Token_type in): type(in) {}
 
@@ -61,7 +63,7 @@ Lexer::Lexer() {
     reg_int = std::regex("-{0,1}[0-9]+");
     reg_decimal = std::regex("-{0,1}[0-9]*\\.[0-9]+");
     reg_scientific = std::regex("-{0,1}[0-9]*\\.{0,1}[0-9]*[Ee][-+]{0,1}[0-9]+");
-    reg_varname = std::regex("[A-Za-z][A-Za-z0-9]*");
+    reg_varname = std::regex("[A-Za-z][A-Za-z0-9_]*");
     reg_string= std::regex("\"[^\"]*\"");
 
     reg_whitespace = std::regex("\\s");
@@ -300,16 +302,12 @@ void Lexer::lex_token(std::string &token, int &line_number, int &column_number) 
     if (token.size() == 0) return;
 
     auto tok = std::shared_ptr<Token>(new Token(identify_token(token)));
+    tok->set_data(line_number, column_number, token);
 
     if (tok->get_token() == LEXER_ERROR) {
-
-        std::stringstream stream;
-        stream << "Malformed token \"" << token << "\", at line " << line_number << ", column " << column_number << std::endl;
-
-        throw LexingException(stream.str().c_str());
+        raise_lexing_exception(tok);
     }
 
-    tok->set_data(line_number, column_number, token);
     tokens.push_back(tok);
 
     // move the lexer along
@@ -342,6 +340,8 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
             if (current_char == '#' && !is_commented_out) {
                 lex_token(running_token, line, column);
                 is_commented_out = true;
+                running_token += current_char;
+                continue;
 
             } else if (is_commented_out) {
                 // If this line is commented out, this is all just one comment
@@ -353,10 +353,16 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
             if (is_quoted_out && current_char == '"') {
                 running_token += current_char;
                 lex_token(running_token, line, column);
+                is_quoted_out = false;
                 continue;
             } else if (current_char == '"') {
                 // We are now beginning a quoted scope, within which we want to always add characters to this same token
+                lex_token(running_token, line, column);
                 is_quoted_out = true;
+                running_token += current_char;
+                continue;
+            } else if(is_quoted_out) {
+                // If we are in a quote, we simply add until the quote is over
                 running_token += current_char;
                 continue;
             }
@@ -404,6 +410,8 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
 }
 
 void Lexer::print() {
+    // erase_whitespace();
+
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         std::shared_ptr tok = *it;
         if (tok->get_token() == LEXER_NEWLINE) {
@@ -416,7 +424,7 @@ void Lexer::print() {
 
 void Lexer::erase_whitespace() {
 
-    std::vector<std::shared_ptr<Token>> new_tokens;
+    non_whitespace_tokens.clear();
 
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
 
@@ -426,28 +434,49 @@ void Lexer::erase_whitespace() {
             case LEXER_ERROR: case LEXER_NEWLINE: case LEXER_COMMENT: case LEXER_SPACE:
                 break;
             default:
-                new_tokens.push_back(tok);
+                non_whitespace_tokens.push_back(tok);
                 break;
         }
     }
 
-    tokens = new_tokens;
 }
 
 void Lexer::reset() {
-    current_token = tokens.begin();
     erase_whitespace();
+    current_token = non_whitespace_tokens.begin();
 }
 
 std::shared_ptr<Token> Lexer::next() {
+    if (current_token == non_whitespace_tokens.end()) return std::shared_ptr<Token>(new Token(LEXER_END_OF_FILE));
+
     auto tok = *current_token;
     ++current_token;
 
     return tok;
 }
 
+void Lexer::expect_and_consume(Token_type type, std::string error) {
+    auto tok = next();
+    if (tok->get_token() != type) {
+        raise_parsing_exception(error, tok);
+    }
+}
+
+void Lexer::expect_and_consume(Token_type type) {
+    expect_and_consume(type, "Unexpected token");
+}
+
+
 std::shared_ptr<Token> Lexer::peek(int lookahead) {
-    auto ahead_tok_it = current_token + lookahead;
+    auto ahead_tok_it = current_token;
+
+    while (lookahead > 0) {
+        ++ahead_tok_it;
+        lookahead--;
+        if (ahead_tok_it == non_whitespace_tokens.end()) return std::shared_ptr<Token>(new Token(LEXER_END_OF_FILE));
+    }
+
+    if (ahead_tok_it == non_whitespace_tokens.end()) return std::shared_ptr<Token>(new Token(LEXER_END_OF_FILE));
 
     return *ahead_tok_it;
 }

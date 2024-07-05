@@ -29,6 +29,7 @@ class Lexer {
         Token_type identify_token(std::string &token);
         void lex_token(std::string &token, int &line_number, int &column_number);
         std::vector<std::shared_ptr<Token>> tokens;
+        std::vector<std::shared_ptr<Token>> non_whitespace_tokens;
         std::vector<std::shared_ptr<Token>>::iterator current_token;
         bool verbose;
         bool is_symbol (char c);
@@ -48,6 +49,10 @@ class Lexer {
         Lexer();
         void reset();
         std::shared_ptr<Token> next();
+
+        void expect_and_consume(Token_type type);
+        void expect_and_consume(Token_type type, std::string error);
+
         std::shared_ptr<Token> peek(int lookahead);
         void read_lines(std::string filename, bool is_verbose = false);
         void print();
@@ -56,9 +61,5 @@ class Lexer {
 
 typedef std::shared_ptr<Token> PToken;
 
-class LexingException : public std::runtime_error {
-    public:
-        LexingException(const char* what) : runtime_error(what) {}
-};
 
 #endif

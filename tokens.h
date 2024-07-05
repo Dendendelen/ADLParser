@@ -6,6 +6,7 @@ enum Token_type {
     LEXER_COMMENT,
     LEXER_SPACE,
     LEXER_NEWLINE,
+    LEXER_END_OF_FILE,
 
     DECIMAL,
     SCIENTIFIC,
