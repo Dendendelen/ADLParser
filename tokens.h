@@ -80,6 +80,7 @@ enum Token_type {
     JET,
     FJET,
     QGJET,
+    BIN,
     BINS,
     CONSTITUENTS,
 

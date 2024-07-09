@@ -38,6 +38,8 @@ enum AST_type{
 
     SELECTION_COMMAND,
 
+    IF,
+
     DESCRIPTION,
     BOOL,
     DEFINITIONS,
@@ -48,6 +50,13 @@ enum AST_type{
     LEPTON_TYPE,
     ERR_TYPE,
     SYST_VTYPE,
+
+    WEIGHT_CMD,
+    REJEC_CMD,
+    SAVE_CMD,
+    PRINT_CMD,
+    HISTO_CMD,
+    BINS_CMD,
 
     PARTICLES,
     INDEX,

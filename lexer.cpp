@@ -140,7 +140,8 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "JET") return JET;
     if (uppercase_token == "FJET"|| uppercase_token == "FATJET") return FJET;
     if (uppercase_token == "QGJET") return QGJET;
-    if (uppercase_token == "BIN") return BINS;
+    if (uppercase_token == "BIN") return BIN;
+    if (uppercase_token == "BINS") return BINS;
     if (token == "daughters" || token == "constituents") return CONSTITUENTS;
     if (token == "NUMET") return NUMET;
     if (token == "METLV") return METLV;

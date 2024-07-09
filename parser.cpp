@@ -167,7 +167,7 @@ PNode Parser::parse_object(PNode parent) {
 
 PNode Parser::parse_table(PNode parent) {
 
-    // TABLE -> table ID tabletype ID nvars integer errors BOOL BOXLIST
+    // TABLE -> table ID tabletype ID nvars integer errors BOOL BIN_OR_BOX_VALUES
     PNode table(new Node(TABLE_DEF, parent));
 
     lexer->expect_and_consume(TABLE);
@@ -183,7 +183,7 @@ PNode Parser::parse_table(PNode parent) {
 
     lexer->expect_and_consume(ERRORS);
     table->add_child(parse_bool(table));
-    parse_box_list(table);
+    parse_bin_or_box_values(table);
 
     return table;
 }
@@ -595,18 +595,15 @@ PNode Parser::parse_region_command_cmd(PNode parent) {
             lexer->expect_and_consume(EQ);
             auto integer = lexer->next();
 
-            if (integer->get_token() != INTEGER) raise_parsing_exception("Needs integer type", integer)
+            if (integer->get_token() != INTEGER) raise_parsing_exception("Needs integer type", integer);
             node->add_child(make_terminal(node, integer));
 
             return node;
         }
 
-        // REGION_COMMAND -> cmd ifstatement
-
-        // REGION_COMMAND -> cmd CONDITION
+        // REGION_COMMAND -> cmd IF_OR_CONDITION
         default:
-            PNode condition(new Node(CONDITION, parent));
-            return parse_condition(condition);
+            return parse_if_or_condition(parent);
     }
 }
 
@@ -628,13 +625,136 @@ PNode Parser::parse_region_command(PNode parent) {
         
         case CMD:
             return parse_region_command_cmd(parent);
-        case 
-    
+
+        // REGION_COMMAND -> weight ID number
+        // REGION_COMMAND -> weight ID ID
+        // REGION_COMMAND -> weight ID ID (E, E)
+        // REGION_COMMAND -> weight ID ID (E)
+        // REGION_COMMAND -> weight ID (E)
+        case WEIGHT:
+        {
+            PNode node(new Node(WEIGHT_CMD, parent));
+            node->add_child(parse_id(node));
+
+            auto next = lexer->peek(0);
+            if (next->get_token() == OPEN_PAREN) {
+                lexer->expect_and_consume(OPEN_PAREN);
+                node->add_child(parse_expression(node));
+                lexer->expect_and_consume(CLOSE_PAREN);
+            } else if (is_numerical(next->get_token())){
+                lexer->next();
+                node->add_child(make_terminal(node, next));
+            } else {
+                // REGION_COMMAND -> weight ID ID (E, E)
+                // REGION_COMMAND -> weight ID ID (E)
+                node->add_child(parse_id(node));
+                lexer->expect_and_consume(OPEN_PAREN);
+                node->add_child(parse_expression(node));
+                if (lexer->peek(0)->get_token() == COMMA) {
+                    // REGION_COMMAND -> weight ID ID (E, E)
+                    lexer->expect_and_consume(COMMA);
+                    node->add_child(parse_expression(node));
+                }
+                lexer->expect_and_consume(CLOSE_PAREN);
+            }
+            return node;
+        }
+
+        // REGION_COMMAND -> bin CONDITION
+        // REGION_COMMAND -> rejec CONDITION
+        case REJEC: case BIN:
+        {
+            PNode node(make_terminal(parent, tok));
+            node->add_child(parse_condition(node));
+            return node;
+        }
+
+        // REGION_COMMANDS -> bins ID BIN_OR_BOX_VALUES
+        case BINS:
+        {
+            PNode node(new Node(BINS_CMD, parent));
+            node->add_child(parse_id(node));
+            parse_bin_or_box_values(node);
+            return node;
+        }
+        case SAVE:
+        {
+            PNode save(make_terminal(parent, tok));
+            save->add_child(parse_id(save));
+            auto next = lexer->peek(0);
+            if (next->get_token() == CSV) {
+                lexer->expect_and_consume(CSV);
+                parse_variable_list(save);
+            }  
+            return save;          
+        }
+        case PRINT:
+        {
+            PNode print(make_terminal(parent, tok));
+            parse_variable_list(print);
+        }
+        case COUNTS:
+        {
+            PNode counts(make_terminal(parent, tok));
+            counts->add_child(parse_id(counts));
+            counts->add_child(parse_counts(counts));
+        }
+        case HISTO:
+        {
+            PNode histo(make_terminal(parent, tok));
+            histo->add_child(parse_id(histo));
+            lexer->expect_and_consume(COMMA);
+            histo->add_child(parse_description(histo));
+            lexer->expect_and_consume(COMMA);
+
+            auto integer_tok_1 = lexer->next();
+            if (integer_tok_1->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to specify binning quantity on histograms", tok);
+
+            histo->add_child(make_terminal(histo, integer_tok_1));
+
+            auto lower_value_tok_1 = lexer->next();
+            if (!is_numerical(lower_value_tok_1->get_token())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a histogram", lower_value_tok_1);
+            histo->add_child(make_terminal(histo, lower_value_tok_1));
+
+            auto upper_value_tok_1 = lexer->next();
+            if (!is_numerical(upper_value_tok_1->get_token())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a histogram", upper_value_tok_1);
+            histo->add_child(make_terminal(histo, upper_value_tok_1));
+
+            // use to check if the list continues 
+            bool is_2d = false;
+            auto discriminant = lexer->peek(1);
+            if (discriminant->get_token() == COMMA) {
+                is_2d = true;
+                auto lower_value_tok_2 = lexer->next();
+                if (!is_numerical(lower_value_tok_2->get_token())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a histogram", lower_value_tok_2);
+                histo->add_child(make_terminal(histo, lower_value_tok_1));
+
+                auto upper_value_tok_2 = lexer->next();
+                if (!is_numerical(upper_value_tok_2->get_token())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a histogram", upper_value_tok_1);
+                histo->add_child(make_terminal(histo, upper_value_tok_2));
+            }
+
+            histo->add_child(parse_expression(histo));
+            
+            if (is_2d) histo->add_child(parse_expression(histo));
+
+            return histo;
+
+        }
+        case SORT:
+        {
+            PNode sort(make_terminal(parent, tok));
+            sort->add_child(parse_expression(sort));
+            
+            auto next = lexer->next();
+            if (next->get_token() != ASCEND && next->get_token() != DESCEND) raise_parsing_exception("Token after a sort expression must specify ascending or descending", next);
+            sort->add_child(make_terminal(sort, next));
+            return sort;
+        }
+        default:
+            raise_parsing_exception("Unexpected token in region block", tok);
+            return PNode(new Node(AST_ERROR, parent));
     }
-
-}
-
-PNode Parser::parse_commands(PNode parent) {
 
 }
 
@@ -665,8 +785,113 @@ void Parser::parse_variable_list(PNode parent) {
     }
 }
 
-void Parser::parse_particle_list(PNode parent) {
+PNode Parser::parse_if_or_condition(PNode parent) {
 
+    // IF_OR_CONDITION -> CONDITION
+    // IF_OR_CONDITION -> CONDITION ? ACTION : ACTION
+
+    PNode node(new Node(IF, parent));
+
+    node->add_child(parse_condition(node));
+
+    auto tok = lexer->peek(0);
+    if (tok->get_token() == QUESTION) {
+        lexer->expect_and_consume(QUESTION);
+        node->add_child(parse_action(node));
+        lexer->expect_and_consume(COLON);
+        node->add_child(parse_action(node));
+    }
+
+    return node;
+}
+
+PNode Parser::parse_action(PNode parent){
+    auto tok = lexer->peek(0);
+    switch (tok->get_token()) {
+        case PRINT:
+        {
+            lexer->next();
+            PNode print(make_terminal(parent, tok));
+            parse_variable_list(print);
+            return print;
+        }
+        case ALL: case NONE: case LEP_SF: case BTAGS_SF: 
+        {
+            lexer->next();
+            return make_terminal(parent, tok);
+        }
+
+        // ACTION -> APPLY_PTF ( E )
+        // ACTION -> APPLY_PTF (ID [E] )
+        // ACTION -> APPLY_PTF (ID [E, E] )
+        // ACTION -> APPLY_PTF (ID [E, E, E, E] )
+        case APPLY_PTF:
+        {
+            lexer->next();
+            PNode apply_ptf(make_terminal(parent, tok));
+            lexer->expect_and_consume(OPEN_PAREN);
+            if (lexer->peek(1)->get_token() == OPEN_SQUARE_BRACE) {
+                lexer->expect_and_consume(OPEN_SQUARE_BRACE);
+                apply_ptf->add_child(parse_expression(apply_ptf));
+
+                if (lexer->peek(0)->get_token() == COMMA) {
+                    //TODO: finish this rule and subsequent
+                }
+                
+                lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
+            } else {
+                
+            }
+            lexer->expect_and_consume(CLOSE_PAREN);
+            return apply_ptf;
+        }
+
+        // ACTION -> APPLY_HM (ID (E, E) = integer)
+        // ACTION -> APPLY_HM (ID (E) = integer)
+        case APPLY_HM:
+        {
+            
+        }
+
+
+    }
+}
+
+PNode Parser::parse_condition(PNode parent) {
+
+}
+void Parser::parse_bin_or_box_values(PNode parent) {
+    // BIN_OR_BOX_VALUES -> number BIN_OR_BOX_VALUES
+    // BIN_OR_BOX_VALUES -> number
+
+    auto tok = lexer->next();
+    if (!is_numerical(tok->get_token())) raise_parsing_exception("Needs a numerical value for box argument", tok);
+
+    parent->add_child(make_terminal(parent, tok));
+
+    auto next = lexer->peek(0);
+    if (is_numerical(next->get_token())) parse_bin_or_box_values(parent);
+}
+PNode Parser::parse_counts(PNode parent) {
+
+    
+}
+
+void Parser::parse_particle_list(PNode parent) {
+    parent->add_child(parse_particle(parent));
+    auto tok = lexer->peek(0);
+    // PARTICLE_LIST -> PARTICLE + PARTICLE_LIST
+    switch (tok->get_token()) {
+        case PLUS:
+            lexer->expect_and_consume(PLUS);
+            parse_particle_list(parent);
+        // PARTICLE_LIST -> PARTICLE PARTICLE_LIST
+        case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case LEPTON: case PHOTON: case JET: case BJET: case FJET: case QGJET: case NUMET: case METLV: case STRING: case VARNAME: case MINUS:
+            parse_particle_list(parent);
+        default:
+        // PARTICLE_LIST -> PARTICLE
+            return;
+    }
 }
 
 PNode Parser::parse_particle(PNode parent) {
@@ -677,9 +902,6 @@ PNode Parser::parse_index(PNode parent) {
 
 }
 
-void Parser::parse_box_list(PNode parent) {
-
-}
 
 PNode Parser::parse_lepton(PNode parent) {
     auto tok = lexer->next();
@@ -705,7 +927,11 @@ PNode Parser::parse_syst_vtype(PNode parent) {
 }
 
 PNode Parser::parse_hamhum(PNode parent) {
-
+    PNode hamhum(new Node(HAMHUM, parent));
+    lexer->expect_and_consume(ALIAS);
+    
+    hamhum->add_child(parse_id(hamhum));
+    return hamhum;
 }
 
 void Parser::parse_criteria(PNode parent) {
@@ -724,11 +950,28 @@ void Parser::parse_criteria(PNode parent) {
 }
 
 PNode Parser::parse_criterion(PNode parent) {
+    auto tok = lexer->next();
+    // CRITERION -> cmd ACTION
+    PNode node(make_terminal(parent, tok));
+    switch (tok->get_token()) {
+
+        case CMD: case HISTO:
+            node->add_child(parse_action(node));
+            return node;
+        case PRINT:
+            parse_variable_list(node);
+            return node;
+        case REJEC:
+            node->add_child(parse_condition(node));
+            return node;
+        default:
+            raise_parsing_exception("Invalid token for a criterion", tok);
+    }
 
 }
 
 PNode Parser::parse_expression(PNode parent) {
-
+//TODO: precedence climbing
 }
 
 void print_children_and_yourself(PNode node, int *top_number) {
