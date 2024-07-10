@@ -42,7 +42,8 @@ class Parser {
         PNode parse_if_or_condition(PNode parent);
         PNode parse_condition(PNode parent);
         void parse_bin_or_box_values(PNode parent);
-        PNode parse_counts(PNode parent);
+        void parse_counts(PNode parent);
+        void parse_count(PNode parent);
 
         PNode parse_expression(PNode parent);
 

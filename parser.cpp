@@ -369,7 +369,11 @@ PNode Parser::parse_def_rvalue(PNode parent) {
             lexer->expect_and_consume(CLOSE_CURLY_BRACE);
 
             lexer->expect_and_consume(COMMA);
-            ome->add_child(parse_index(ome));
+
+            auto index = lexer->next();
+            if (index->get_token() != INTEGER) raise_parsing_exception("Integer required for indexing", index);
+
+            ome->add_child(make_terminal(ome, index));
 
             lexer->expect_and_consume(CLOSE_PAREN);
             return ome;
@@ -697,7 +701,7 @@ PNode Parser::parse_region_command(PNode parent) {
         {
             PNode counts(make_terminal(parent, tok));
             counts->add_child(parse_id(counts));
-            counts->add_child(parse_counts(counts));
+            parse_counts(counts);
         }
         case HISTO:
         {
@@ -835,7 +839,15 @@ PNode Parser::parse_action(PNode parent){
                 apply_ptf->add_child(parse_expression(apply_ptf));
 
                 if (lexer->peek(0)->get_token() == COMMA) {
-                    //TODO: finish this rule and subsequent
+                    lexer->expect_and_consume(COMMA);
+                    apply_ptf->add_child(parse_expression(apply_ptf));
+
+                    if (lexer->peek(0)->get_token() == COMMA) {
+                        lexer->expect_and_consume(COMMA);
+                        apply_ptf->add_child(parse_expression(apply_ptf));
+                        lexer->expect_and_consume(COMMA);
+                        apply_ptf->add_child(parse_expression(apply_ptf));
+                    }
                 }
                 
                 lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
@@ -846,20 +858,39 @@ PNode Parser::parse_action(PNode parent){
             return apply_ptf;
         }
 
-        // ACTION -> APPLY_HM (ID (E, E) = integer)
-        // ACTION -> APPLY_HM (ID (E) = integer)
+        // ACTION -> APPLY_HM (ID (E, E) == integer)
+        // ACTION -> APPLY_HM (ID (E) == integer)
         case APPLY_HM:
         {
-            
+            lexer->next();
+            PNode apply_hm(make_terminal(parent, tok));
+            lexer->expect_and_consume(OPEN_PAREN);
+            apply_hm->add_child(parse_id(apply_hm));
+            lexer->expect_and_consume(OPEN_PAREN);
+            apply_hm->add_child(parse_expression(apply_hm));
+            if (lexer->peek(0)->get_token() == COMMA) {
+                lexer->expect_and_consume(COMMA);
+                apply_hm->add_child(parse_expression(apply_hm));
+            }
+            lexer->expect_and_consume(CLOSE_PAREN);
+            lexer->expect_and_consume(EQ);
+
+            auto next = lexer->next();
+            if (next->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed for comparison in applying HM", tok);
+
+            lexer->expect_and_consume(CLOSE_PAREN);
+ 
+            return apply_hm;
         }
 
+        
+
+        default:
+            return parse_if_or_condition(parent);
 
     }
 }
 
-PNode Parser::parse_condition(PNode parent) {
-
-}
 void Parser::parse_bin_or_box_values(PNode parent) {
     // BIN_OR_BOX_VALUES -> number BIN_OR_BOX_VALUES
     // BIN_OR_BOX_VALUES -> number
@@ -872,9 +903,45 @@ void Parser::parse_bin_or_box_values(PNode parent) {
     auto next = lexer->peek(0);
     if (is_numerical(next->get_token())) parse_bin_or_box_values(parent);
 }
-PNode Parser::parse_counts(PNode parent) {
 
-    
+void Parser::parse_counts(PNode parent) {
+    // COUNTS -> COUNT
+    // COUNTS -> COUNT, COUNTS
+
+    PNode count(new Node(COUNT, parent));
+    parse_count(count);
+    parent->add_child(count);
+
+    if (lexer->peek(0)->get_token() == COMMA) {
+        parse_counts(parent);
+    }
+
+    return;
+}
+
+void Parser::parse_count(PNode parent) {
+    // COUNT -> number + COUNT
+    // COUNT -> number - COUNT
+    // COUNT -> number pm COUNT
+    // COUNT -> number
+
+    auto tok = lexer->next();
+    if (!is_numerical(tok->get_token())) raise_parsing_exception("A numerical type is needed for counts", tok);
+
+    parent->add_child(make_terminal(parent, tok));
+
+    auto next = lexer->peek(0);
+    switch (next->get_token()) {
+        case PLUS: case MINUS: case PM:
+        {
+            parent->add_child(make_terminal(parent, lexer->next()));
+            parse_count(parent);
+            return;
+        }
+        default:
+            return;
+    }   
+
 }
 
 void Parser::parse_particle_list(PNode parent) {
@@ -896,10 +963,61 @@ void Parser::parse_particle_list(PNode parent) {
 
 PNode Parser::parse_particle(PNode parent) {
 
+    // PARTICLE -> gen CONSTITS
+    // PARTICLE -> jet CONSTITS
+    // PARTICLE -> fjet CONSTITS
+
+    // PARTICLE -> gen INDEX
+    // PARTICLE -> electron INDEX
+    // PARTICLE -> muon INDEX
+    // PARTICLE -> tau INDEX
+    // PARTICLE -> track INDEX
+    // PARTICLE -> lepton INDEX
+    // PARTICLE -> photon INDEX
+    // PARTICLE -> jet INDEX
+    // PARTICLE -> bjet INDEX
+    // PARTICLE -> fjet INDEX
+    // PARTICLE -> qgjet INDEX
+    // PARTICLE -> numet INDEX
+    // PARTICLE -> metlv INDEX
+    // PARTICLE -> ID INDEX
+
+    auto tok = lexer->next();
+
+    switch (tok->get_token()) {
+        case GEN: case JET: case FJET:
+        {
+            if (lexer->peek(0)->get_token()==CONSTITUENTS) {
+                PNode particle = make_terminal(parent, tok);
+                particle->add_child(make_terminal(particle, lexer->next()));
+                return particle; 
+            }
+            // Intentional fall-through
+        }
+        
+        case ELECTRON: case MUON: case TAU: case TRACK: case LEPTON: case PHOTON:  case BJET: case QGJET: case NUMET: case METLV:
+            {
+                PNode particle = make_terminal(parent, tok);
+                particle->add_child(parse_index(particle));
+                return particle;
+            }
+        default:
+            {
+                PNode particle = parse_id(parent);
+                particle->add_child(parse_index(particle));
+                return particle;
+            }
+    }
+
 }
 
 PNode Parser::parse_index(PNode parent) {
+    // INDEX -> _integer
+    // INDEX -> [integer]
+    // INDEX -> [integer:integer]
+    // INDEX -> _integer:integer
 
+    //TODO: finish
 }
 
 
@@ -966,7 +1084,13 @@ PNode Parser::parse_criterion(PNode parent) {
             return node;
         default:
             raise_parsing_exception("Invalid token for a criterion", tok);
+            return node;
     }
+
+}
+
+
+PNode Parser::parse_condition(PNode parent) {
 
 }
 

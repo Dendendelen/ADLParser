@@ -12,4 +12,7 @@ void raise_parsing_exception(std::string error, PToken token) {
     stream << "Failed to parse \"" << token->get_lexeme() << "\", at line " << token->get_line() << ", column " << token->get_column() << ": " << error << std::endl;
 
     throw ParsingException(stream.str().c_str());
+
 }
+
+
