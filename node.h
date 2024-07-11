@@ -63,7 +63,7 @@ enum AST_type{
     BOXLIST,
 
     VALUES,
-    E, // TODO: this is an expression, make sure to precedence climb this
+    EXPRESSION, // TODO: this is an expression, make sure to precedence climb this
     FUNCTION,
 
     LIST2, // TODO: this should not be a name

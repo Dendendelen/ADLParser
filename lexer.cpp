@@ -119,6 +119,7 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "LBNO") return LB_NO;
     if (token == "OME") return OME;
 
+    if (uppercase_token == "USE") return USE;
     if (uppercase_token == "PRINT") return PRINT;
     if (uppercase_token == "ON" || uppercase_token == "TRUE") return TRUE; 
     if (uppercase_token == "OFF" || uppercase_token == "FALSE") return FALSE; 
@@ -251,6 +252,7 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == "}") return CLOSE_CURLY_BRACE;
     if (token == "?") return QUESTION;
     if (token == "=") return ASSIGN;
+    if (token == "_") return UNDERSCORE;
 
     if (uppercase_token == "AVE") return AVE;
     if (uppercase_token == "SUM") return SUM;
@@ -377,7 +379,7 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
             bool delimiter = is_delimiter(current_char);
             bool symbol = is_symbol(current_char);
 
-            if (current_char == '(' || current_char == ')' || current_char == ',') {
+            if (current_char == '(' || current_char == ')' || current_char == ',' || current_char == '_') {
                 // Exception: commas and parenthesis must be allowed to be stacked adjacent to whatever, and that must unequivocably be its own token - there is never a situation in which this should not be the case
                 lex_token(running_token, line, column);
                 running_token += current_char;
@@ -398,8 +400,10 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
 
             // if the running token is of the same type as the current char, then we add it to the string and keep going
             if (delimiter != previous_delimiter || symbol != previous_symbol) {
-                // Otherwise, we do not have compatible symbols, so this clearly must be the end of a running token
-                lex_token(running_token, line, column);
+                if (!(prev_char == '-' && current_char >= '0' && current_char <= '9')) {
+                    // Otherwise, we do not have compatible symbols, so this clearly must be the end of a running token
+                    lex_token(running_token, line, column);
+                }
             } 
             running_token = running_token + current_char;
         }

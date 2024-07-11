@@ -58,6 +58,7 @@ enum Token_type {
     LB_NO,
     OME,
 
+    USE,
     PRINT,
     TRUE,
     FALSE,
@@ -227,6 +228,7 @@ enum Token_type {
     BWL,
 
     COMMA,
+    UNDERSCORE,
 
     LETTER_M,
     LETTER_Q,
@@ -238,6 +240,7 @@ enum Token_type {
     PNB,
     ID,
     HID,
+
 
 };
 

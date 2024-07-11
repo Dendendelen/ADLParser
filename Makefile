@@ -21,3 +21,6 @@ exceptions.o: exceptions.cpp exceptions.h
 
 .PHONY clean:
 	rm -rf *.o main
+
+.PHONY dot:
+	dot -T png -O graph.gv

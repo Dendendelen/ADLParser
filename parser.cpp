@@ -95,8 +95,6 @@ void Parser::parse_blocks(PNode parent) {
             case ALGO:
                 parent->add_child(parse_region(parent));
                 parse_blocks(parent);
-            // case CMD: case REJEC: case BINS: case ALGO: case SAVE: case PRINT: case WEIGHT: case COUNTS: case HISTO: case SORT: 
-                // parent->add_child(parse_command(parent));
                 return;
                 
             // BLOCKS -> epsilon
@@ -138,11 +136,10 @@ PNode Parser::parse_definition(PNode parent) {
 
     lexer->expect_and_consume(DEF);
 
-    auto id_tok = lexer->next();
-    if (id_tok->get_token() != ID) raise_parsing_exception("Expected an identifier after a definition keyword", id_tok);
+    definition->add_child(parse_id(definition));
 
     auto eq_tok = lexer->next();
-    if (eq_tok->get_token() != ASSIGN && eq_tok->get_token() != COLON) raise_parsing_exception("Unknown token for definition assignment, expected '=' or ':'", id_tok);
+    if (eq_tok->get_token() != ASSIGN && eq_tok->get_token() != COLON) raise_parsing_exception("Unknown token for definition assignment, expected '=' or ':'", eq_tok);
 
     definition->add_child(parse_def_rvalue(definition));
     return definition;
@@ -300,7 +297,7 @@ PNode Parser::parse_initialization(PNode parent) {
 
             description_target->add_child(parse_description(description_target));
             return description_target;
-        } break;
+        }
 
         // should never be reached under normal conditions
         default:
@@ -399,6 +396,13 @@ PNode Parser::parse_def_rvalue(PNode parent) {
         case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case LEPTON: case PHOTON: case JET: case BJET: case FJET: case QGJET: case NUMET: case METLV:
             return parse_particle(parent);
         
+        case STRING: case VARNAME:
+            if (lexer->peek(1)->get_token() == OPEN_SQUARE_BRACE || lexer->peek(1)->get_token() == UNDERSCORE)
+            {
+                return parse_particle(parent);
+            }
+            // intentional fall-through
+
         // DEF_RVALUE -> E
         default:
             // assume this is an expression if the other components have not succeeded in their production
@@ -408,7 +412,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
 }
 
 PNode Parser::parse_obj_rvalue(PNode parent) {
-    auto tok = lexer->next();
+    auto tok = lexer->peek(0);
 
     switch(tok->get_token()) {
         // OBJ_RVALUE -> electron CRITERIA
@@ -421,7 +425,7 @@ PNode Parser::parse_obj_rvalue(PNode parent) {
         // OBJ_RVALUE -> lepton CRITERIA
         case ELECTRON: case MUON: case TAU: case GEN: case PHOTON: case JET: case FJET: case LEPTON:
         {
-            PNode type = make_terminal(parent, tok);
+            PNode type = make_terminal(parent, lexer->next());
             parse_criteria(type);
             return type;
         }
@@ -431,7 +435,7 @@ PNode Parser::parse_obj_rvalue(PNode parent) {
         // OBJ_RVALUE -> union (ID, ID)
         case UNION:
         {
-            PNode union_type = make_terminal(parent, tok);
+            PNode union_type = make_terminal(parent, lexer->next());
 
             lexer->expect_and_consume(OPEN_PAREN);
             auto next = lexer->peek(0);
@@ -468,7 +472,7 @@ PNode Parser::parse_obj_rvalue(PNode parent) {
         // OBJ_RVALUE -> comb ( PARTICLES ) HAMHUM CRITERIA
         case COMB:
         {
-            PNode comb_type = make_terminal(parent, tok);
+            PNode comb_type = make_terminal(parent, lexer->next());
 
             lexer->expect_and_consume(OPEN_PAREN);
 
@@ -548,7 +552,7 @@ void Parser::parse_region_commands(PNode parent) {
     auto tok = lexer->peek(0);
 
     switch(tok->get_token()) {
-        case CMD: case REJEC: case BINS: case SAVE: case PRINT: case WEIGHT: case COUNTS: case HISTO: case SORT: 
+        case CMD: case REJEC: case BINS: case BIN: case SAVE: case PRINT: case WEIGHT: case COUNTS: case HISTO: case SORT: case USE:
             parent->add_child(parse_region_command(parent));
             parse_region_commands(parent);
             return;
@@ -672,6 +676,13 @@ PNode Parser::parse_region_command(PNode parent) {
             node->add_child(parse_condition(node));
             return node;
         }
+        // REGION_COMMAND -> use ID
+        case USE:
+        {
+            PNode node(make_terminal(parent, tok));
+            node->add_child(parse_id(node));
+            return node;
+        }
 
         // REGION_COMMANDS -> bins ID BIN_OR_BOX_VALUES
         case BINS:
@@ -772,7 +783,7 @@ void Parser::parse_variable_list(PNode parent) {
 
         // VARIABLE_LIST -> epsilon 
         // this is the follow set for VARIABLE_LIST, and none of them are in the first set of E
-        case CLOSE_CURLY_BRACE: case COLON: case OBJ:  case CMD: case PRINT: case HISTO: case REJEC: case BINS: case SAVE: case WEIGHT: case COUNTS: case SORT: case ADLINFO: case COUNTSFORMAT: case DEF: case TABLE: case ALGO: case COMMA:
+        case CLOSE_CURLY_BRACE: case CLOSE_PAREN: case COLON: case OBJ:  case CMD: case PRINT: case HISTO: case REJEC: case BINS: case BIN: case SAVE: case WEIGHT: case COUNTS: case SORT: case ADLINFO: case COUNTSFORMAT: case DEF: case TABLE: case ALGO: case COMMA: case USE:
             return;            
 
         // VARIABLE_LIST -> E VARIABLE_LIST
@@ -947,14 +958,21 @@ void Parser::parse_count(PNode parent) {
 void Parser::parse_particle_list(PNode parent) {
     parent->add_child(parse_particle(parent));
     auto tok = lexer->peek(0);
-    // PARTICLE_LIST -> PARTICLE + PARTICLE_LIST
     switch (tok->get_token()) {
+        // PARTICLE_LIST -> PARTICLE + PARTICLE_LIST
         case PLUS:
             lexer->expect_and_consume(PLUS);
             parse_particle_list(parent);
+            return;
+        // PARTICLE_LIST -> PARTICLE, PARTICLE_LIST
+        case COMMA:
+            lexer->expect_and_consume(COMMA);
+            parse_particle_list(parent);
+            return;
         // PARTICLE_LIST -> PARTICLE PARTICLE_LIST
         case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case LEPTON: case PHOTON: case JET: case BJET: case FJET: case QGJET: case NUMET: case METLV: case STRING: case VARNAME: case MINUS:
             parse_particle_list(parent);
+            return;
         default:
         // PARTICLE_LIST -> PARTICLE
             return;
@@ -982,13 +1000,13 @@ PNode Parser::parse_particle(PNode parent) {
     // PARTICLE -> metlv INDEX
     // PARTICLE -> ID INDEX
 
-    auto tok = lexer->next();
+    auto tok = lexer->peek(0);
 
     switch (tok->get_token()) {
         case GEN: case JET: case FJET:
         {
-            if (lexer->peek(0)->get_token()==CONSTITUENTS) {
-                PNode particle = make_terminal(parent, tok);
+            if (lexer->peek(1)->get_token()==CONSTITUENTS) {
+                PNode particle = make_terminal(parent, lexer->next());
                 particle->add_child(make_terminal(particle, lexer->next()));
                 return particle; 
             }
@@ -997,7 +1015,7 @@ PNode Parser::parse_particle(PNode parent) {
         
         case ELECTRON: case MUON: case TAU: case TRACK: case LEPTON: case PHOTON:  case BJET: case QGJET: case NUMET: case METLV:
             {
-                PNode particle = make_terminal(parent, tok);
+                PNode particle = make_terminal(parent, lexer->next());
                 particle->add_child(parse_index(particle));
                 return particle;
             }
@@ -1016,8 +1034,37 @@ PNode Parser::parse_index(PNode parent) {
     // INDEX -> [integer]
     // INDEX -> [integer:integer]
     // INDEX -> _integer:integer
+    // INDEX -> epsilon
 
-    //TODO: finish
+    auto tok = lexer->peek(0);
+
+    switch(tok->get_token()) {
+        case UNDERSCORE: case OPEN_SQUARE_BRACE:
+        {    
+            lexer->next();
+            PNode index(new Node(INDEX, parent));
+            auto next = lexer->next();
+            if (next->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
+            index->add_child(make_terminal(index, next));
+            
+
+            if (lexer->peek(0)->get_token() == COLON) {
+                lexer->expect_and_consume(COLON);
+
+                auto next2 = lexer->next();
+                if (next->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
+
+                index->add_child(make_terminal(index, next2));
+            }
+            if (tok->get_token() == OPEN_SQUARE_BRACE) {
+                lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
+            }
+            return index;
+
+        }
+        default:
+            return PNode(new Node(AST_EPSILON, parent));
+    }
 }
 
 
@@ -1090,12 +1137,225 @@ PNode Parser::parse_criterion(PNode parent) {
 }
 
 
-PNode Parser::parse_condition(PNode parent) {
 
+PNode Parser::parse_condition(PNode parent) {
+    PNode condition(new Node(CONDITION, parent));
+
+    condition->add_child(precedence_climber(condition, parse_expression_helper(condition), 0));
+
+    return condition;
+}
+
+int get_precedence(PToken tok) {
+    switch(tok->get_token()) {
+
+        case BWL: case BWR:
+        return 11;
+
+        case RAISED_TO_POWER:
+        return 9;
+
+        case MULTIPLY: case DIVIDE:
+        return 8;
+
+        case ADD: case MINUS:
+        return 7;
+
+        case IRG: case ERG:
+        return 4;
+
+        case MAXIMIZE: case MINIMIZE:
+        return 3;
+
+        case LT: case GT: case LE: case GE: case EQ: case NE: 
+        return 2;
+
+        case AMPERSAND: case PIPE:
+        return 1;
+
+        case AND: case OR:
+        return 1;
+
+        default:
+        return -1;
+
+    }
+}
+
+PNode Parser::precedence_climber(PNode parent, PNode lhs, int min_precedence) {
+    auto lookahead = lexer->peek(0);
+    PToken op;
+    PNode op_node;
+    while(get_precedence(lookahead) >= min_precedence) {
+        op = lexer->next();
+        op_node = make_terminal(parent, op);
+        auto rhs = parse_expression_helper(op_node);
+        lookahead = lexer->peek(0);
+        while (get_precedence(lookahead) > get_precedence(op)){
+            rhs = precedence_climber(op_node, rhs, get_precedence(op)+ 1);
+            lookahead = lexer->peek(0);
+        }
+        op_node->add_child(lhs);
+        op_node->add_child(rhs);
+        lhs = op_node;
+    }
+        
+    return lhs;
+}
+
+PNode Parser::parse_expression_helper(PNode parent) {
+
+    auto tok = lexer->next();
+    PNode node(make_terminal(parent, tok));
+
+    switch(tok->get_token()) {
+        case MINUS: case NOT:
+        { 
+            node->add_child(parse_expression_helper(node));
+            return node;
+        }
+        case OPEN_PAREN:
+        {
+            PNode subexpression = parse_expression_helper(parent);
+            lexer->expect_and_consume(CLOSE_PAREN);
+            return subexpression;
+        }
+
+        case OPEN_CURLY_BRACE:
+        {
+            PNode terminal(new Node(TERMINAL, parent));
+            parse_particle_list(terminal);
+            lexer->expect_and_consume(CLOSE_CURLY_BRACE);
+            terminal->set_token(lexer->next());
+            return terminal;
+        }
+
+        case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: 
+        {
+            lexer->expect_and_consume(OPEN_PAREN);
+            node->add_child(parse_expression_helper(node));
+            lexer->expect_and_consume(CLOSE_PAREN);
+            return node;
+        }
+        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: 
+        case FLAVOR: case CONSTITUENTS: case PDG_ID: case IDX: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
+        case DXY: case EDXY: case EDZ: case DZ: case VERTR: case VERZ: case VERY: case VERX: case VERT: 
+        case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case ABS_ETA: case THETA: 
+        case PTCONE: case ETCONE: case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
+        case PT: case PZ: case NBF: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: 
+        {
+            lexer->expect_and_consume(OPEN_PAREN);
+            parse_particle_list(node);
+            lexer->expect_and_consume(CLOSE_PAREN);
+            return node;
+        }
+        
+        case FHEMISPHERE: 
+        {
+            lexer->expect_and_consume(OPEN_PAREN);
+            node->add_child(parse_id(node));
+            lexer->expect_and_consume(COMMA);
+
+            auto int1 = lexer->next();
+            if  (int1->get_token() != INTEGER) raise_parsing_exception("FHemisphere requires integer argument in position 2", int1);
+            node->add_child(make_terminal(node, int1));
+
+            lexer->expect_and_consume(COMMA);
+
+            auto int2 = lexer->next();
+            if  (int2->get_token() != INTEGER) raise_parsing_exception("FHemisphere requires integer argument in position 3", int2);
+            node->add_child(make_terminal(node, int2));
+
+            lexer->expect_and_consume(CLOSE_PAREN);
+
+            return node;
+        }
+
+        case FMEGAJETS:  case FMR:
+        {
+            lexer->expect_and_consume(OPEN_PAREN);
+            node->add_child(parse_id(node));
+            lexer->expect_and_consume(CLOSE_PAREN);
+            return node;
+        }
+        case FMTR:
+        {
+            lexer->expect_and_consume(OPEN_PAREN);
+            node->add_child(parse_id(node));
+            lexer->expect_and_consume(COMMA);
+            if (lexer->peek(0)->get_token() == MET) {
+                node->add_child(make_terminal(node, lexer->next()));
+            } else {
+                node->add_child(parse_id(node));
+            }
+            lexer->expect_and_consume(CLOSE_PAREN);
+            return node;
+        }
+        case TTBAR_NNLOREC:
+        {
+            lexer->expect_and_consume(OPEN_PAREN);
+
+            auto int1 = lexer->next();
+            if (!is_numerical(int1->get_token())) raise_parsing_exception("Only numerical arguments are allowed in position 1 of NNLO rec", int1);
+
+            auto int2 = lexer->next();
+            if (!is_numerical(int2->get_token())) raise_parsing_exception("Only numerical arguments are allowed in position 2 of NNLO rec", int2);            
+            
+            auto int3 = lexer->next();
+            if (!is_numerical(int3->get_token())) raise_parsing_exception("Only numerical arguments are allowed in position 3 of NNLO rec", int3);            
+            
+            auto int4 = lexer->next();
+            if (!is_numerical(int4->get_token())) raise_parsing_exception("Only numerical arguments are allowed in position 4 of NNLO rec", int4);
+
+            lexer->expect_and_consume(CLOSE_PAREN);
+            return node;
+        }
+
+        case HT: case APLANARITY: case SPHERICITY: 
+        {
+            if (lexer->peek(0)->get_token() == OPEN_PAREN) {
+                lexer->expect_and_consume(OPEN_PAREN);
+                node->add_child(parse_id(node));
+                lexer->expect_and_consume(CLOSE_PAREN);
+            }
+            return node;
+        }
+
+        case MET: case METSIGNIF: case ALL: case NONE: case TRGM: case TRGE: case EVENT_NO: case RUN_NO: case LB_NO: case MC_CHANNEL_NUMBER: case HF_CLASSIFICATION: case RUNYEAR:
+        {
+            return node;
+        }
+
+        case STRING: case VARNAME:
+        {
+            if (lexer->peek(1)->get_token() == OPEN_PAREN) {
+                lexer->expect_and_consume(OPEN_PAREN);
+                node->add_child(parse_expression_helper(node));
+                lexer->expect_and_consume(CLOSE_PAREN);
+            }
+
+            return node;
+        }
+        case MIN: case MAX: 
+        {
+            lexer->expect_and_consume(OPEN_PAREN);
+            parse_variable_list(node);
+            lexer->expect_and_consume(CLOSE_PAREN);
+            return node;
+        }
+        default:
+            if(!is_numerical(tok->get_token())) raise_parsing_exception("Invalid token used in expression", tok);
+            return node;
+    }
 }
 
 PNode Parser::parse_expression(PNode parent) {
 //TODO: precedence climbing
+    
+    PNode expression(new Node(EXPRESSION, parent));
+    expression->add_child(precedence_climber(expression, parse_expression_helper(expression), 0));
+
+    return expression;
 }
 
 void print_children_and_yourself(PNode node, int *top_number) {
