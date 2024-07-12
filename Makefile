@@ -19,8 +19,9 @@ parser.o: parser.cpp parser.h
 exceptions.o: exceptions.cpp exceptions.h
 	g++ $(CFLAGS) -o exceptions.o -c exceptions.cpp
 
-.PHONY clean:
+.PHONY: clean dot
+clean:
 	rm -rf *.o main
 
-.PHONY dot:
+dot:
 	dot -T png -O graph.gv

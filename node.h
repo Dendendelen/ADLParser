@@ -70,6 +70,7 @@ enum AST_type{
     LIST3,
 
     CONDITION,
+    INTERVAL,
 
     ID_LIST,
     OBJECT_BLOCS,

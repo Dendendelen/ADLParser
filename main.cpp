@@ -6,7 +6,7 @@ int main(int argc, char** argv) {
 
     lexer->read_lines("adl_test_2.adl");
 
-    lexer->print();
+    // lexer->print();
 
     Parser parser = Parser(lexer.release());
     parser.parse();

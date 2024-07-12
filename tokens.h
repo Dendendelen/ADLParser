@@ -179,6 +179,8 @@ enum Token_type {
     AND,
     OR,
     NOT,
+    WITHIN,
+    OUTSIDE,
 
     MINUS,
     PLUS,

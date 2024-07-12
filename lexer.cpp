@@ -232,6 +232,8 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "AND" || token == "&&") return AND;//logical ops
     if (uppercase_token == "OR" || token == "||") return OR;
     if (uppercase_token == "NOT") return NOT;
+    if (uppercase_token == "WITHIN" || uppercase_token == "IN") return WITHIN;
+    if (uppercase_token == "OUTSIDE") return OUTSIDE;
 
     if (token == "-") return MINUS;
     if (token == "+") return PLUS;

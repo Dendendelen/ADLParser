@@ -1161,7 +1161,7 @@ int get_precedence(PToken tok) {
         case ADD: case MINUS:
         return 7;
 
-        case IRG: case ERG:
+        case IRG: case ERG: case WITHIN: case OUTSIDE:
         return 4;
 
         case MAXIMIZE: case MINIMIZE:
@@ -1228,6 +1228,16 @@ PNode Parser::parse_expression_helper(PNode parent) {
             lexer->expect_and_consume(CLOSE_CURLY_BRACE);
             terminal->set_token(lexer->next());
             return terminal;
+        }
+
+        case OPEN_SQUARE_BRACE:
+        {
+            PNode interval(new Node(INTERVAL, parent)); 
+            interval->add_child(parse_expression_helper(interval));
+            if (lexer->peek(0)->get_token() == COMMA) lexer->expect_and_consume(COMMA);
+            interval->add_child(parse_expression_helper(interval));
+            lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
+            return interval;
         }
 
         case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: 
@@ -1350,7 +1360,6 @@ PNode Parser::parse_expression_helper(PNode parent) {
 }
 
 PNode Parser::parse_expression(PNode parent) {
-//TODO: precedence climbing
     
     PNode expression(new Node(EXPRESSION, parent));
     expression->add_child(precedence_climber(expression, parse_expression_helper(expression), 0));
@@ -1363,14 +1372,14 @@ void print_children_and_yourself(PNode node, int *top_number) {
     int reserved_number_for_me = (*top_number)++;
 
     if (node->has_token()) {
-        std::cout << reserved_number_for_me << " [label=\"" << node->get_token()->get_lexeme() << "\"]" << std::endl;
+        std::cout << "    " << reserved_number_for_me << " [label=\"" << node->get_token()->get_lexeme() << "\"]" << std::endl;
     } else {
-        std::cout << reserved_number_for_me << " [label=\"" << node->get_ast_type() << "\"]" <<std::endl;
+        std::cout << "    " << reserved_number_for_me << " [label=\"" << node->get_ast_type() << "\"]" <<std::endl;
     }
 
     auto children_vector = node->get_children();
     for (auto it = children_vector.begin(); it != children_vector.end(); ++it) {
-        std::cout << reserved_number_for_me << " -> " << *top_number << std::endl;
+        std::cout << "    " << reserved_number_for_me << " -> " << *top_number << std::endl;
         print_children_and_yourself(*it, top_number);
     }
 }
@@ -1378,6 +1387,10 @@ void print_children_and_yourself(PNode node, int *top_number) {
 void Parser::print_parse_dot() {
     PNode input_node = tree.get_root();
 
+    std::cout << "digraph G {" << std::endl;
+
     int top = 1;
     print_children_and_yourself(input_node, &top);
+
+    std::cout << "}" << std::endl;
 }
