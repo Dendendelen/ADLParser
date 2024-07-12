@@ -43,22 +43,40 @@ Parser::Parser (Lexer *lex): lexer(lex), tree(INPUT) {
 void Parser::parse() {
     lexer->reset();
     parse_input();
-
 }
 
+
+/*
+INPUT productions:
+---
+
+    INPUT -> BLOCKS
+
+*/
 void Parser::parse_input() {
     // INPUT -> BLOCKS
-    
     PNode input_node = tree.get_root();
     parse_blocks(input_node);
 }
 
+
+/* 
+BLOCKS productions:
+---
+
+    BLOCKS -> INITIALIZATION BLOCKS
+
+    BLOCKS -> COUNT_FORMAT BLOCKS
+
+    BLOCKS -> DEFINITIONS_OBJECTS BLOCKS
+
+    BLOCKS -> COMMAND BLOCKS
+
+    BLOCKS -> epsilon
+
+ */
+
 void Parser::parse_blocks(PNode parent) {
-    // BLOCKS -> INITIALIZATION BLOCKS
-    // BLOCKS -> COUNT_FORMAT BLOCKS
-    // BLOCKS -> DEFINITIONS_OBJECTS BLOCKS
-    // BLOCKS -> COMMAND BLOCKS
-    // BLOCKS -> epsilon
 
         auto tok = lexer->peek(0); 
         switch(tok->get_token()) {
@@ -91,6 +109,7 @@ void Parser::parse_blocks(PNode parent) {
                 parent->add_child(parse_object(parent));
                 parse_blocks(parent);
                 return;
+
             // BLOCKS -> REGION BLOCKS
             case ALGO:
                 parent->add_child(parse_region(parent));
@@ -104,10 +123,19 @@ void Parser::parse_blocks(PNode parent) {
 
 }
 
+/*
+INFO productions:
+---
+
+    INFO -> adlinfo ID INITIALIZATIONS
+
+*/
+
 PNode Parser::parse_info(PNode parent) {
-    // INFO -> adlinfo ID INITIALIZATIONS
+
     PNode info(new Node(INFO, parent));
 
+    // INFO -> adlinfo ID INITIALIZATIONS
     lexer->expect_and_consume(ADLINFO);
     info->add_child(parse_id(info));
     parse_initializations(info);
@@ -115,10 +143,17 @@ PNode Parser::parse_info(PNode parent) {
     return info;
 }
 
+/*
+COUNT_FORMAT productions:
+---
 
+    COUNT_FORMAT -> countsformat ID COUNTS_PROCESSES
+*/
 PNode Parser::parse_count_format(PNode parent) {   
+
     PNode count(new Node(COUNT_FORMAT, parent));
 
+    // COUNT_FORMAT -> countsformat ID COUNTS_PROCESSES
     lexer->expect_and_consume(COUNTSFORMAT);
     count->add_child(parse_id(count));
     parse_count_processes(count);
@@ -127,41 +162,57 @@ PNode Parser::parse_count_format(PNode parent) {
 }
 
 
-PNode Parser::parse_definition(PNode parent) {
+/*
+DEFINITION productions:
+---
 
-    // DEFINITION -> def ID = DEF_RVALUE
-    // DEFINITION -> def ID : DEF_RVALUE
+    DEFINITION -> def ID = DEF_RVALUE
+
+    DEFINITION -> def ID : DEF_RVALUE
+*/
+PNode Parser::parse_definition(PNode parent) {
 
     PNode definition(new Node(DEFINITION, parent));
 
     lexer->expect_and_consume(DEF);
-
     definition->add_child(parse_id(definition));
-
     auto eq_tok = lexer->next();
-    if (eq_tok->get_token() != ASSIGN && eq_tok->get_token() != COLON) raise_parsing_exception("Unknown token for definition assignment, expected '=' or ':'", eq_tok);
 
+    // DEFINITION -> def ID = DEF_RVALUE
+    // DEFINITION -> def ID : DEF_RVALUE
+    if (eq_tok->get_token() != ASSIGN && eq_tok->get_token() != COLON) raise_parsing_exception("Unknown token for definition assignment, expected '=' or ':'", eq_tok);
     definition->add_child(parse_def_rvalue(definition));
+
     return definition;
 }
 
+/* OBJECT productions:
+---
+
+    OBJECT -> obj ID take OBJ_RVALUE 
+
+    OBJECT -> obj ID : OBJ_RVALUE
+ */
 PNode Parser::parse_object(PNode parent) {
-    // OBJECT -> obj ID take OBJ_RVALUE 
-    // OBJECT -> obj ID : OBJ_RVALUE
 
     PNode object(new Node(OBJECT, parent));
     
     lexer->expect_and_consume(OBJ);
     object->add_child(parse_id(object));
-
     auto tok = lexer->next();
-    if (tok->get_token() != COLON && tok->get_token() != TAKE) raise_parsing_exception("Expected symbol for object definition, either ':' or TAKE", tok);
 
+    // OBJECT -> obj ID take OBJ_RVALUE 
+    // OBJECT -> obj ID : OBJ_RVALUE    
+    if (tok->get_token() != COLON && tok->get_token() != TAKE) raise_parsing_exception("Expected symbol for object definition, either ':' or TAKE", tok);
     object->add_child(parse_obj_rvalue(object));
 
     return object;
 }
 
+/* TABLE productions:
+---
+    TABLE -> table ID tabletype ID nvars integer errors BOOL BIN_OR_BOX_VALUES
+*/
 PNode Parser::parse_table(PNode parent) {
 
     // TABLE -> table ID tabletype ID nvars integer errors BOOL BIN_OR_BOX_VALUES
@@ -185,7 +236,13 @@ PNode Parser::parse_table(PNode parent) {
     return table;
 }
 
+
+/* REGION productions:
+---    
+    REGION -> algo ID REGION_COMMANDS
+*/
 PNode Parser::parse_region(PNode parent) {
+
     // REGION -> algo ID REGION_COMMANDS
     PNode region(new Node(REGION, parent));
 
@@ -196,45 +253,97 @@ PNode Parser::parse_region(PNode parent) {
     return region;
 }
 
+
+/* 
+INITIALIZATIONS productions:
+----
+
+    INITIALIZATIONS -> INITIALIZATION INITIALIZATIONS
+
+    INITIALIZATIONS -> epsilon
+ */
 void Parser::parse_initializations(PNode parent) {
     PToken next = lexer->peek(0);
     
     switch (next->get_token()) {
+
+        // INITIALIZATIONS -> INITIALIZATION INITIALIZATIONS
         case SKPH: case SKPE: case ADLINFO: case PAP_TITLE: case PAP_EXPERIMENT: case PAP_ID: case PAP_PUBLICATION: case PAP_SQRTS: case PAP_LUMI: case PAP_ARXIV: case PAP_DOI: case PAP_HEPDATA: case SYSTEMATIC: case TRGE: case TRGM: 
-            // INITIALIZATIONS -> INITIALIZATION INITIALIZATIONS
             parent->add_child(parse_initialization(parent));
             parse_initializations(parent);
             return;
+
+        // INITIALIZATONS -> epsilon
         default:
-            // INITIALIZATONS -> epsilon
             return;
     }
 }
 
+/* COUNT_PROCESSES productions:
+---
+
+    COUNT_PROCESSES -> COUNT_PROCESS COUNT_PROCESSES
+
+    COUNT_PROCESSES -> epsilon
+ */
 void Parser::parse_count_processes(PNode parent) {
     PToken next = lexer->peek(0);
     
     switch (next->get_token()) {
+
+        // COUNT_PROCESSES -> COUNT_PROCESS COUNT_PROCESSES
         case PROCESS: 
-            // COUNT_PROCESSES -> COUNT_PROCESS COUNT_PROCESSES
             parent->add_child(parse_count_process(parent));
             parse_count_processes(parent);
             return;
+
+        // COUNT_PROCESSES -> epsilon
         default:
-            // COUNT_PROCESSES -> epsilon
             return;
     }
 }
 
+/* INITIALIZATION productions:
+---
+
+    INITIALIZATION -> trge = integer
+
+    INITIALIZATION -> trgm = integer
+
+    INITIALIZATION -> skph = integer
+
+    INITIALIZATION -> skpe = integer
+
+    INITIALIZATION -> pap_lumi NUMBER
+
+    INITIALIZATION -> pap_sqrts NUMBER
+
+    INITIALIZATION -> pap_experiment ID
+
+    INITIALIZATION -> systematic BOOL string string SYST_VTYPE
+
+    INITIALIZATION -> pap_publication DESCRIPTION
+
+    INITIALIZATION -> pap_title DESCRIPTION
+
+    INITIALIZATION -> pap_id DESCRIPTION
+
+    INITIALIZATION -> pap_arxiv DESCRIPTION
+
+    INITIALIZATION -> pap_doi DESCRIPTION
+
+    INITIALIZATION -> pap_hepdata DESCRIPTION
+
+*/
 PNode Parser::parse_initialization(PNode parent) {
     PToken tok = lexer->next();
 
     switch(tok->get_token()) {
+
         // INITIALIZATION -> trge = integer
         // INITIALIZATION -> trgm = integer
         // INITIALIZATION -> skph = integer
         // INITIALIZATION -> skpe = integer
-
         case TRGE: case TRGM: case SKPH: case SKPE:
         {   // Consume terminal equals
             lexer->expect_and_consume(ASSIGN);
@@ -247,8 +356,8 @@ PNode Parser::parse_initialization(PNode parent) {
             return integer_target;
         } 
 
-        // INITIALIZATION -> pap_lumi NUMBER
-        // INITIALIZATION -> pap_sqrts NUMBER
+        // INITIALIZATION -> pap_lumi number
+        // INITIALIZATION -> pap_sqrts number
         case PAP_LUMI: case PAP_SQRTS:
         {
             PToken next = lexer->next();
@@ -307,37 +416,67 @@ PNode Parser::parse_initialization(PNode parent) {
 
 }
 
+
+/* COUNT_PROCESS productions:
+---
+
+    COUNT_PROCESS -> PROCESS ID , DESCRIPTION
+
+    COUNT_PROCESS -> PROCESS ID , DESCRIPTION, ERR_TYPE
+
+    COUNT_PROCESS -> PROCESS ID , DESCRIPTION, ERR_TYPE, ERR_TYPE
+
+*/
 PNode Parser::parse_count_process(PNode parent) {
+
     PNode count_process(new Node(COUNT_PROCESS, parent));;
 
     // COUNT_PROCESS -> PROCESS ID , DESCRIPTION
-    // COUNT_PROCESS -> PROCESS ID , DESCRIPTION, ERR_TYPE
-    // COUNT_PROCESS -> PROCESS ID , DESCRIPTION, ERR_TYPE, ERR_TYPE
-
     lexer->expect_and_consume(PROCESS);
     count_process->add_child(parse_id(count_process));
     
     // consume comma
     lexer->expect_and_consume(COMMA, "Invalid end of argument. Needs at least 2 arguments separated by commas");
     count_process->add_child(parse_description(count_process));
-
     if (lexer->peek(0)->get_token() != COMMA) return count_process;
-    // consume second comma
+
+    // COUNT_PROCESS -> PROCESS ID , DESCRIPTION, ERR_TYPE
     lexer->expect_and_consume(COMMA);
     count_process->add_child(parse_err_type(count_process));
-
     if (lexer->peek(0)->get_token() != COMMA) return count_process;
-    // consume third comma
+
+    // COUNT_PROCESS -> PROCESS ID , DESCRIPTION, ERR_TYPE, ERR_TYPE
     lexer->expect_and_consume(COMMA);
     count_process->add_child(parse_err_type(count_process));   
 
     return count_process;
 }
 
+
+/* DEF_RVALUE productions:
+---
+
+        DEF_RVALUE -> { VARIABLE_LIST }
+
+        DEF_RVALUE -> OME ( DESCRIPTION, {VARIABLE_LIST}, INDEX)
+
+        DEF_RVALUE -> CONSTITUENTS PARTICLE_LIST
+
+        DEF_RVALUE -> CONSTITUENTS PARTICLE_LIST
+
+        DEF_RVALUE -> ADD PARTICLE_LIST
+
+        DEF_RVALUE -> PARTICLE
+
+        DEF_RVALUE -> E
+
+ */
 PNode Parser::parse_def_rvalue(PNode parent) {
+
     auto tok = lexer->peek(0);
     
     switch(tok->get_token()) {
+
         // DEF_RVALUE -> { VARIABLE_LIST }
         case OPEN_CURLY_BRACE:
         {
@@ -349,6 +488,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
             lexer->expect_and_consume(CLOSE_CURLY_BRACE);
             return variable_list;
         }
+
         // DEF_RVALUE -> OME ( DESCRIPTION, {VARIABLE_LIST}, INDEX)
         case OME:
         {   
@@ -411,10 +551,43 @@ PNode Parser::parse_def_rvalue(PNode parent) {
 
 }
 
+
+/* OBJ_RVALUE productions:
+---
+
+    OBJ_RVALUE -> electron CRITERIA
+
+    OBJ_RVALUE -> muon CRITERIA
+
+    OBJ_RVALUE -> tau CRITERIA
+
+    OBJ_RVALUE -> gen CRITERIA
+
+    OBJ_RVALUE -> photon CRITERIA
+
+    OBJ_RVALUE -> jet CRITERIA
+
+    OBJ_RVALUE -> fjet CRITERIA
+
+    OBJ_RVALUE -> lepton CRITERIA
+
+    OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE)
+
+    OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE, LEPTON_TYPE)
+
+    OBJ_RVALUE -> union (ID, ID)
+
+    OBJ_RVALUE -> comb ( PARTICLES ) HAMHUM CRITERIA
+
+    OBJ_RVALUE -> ID CRITERIA
+
+ */
 PNode Parser::parse_obj_rvalue(PNode parent) {
+    
     auto tok = lexer->peek(0);
 
     switch(tok->get_token()) {
+
         // OBJ_RVALUE -> electron CRITERIA
         // OBJ_RVALUE -> muon CRITERIA
         // OBJ_RVALUE -> tau CRITERIA
@@ -439,11 +612,9 @@ PNode Parser::parse_obj_rvalue(PNode parent) {
 
             lexer->expect_and_consume(OPEN_PAREN);
             auto next = lexer->peek(0);
-
                 
-            // OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE)
-            // OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE, LEPTON_TYPE)
             if (next->get_token() == ELECTRON || next->get_token() == MUON || next->get_token() == TAU) {
+                // OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE)
                 union_type->add_child(parse_lepton(union_type));
                 lexer->expect_and_consume(COMMA, "Union needs at least two elements comma-separated, token does not match up with that");
                 union_type->add_child(parse_lepton(union_type));
@@ -469,6 +640,7 @@ PNode Parser::parse_obj_rvalue(PNode parent) {
 
             return union_type;
         }
+
         // OBJ_RVALUE -> comb ( PARTICLES ) HAMHUM CRITERIA
         case COMB:
         {
@@ -501,6 +673,14 @@ PNode Parser::parse_obj_rvalue(PNode parent) {
     }
 }
 
+/* BOOL productions:
+---
+
+    BOOL -> true
+
+    BOOL -> false
+
+ */
 PNode Parser::parse_bool(PNode parent) {
     auto tok = lexer->next();
     if (!(tok->get_token() == TRUE) && !(tok->get_token() == FALSE)) raise_parsing_exception("Excepted boolean, but token is not interpretable as a boolean", tok);
@@ -510,6 +690,14 @@ PNode Parser::parse_bool(PNode parent) {
     return boolean;
 }
 
+/* ID productions:
+---
+
+    ID -> string
+    ID -> varname
+
+
+ */
 PNode Parser::parse_id(PNode parent) {
     PToken next = lexer->next();
     if (next->get_token() != INTEGER && next->get_token() != STRING && next->get_token() != VARNAME) { 
@@ -518,9 +706,15 @@ PNode Parser::parse_id(PNode parent) {
     return make_terminal(parent, next);
 }
 
+/* DESCRIPTION productions:
+---
+
+    DESCRIPTION -> string DESCRIPTION
+
+    DESCRIPTION -> string
+
+ */
 PNode Parser::parse_description(PNode parent) {
-    // DESCRIPTION -> string DESCRIPTION
-    // DESCRIPTION -> string
 
     auto tok = lexer->next();
     PNode description_str(new Node(TERMINAL, parent, tok));
@@ -535,7 +729,12 @@ PNode Parser::parse_description(PNode parent) {
     return description_str;
 }
 
+/* ERR_TYPE productions:
+---
 
+    ERR_TYPE -> ERR_SYST
+    ERR_TYPE -> ERR_STAT
+ */
 PNode Parser::parse_err_type(PNode parent) {
     auto tok = lexer->next();
     if (tok->get_token() == ERR_SYST || tok->get_token() == ERR_STAT) {
@@ -545,9 +744,14 @@ PNode Parser::parse_err_type(PNode parent) {
     return PNode(new Node(AST_ERROR, parent));
 }
 
+/* REGION_COMMANDS productions
+---
+
+    REGION_COMMANDS -> REGION_COMMAND REGION_COMMANDS
+
+    REGION_COMMANDS -> epsilon
+ */
 void Parser::parse_region_commands(PNode parent) {
-    // REGION_COMMANDS -> REGION_COMMAND REGION_COMMANDS
-    // REGION_COMMANDS -> epsilon
 
     auto tok = lexer->peek(0);
 
@@ -561,20 +765,43 @@ void Parser::parse_region_commands(PNode parent) {
     }
 }
 
+/*  REGION_COMMAND_CMD productions:
+---
+
+    REGION_COMMAND_CMD -> none
+
+    REGION_COMMAND_CMD -> all
+
+    REGION_COMMAND_CMD -> lepsf
+
+    REGION_COMMAND_CMD -> btagsf
+
+    REGION_COMMAND_CMD -> xlumicorrsf
+
+    REGION_COMMAND_CMD -> hlt DESCRIPTION
+
+    REGION_COMMAND_CMD -> applyhm (ID (E, E) eq integer)
+
+    REGION_COMMAND_CMD -> applyhm (ID (E) eq integer)
+    
+    REGION_COMMAND_CMD -> IF_OR_CONDITION
+
+*/
 PNode Parser::parse_region_command_cmd(PNode parent) {
-    // REGION_COMMAND -> cmd none
-    // REGION_COMMAND -> cmd all
-    // REGION_COMMAND -> cmd lepsf
-    // REGION_COMMAND -> cmd btagsf
-    // REGION_COMMAND -> cmd xlumicorrsf
+
     auto next = lexer->peek(0);
     switch(next->get_token()) {
 
+        // REGION_COMMAND_CMD -> none
+        // REGION_COMMAND_CMD -> all
+        // REGION_COMMAND_CMD -> lepsf
+        // REGION_COMMAND_CMD -> btagsf
+        // REGION_COMMAND_CMD -> xlumicorrsf
         case NONE: case ALL: case LEP_SF: case BTAGS_SF: case XSLUMICORR_SF:
             lexer->next();
             return make_terminal(parent, next);
 
-        // REGION_COMMAND -> cmd hlt DESCRIPTION
+        // REGION_COMMAND_CMD -> hlt DESCRIPTION
         case HLT:
         {
             auto node = make_terminal(parent, next);
@@ -583,8 +810,8 @@ PNode Parser::parse_region_command_cmd(PNode parent) {
             return node;
         }
 
-        // REGION_COMMAND -> cmd applyhm (ID (E, E) eq integer)
-        // REGION_COMMAND -> cmd applyhm (ID (E) eq integer)
+        // REGION_COMMAND_CMD -> applyhm (ID (E, E) eq integer)
+        // REGION_COMMAND_CMD -> applyhm (ID (E) eq integer)
         case APPLY_HM:
         {
             auto node = make_terminal(parent, next);
@@ -609,28 +836,55 @@ PNode Parser::parse_region_command_cmd(PNode parent) {
             return node;
         }
 
-        // REGION_COMMAND -> cmd IF_OR_CONDITION
+        // REGION_COMMAND_CMD -> IF_OR_CONDITION
         default:
             return parse_if_or_condition(parent);
     }
 }
 
+
+/* REGION_COMMAND productions:
+---
+
+    REGION_COMMAND -> cmd REGION_COMMAND_CMD
+
+    REGION_COMMAND -> weight ID number
+
+    REGION_COMMAND -> weight ID ID
+
+    REGION_COMMAND -> weight ID ID (E, E)
+
+    REGION_COMMAND -> weight ID ID (E)
+
+    REGION_COMMAND -> weight ID (E)
+
+    REGION_COMMAND -> bin CONDITION
+
+    REGION_COMMAND -> rejec CONDITION
+
+    REGION_COMMAND -> use ID
+
+    REGION_COMMANDS -> bins ID BIN_OR_BOX_VALUES
+
+    REGION_COMMANDS -> save ID
+
+    REGION_COMMANDS -> save ID csv VARIABLE_LIST
+
+    REGION_COMMANDS -> counts ID COUNTS
+
+    REGION_COMMANDS -> histo HISTOGRAM
+
+    REGION_COMMANDS -> sort EXPRESSION ascend
+
+    REGION_COMMANDS -> sort EXPRESSION descend
+ */
+
 PNode Parser::parse_region_command(PNode parent) {
-    // REGION_COMMAND -> cmd CONDITION
-    // REGION_COMMAND -> cmd none
-    // REGION_COMMAND -> cmd all
-    // REGION_COMMAND -> cmd hlt DESCRIPTION
-    // REGION_COMMAND -> cmd lepsf
-    // REGION_COMMAND -> cmd btagsf
-    // REGION_COMMAND -> cmd xlumicorrsf
-    // REGION_COMMAND -> cmd applyhm (ID (E, E) eq integer)
-    // REGION_COMMAND -> cmd applyhm (ID (E) eq integer)
-    // REGION_COMMAND -> cmd ifstatement
-
-
+    
     auto tok = lexer->next();
     switch(tok->get_token()) {
         
+        // REGION_COMMAND -> cmd REGION_COMMAND_CMD
         case CMD:
             return parse_region_command_cmd(parent);
 
@@ -676,6 +930,7 @@ PNode Parser::parse_region_command(PNode parent) {
             node->add_child(parse_condition(node));
             return node;
         }
+
         // REGION_COMMAND -> use ID
         case USE:
         {
@@ -692,6 +947,9 @@ PNode Parser::parse_region_command(PNode parent) {
             parse_bin_or_box_values(node);
             return node;
         }
+
+        // REGION_COMMANDS -> save ID
+        // REGION_COMMANDS -> save ID csv VARIABLE_LIST
         case SAVE:
         {
             PNode save(make_terminal(parent, tok));
@@ -703,59 +961,34 @@ PNode Parser::parse_region_command(PNode parent) {
             }  
             return save;          
         }
+
+        // REGION_COMMANDS -> print VARIABLE_LIST
         case PRINT:
         {
             PNode print(make_terminal(parent, tok));
             parse_variable_list(print);
+            return print;
         }
+
+        // REGION_COMMANDS -> counts ID COUNTS
         case COUNTS:
         {
             PNode counts(make_terminal(parent, tok));
             counts->add_child(parse_id(counts));
             parse_counts(counts);
+            return counts;
         }
+
+        // REGION_COMMANDS -> histo HISTOGRAM
         case HISTO:
         {
             PNode histo(make_terminal(parent, tok));
-            histo->add_child(parse_id(histo));
-            lexer->expect_and_consume(COMMA);
-            histo->add_child(parse_description(histo));
-            lexer->expect_and_consume(COMMA);
-
-            auto integer_tok_1 = lexer->next();
-            if (integer_tok_1->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to specify binning quantity on histograms", tok);
-
-            histo->add_child(make_terminal(histo, integer_tok_1));
-
-            auto lower_value_tok_1 = lexer->next();
-            if (!is_numerical(lower_value_tok_1->get_token())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a histogram", lower_value_tok_1);
-            histo->add_child(make_terminal(histo, lower_value_tok_1));
-
-            auto upper_value_tok_1 = lexer->next();
-            if (!is_numerical(upper_value_tok_1->get_token())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a histogram", upper_value_tok_1);
-            histo->add_child(make_terminal(histo, upper_value_tok_1));
-
-            // use to check if the list continues 
-            bool is_2d = false;
-            auto discriminant = lexer->peek(1);
-            if (discriminant->get_token() == COMMA) {
-                is_2d = true;
-                auto lower_value_tok_2 = lexer->next();
-                if (!is_numerical(lower_value_tok_2->get_token())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a histogram", lower_value_tok_2);
-                histo->add_child(make_terminal(histo, lower_value_tok_1));
-
-                auto upper_value_tok_2 = lexer->next();
-                if (!is_numerical(upper_value_tok_2->get_token())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a histogram", upper_value_tok_1);
-                histo->add_child(make_terminal(histo, upper_value_tok_2));
-            }
-
-            histo->add_child(parse_expression(histo));
-            
-            if (is_2d) histo->add_child(parse_expression(histo));
-
+            parse_histogram(histo);
             return histo;
-
         }
+
+        // REGION_COMMANDS -> sort EXPRESSION ascend
+        // REGION_COMMANDS -> sort EXPRESSION descend
         case SORT:
         {
             PNode sort(make_terminal(parent, tok));
@@ -766,6 +999,7 @@ PNode Parser::parse_region_command(PNode parent) {
             sort->add_child(make_terminal(sort, next));
             return sort;
         }
+
         default:
             raise_parsing_exception("Unexpected token in region block", tok);
             return PNode(new Node(AST_ERROR, parent));
@@ -773,21 +1007,94 @@ PNode Parser::parse_region_command(PNode parent) {
 
 }
 
+
+/* HISTOGRAM productions:
+---
+
+    HISTOGRAM -> ID, DESCRIPTION, integer, number, number, EXPRESSION
+
+    HISTOGRAM -> ID, DESCRIPTION, integer, number, number, integer, number, number, EXPRESSION, EXPRESSION
+*/
+        
+void Parser::parse_histogram(PNode parent) {
+    // id, 
+    parent->add_child(parse_id(parent));
+    lexer->expect_and_consume(COMMA);
+
+    // DESCRIPTION,
+    parent->add_child(parse_description(parent));
+    lexer->expect_and_consume(COMMA);
+
+    // integer,
+    auto integer_tok_1 = lexer->next();
+    if (integer_tok_1->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to specify binning quantity on parentgrams", integer_tok_1);
+    parent->add_child(make_terminal(parent, integer_tok_1));
+    lexer->expect_and_consume(COMMA);
+
+    // number,
+    auto lower_value_tok_1 = lexer->next();
+    if (!is_numerical(lower_value_tok_1->get_token())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a parentgram", lower_value_tok_1);
+    parent->add_child(make_terminal(parent, lower_value_tok_1));
+    lexer->expect_and_consume(COMMA);
+
+    // number,
+    auto upper_value_tok_1 = lexer->next();
+    if (!is_numerical(upper_value_tok_1->get_token())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a parentgram", upper_value_tok_1);
+    parent->add_child(make_terminal(parent, upper_value_tok_1));
+    lexer->expect_and_consume(COMMA);
+
+    // use to check if the list continues 
+    bool is_2d = false;
+    auto discriminant = lexer->peek(1);
+
+    if (discriminant->get_token() == COMMA) {
+
+        // REGION_COMMANDS -> parent ID, DESCRIPTION, integer, number, number, integer, number, number, EXPRESSION, EXPRESSION
+        is_2d = true;
+
+        // integer,
+        auto integer_tok_2 = lexer->next();
+        if (integer_tok_2->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to specify binning quantity on parentgrams", integer_tok_2);
+        parent->add_child(make_terminal(parent, integer_tok_2));
+        lexer->expect_and_consume(COMMA);
+
+        // number,
+        auto lower_value_tok_2 = lexer->next();
+        if (!is_numerical(lower_value_tok_2->get_token())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a parentgram", lower_value_tok_2);
+        parent->add_child(make_terminal(parent, lower_value_tok_2));
+
+        // number,
+        auto upper_value_tok_2 = lexer->next();
+        if (!is_numerical(upper_value_tok_2->get_token())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a parentgram", upper_value_tok_1);
+        parent->add_child(make_terminal(parent, upper_value_tok_2));
+    }
+
+    parent->add_child(parse_expression(parent));
+    
+    if (is_2d) parent->add_child(parse_expression(parent));
+}
+
+/* VARIABLE_LIST productions:
+---
+
+    VARIABLE_LIST -> EXPRESSION VARIABLE_LIST
+
+    VARIABLE_LIST -> EXPRESSION, VARIABLE_LIST
+
+    VARIABLE_LIST -> epsilon
+ */
 void Parser::parse_variable_list(PNode parent) {
-    // VARIABLE_LIST -> E VARIABLE_LIST
-    // VARIABLE_LIST -> E, VARIABLE_LIST
-    // VARIABLE_LIST -> epsilon
 
     auto tok = lexer->peek(0);
     switch(tok->get_token()) {
 
         // VARIABLE_LIST -> epsilon 
-        // this is the follow set for VARIABLE_LIST, and none of them are in the first set of E
+        // this is the follow set for VARIABLE_LIST, and none of them are in the first set of EXPRESSION
         case CLOSE_CURLY_BRACE: case CLOSE_PAREN: case COLON: case OBJ:  case CMD: case PRINT: case HISTO: case REJEC: case BINS: case BIN: case SAVE: case WEIGHT: case COUNTS: case SORT: case ADLINFO: case COUNTSFORMAT: case DEF: case TABLE: case ALGO: case COMMA: case USE:
             return;            
 
-        // VARIABLE_LIST -> E VARIABLE_LIST
-        // VARIABLE_LIST -> E, VARIABLE_LIST
+        // VARIABLE_LIST -> EXPRESSION VARIABLE_LIST
+        // VARIABLE_LIST -> EXPRESSION, VARIABLE_LIST
         default:
             parent->add_child(parse_expression(parent));
             auto next = lexer->peek(0);
@@ -795,15 +1102,18 @@ void Parser::parse_variable_list(PNode parent) {
                 lexer->expect_and_consume(COMMA);
             }
             parse_variable_list(parent);
-        
-    
+            return;
     }
 }
 
-PNode Parser::parse_if_or_condition(PNode parent) {
+/* IF_OR_CONDITION productions:
+---
 
-    // IF_OR_CONDITION -> CONDITION
-    // IF_OR_CONDITION -> CONDITION ? ACTION : ACTION
+    IF_OR_CONDITION -> CONDITION
+
+    IF_OR_CONDITION -> CONDITION ? ACTION : ACTION
+ */
+PNode Parser::parse_if_or_condition(PNode parent) {
 
     PNode node(new Node(IF, parent));
 
@@ -820,9 +1130,38 @@ PNode Parser::parse_if_or_condition(PNode parent) {
     return node;
 }
 
+/* ACTION productions:
+---
+
+    ACTION -> print VARIABLE_LIST
+
+    ACTION -> all
+
+    ACTION -> none
+
+    ACTION -> lep_sf
+
+    ACTION -> btags_sf
+
+    ACTION -> APPLY_PTF ( E )
+
+    ACTION -> APPLY_PTF (ID [E] )
+
+    ACTION -> APPLY_PTF (ID [E, E] )
+
+    ACTION -> APPLY_PTF (ID [E, E, E, E] )
+
+    ACTION -> APPLY_HM (ID (E, E) == integer)
+
+    ACTION -> APPLY_HM (ID (E) == integer)
+
+    ACTION -> IF_OR_CONDITION
+ */
 PNode Parser::parse_action(PNode parent){
     auto tok = lexer->peek(0);
     switch (tok->get_token()) {
+
+        // ACTION -> print VARIABLE_LIST
         case PRINT:
         {
             lexer->next();
@@ -830,6 +1169,11 @@ PNode Parser::parse_action(PNode parent){
             parse_variable_list(print);
             return print;
         }
+        
+        // ACTION -> all
+        // ACTION -> none
+        // ACTION -> lep_sf
+        // ACTION -> btags_sf
         case ALL: case NONE: case LEP_SF: case BTAGS_SF: 
         {
             lexer->next();
@@ -894,14 +1238,21 @@ PNode Parser::parse_action(PNode parent){
             return apply_hm;
         }
 
-        
-
+        // ACTION -> IF_OR_CONDITION
         default:
             return parse_if_or_condition(parent);
 
     }
 }
 
+/* BIN_OR_BOX_VALUES productions:
+---
+
+    BIN_OR_BOX_VALUES -> number BIN_OR_BOX_VALUES
+
+    BIN_OR_BOX_VALUES -> number
+
+ */
 void Parser::parse_bin_or_box_values(PNode parent) {
     // BIN_OR_BOX_VALUES -> number BIN_OR_BOX_VALUES
     // BIN_OR_BOX_VALUES -> number
@@ -915,6 +1266,12 @@ void Parser::parse_bin_or_box_values(PNode parent) {
     if (is_numerical(next->get_token())) parse_bin_or_box_values(parent);
 }
 
+/* COUNTS productions:
+---
+
+    COUNTS -> COUNT, COUNTS
+    COUNTS -> COUNT
+ */
 void Parser::parse_counts(PNode parent) {
     // COUNTS -> COUNT
     // COUNTS -> COUNT, COUNTS
@@ -930,11 +1287,18 @@ void Parser::parse_counts(PNode parent) {
     return;
 }
 
+/* COUNT productions:
+---
+
+    COUNT -> number + COUNT
+
+    COUNT -> number - COUNT
+
+    COUNT -> number pm COUNT
+
+    COUNT -> number
+*/
 void Parser::parse_count(PNode parent) {
-    // COUNT -> number + COUNT
-    // COUNT -> number - COUNT
-    // COUNT -> number pm COUNT
-    // COUNT -> number
 
     auto tok = lexer->next();
     if (!is_numerical(tok->get_token())) raise_parsing_exception("A numerical type is needed for counts", tok);
@@ -955,54 +1319,94 @@ void Parser::parse_count(PNode parent) {
 
 }
 
+/* PARTICLE_LIST productions:
+---
+
+    PARTICLE_LIST -> PARTICLE + PARTICLE_LIST
+
+    PARTICLE_LIST -> PARTICLE, PARTICLE_LIST
+
+    PARTICLE_LIST -> PARTICLE PARTICLE_LIST
+
+    PARTICLE_LIST -> PARTICLE
+
+*/
 void Parser::parse_particle_list(PNode parent) {
+
     parent->add_child(parse_particle(parent));
     auto tok = lexer->peek(0);
+
     switch (tok->get_token()) {
+
         // PARTICLE_LIST -> PARTICLE + PARTICLE_LIST
         case PLUS:
             lexer->expect_and_consume(PLUS);
             parse_particle_list(parent);
             return;
+
         // PARTICLE_LIST -> PARTICLE, PARTICLE_LIST
         case COMMA:
             lexer->expect_and_consume(COMMA);
             parse_particle_list(parent);
             return;
+
         // PARTICLE_LIST -> PARTICLE PARTICLE_LIST
         case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case LEPTON: case PHOTON: case JET: case BJET: case FJET: case QGJET: case NUMET: case METLV: case STRING: case VARNAME: case MINUS:
             parse_particle_list(parent);
             return;
+
         default:
         // PARTICLE_LIST -> PARTICLE
             return;
     }
 }
 
+/* PARTICLE productions:
+---
+
+    PARTICLE -> gen CONSTITS
+
+    PARTICLE -> jet CONSTITS
+
+    PARTICLE -> fjet CONSTITS
+
+    PARTICLE -> gen INDEX
+
+    PARTICLE -> electron INDEX
+
+    PARTICLE -> muon INDEX
+
+    PARTICLE -> tau INDEX
+
+    PARTICLE -> track INDEX
+
+    PARTICLE -> lepton INDEX
+
+    PARTICLE -> photon INDEX
+
+    PARTICLE -> jet INDEX
+
+    PARTICLE -> bjet INDEX
+
+    PARTICLE -> fjet INDEX
+
+    PARTICLE -> qgjet INDEX
+
+    PARTICLE -> numet INDEX
+
+    PARTICLE -> metlv INDEX
+
+    PARTICLE -> ID INDEX
+ */
 PNode Parser::parse_particle(PNode parent) {
-
-    // PARTICLE -> gen CONSTITS
-    // PARTICLE -> jet CONSTITS
-    // PARTICLE -> fjet CONSTITS
-
-    // PARTICLE -> gen INDEX
-    // PARTICLE -> electron INDEX
-    // PARTICLE -> muon INDEX
-    // PARTICLE -> tau INDEX
-    // PARTICLE -> track INDEX
-    // PARTICLE -> lepton INDEX
-    // PARTICLE -> photon INDEX
-    // PARTICLE -> jet INDEX
-    // PARTICLE -> bjet INDEX
-    // PARTICLE -> fjet INDEX
-    // PARTICLE -> qgjet INDEX
-    // PARTICLE -> numet INDEX
-    // PARTICLE -> metlv INDEX
-    // PARTICLE -> ID INDEX
 
     auto tok = lexer->peek(0);
 
     switch (tok->get_token()) {
+
+        // PARTICLE -> gen CONSTITS
+        // PARTICLE -> jet CONSTITS
+        // PARTICLE -> fjet CONSTITS
         case GEN: case JET: case FJET:
         {
             if (lexer->peek(1)->get_token()==CONSTITUENTS) {
@@ -1013,12 +1417,30 @@ PNode Parser::parse_particle(PNode parent) {
             // Intentional fall-through
         }
         
+        // PARTICLE -> gen INDEX
+        // PARTICLE -> jet INDEX
+        // PARTICLE -> fjet INDEX
+        // PARTICLE -> gen INDEX
+        // PARTICLE -> electron INDEX
+        // PARTICLE -> muon INDEX
+        // PARTICLE -> tau INDE
+        // PARTICLE -> track INDEX
+        // PARTICLE -> lepton INDEX
+        // PARTICLE -> photon INDEX
+        // PARTICLE -> jet INDEX
+        // PARTICLE -> bjet INDEX
+        // PARTICLE -> fjet INDEX
+        // PARTICLE -> qgjet INDEX
+        // PARTICLE -> numet INDEX
+        // PARTICLE -> metlv INDEX
         case ELECTRON: case MUON: case TAU: case TRACK: case LEPTON: case PHOTON:  case BJET: case QGJET: case NUMET: case METLV:
             {
                 PNode particle = make_terminal(parent, lexer->next());
                 particle->add_child(parse_index(particle));
                 return particle;
             }
+
+        // PARTICLE -> ID INDEX
         default:
             {
                 PNode particle = parse_id(parent);
@@ -1029,16 +1451,26 @@ PNode Parser::parse_particle(PNode parent) {
 
 }
 
+/* INDEX productions:
+---
+
+    INDEX -> _integer
+    INDEX -> [integer]
+    INDEX -> [integer:integer]
+    INDEX -> _integer:integer
+    INDEX -> epsilon
+
+ */
 PNode Parser::parse_index(PNode parent) {
-    // INDEX -> _integer
-    // INDEX -> [integer]
-    // INDEX -> [integer:integer]
-    // INDEX -> _integer:integer
-    // INDEX -> epsilon
 
     auto tok = lexer->peek(0);
 
     switch(tok->get_token()) {
+
+        // INDEX -> _integer
+        // INDEX -> [integer]
+        // INDEX -> [integer:integer]
+        // INDEX -> _integer:integer        
         case UNDERSCORE: case OPEN_SQUARE_BRACE:
         {    
             lexer->next();
@@ -1062,12 +1494,22 @@ PNode Parser::parse_index(PNode parent) {
             return index;
 
         }
+
+        // INDEX -> epsilon
         default:
             return PNode(new Node(AST_EPSILON, parent));
     }
 }
 
+/* LEPTON productions:
+---
 
+    LEPTON -> electron
+
+    LEPTON -> muon
+
+    LEPTON -> tau
+ */
 PNode Parser::parse_lepton(PNode parent) {
     auto tok = lexer->next();
     
@@ -1080,6 +1522,23 @@ PNode Parser::parse_lepton(PNode parent) {
     }
 }
 
+
+/* SYST_VTYPE productions:
+---
+
+    SYST_VTYPE -> syst_weight_mc
+
+    SYST_VTYPE -> syst_weight_jvt
+
+    SYST_VTYPE -> syst_weight_pileup
+
+    SYST_VTYPE -> syst_weight_lepton_sf
+
+    SYST_VTYPE -> syst_weight_btag_sf
+
+    SYST_VTYPE -> syst_ttree
+
+ */
 PNode Parser::parse_syst_vtype(PNode parent) {
     auto tok = lexer->next();
     switch(tok->get_token()) {
@@ -1091,6 +1550,12 @@ PNode Parser::parse_syst_vtype(PNode parent) {
     }
 }
 
+
+/* HAMHUM productions:
+---
+
+    HAMHUM -> hamhum ID
+ */
 PNode Parser::parse_hamhum(PNode parent) {
     PNode hamhum(new Node(HAMHUM, parent));
     lexer->expect_and_consume(ALIAS);
@@ -1099,9 +1564,14 @@ PNode Parser::parse_hamhum(PNode parent) {
     return hamhum;
 }
 
+/* CRITERIA productions:
+---
+
+    CRITERIA -> CRITERION CRITERIA
+
+    CRITERIA -> epsilon
+*/
 void Parser::parse_criteria(PNode parent) {
-    // CRITERIA -> CRITERION CRITERIA
-    // CRITERIA -> epsilon
 
     auto tok = lexer->peek(0);
     switch(tok->get_token()) {
@@ -1114,18 +1584,33 @@ void Parser::parse_criteria(PNode parent) {
     }
 }
 
+/* CRITERION productions:
+---
+
+    CRITERION -> cmd ACTION
+    CRITERION -> histo ACTION
+    CRITERION -> print VARIABLE_LIST
+    CRITERION -> rejec CONDITION
+ */
 PNode Parser::parse_criterion(PNode parent) {
+
     auto tok = lexer->next();
-    // CRITERION -> cmd ACTION
     PNode node(make_terminal(parent, tok));
+
     switch (tok->get_token()) {
 
+        // CRITERION -> cmd ACTION
+        // CRITERION -> histo ACTION
         case CMD: case HISTO:
             node->add_child(parse_action(node));
             return node;
+
+        // CRITERION -> print VARIABLE_LIST
         case PRINT:
             parse_variable_list(node);
             return node;
+
+        // CRITERION -> rejec CONDITION
         case REJEC:
             node->add_child(parse_condition(node));
             return node;
@@ -1136,8 +1621,11 @@ PNode Parser::parse_criterion(PNode parent) {
 
 }
 
+/* CONDITION productions:
+---
 
-
+    CONDITION -> EXPRESSION
+ */
 PNode Parser::parse_condition(PNode parent) {
     PNode condition(new Node(CONDITION, parent));
 
@@ -1359,6 +1847,15 @@ PNode Parser::parse_expression_helper(PNode parent) {
     }
 }
 
+/* EXPRESSION productions:
+---
+
+All productions are done via precedence climbing. Stated grammar does not correctly specify the precedences, but they are accounted for.
+
+---
+
+
+ */
 PNode Parser::parse_expression(PNode parent) {
     
     PNode expression(new Node(EXPRESSION, parent));

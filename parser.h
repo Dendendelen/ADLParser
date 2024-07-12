@@ -45,6 +45,9 @@ class Parser {
         void parse_counts(PNode parent);
         void parse_count(PNode parent);
 
+        void parse_histogram(PNode parent);
+
+
         PNode precedence_climber(PNode parent, PNode lhs, int min_precedence);
         PNode parse_expression_helper(PNode parent);
         PNode parse_expression(PNode parent);
