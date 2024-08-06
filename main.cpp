@@ -1,17 +1,24 @@
 #include "lexer.h"
 #include "parser.h"
+#include "timber_converter.h"
 
 int main(int argc, char** argv) {
     std::unique_ptr<Lexer> lexer(new Lexer());
 
-    lexer->read_lines("adl_test_2.adl");
+    lexer->read_lines("ex01.adl");
 
     // lexer->print();
 
-    Parser parser = Parser(lexer.release());
-    parser.parse();
+    std::unique_ptr<Parser> parser(new Parser(lexer.release()));
+    parser->parse();
 
-    parser.print_parse_dot();
+    parser->print_parse_dot();
+
+    std::unique_ptr<ALIConverter> alil(new ALIConverter());
+    alil->vistitation(parser->get_root());
+    alil->print_commands();
+
+    std::unique_ptr<TimberConverter> timber(new TimberConverter());
 
     return 0;
 } 

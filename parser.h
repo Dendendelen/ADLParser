@@ -26,7 +26,7 @@ class Parser {
 
         PNode parse_initialization(PNode parent);
 
-        PNode parse_obj_rvalue(PNode parent);
+        void parse_obj_rvalue(PNode parent);
         PNode parse_def_rvalue(PNode parent);
 
         void parse_criteria(PNode parent);
@@ -78,6 +78,8 @@ class Parser {
         void parse_input();
 
         void print_parse_dot();
+
+        PNode get_root();
 
 
 };

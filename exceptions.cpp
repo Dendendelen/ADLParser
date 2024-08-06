@@ -15,4 +15,10 @@ void raise_parsing_exception(std::string error, PToken token) {
 
 }
 
+void raise_analysis_conversion_exception(std::string error, PToken token) {
+    std::stringstream stream;
+    stream << "Failed to convert \"" << token->get_lexeme() << "\", at line " << token->get_line() << ", column " << token->get_column() << ": " << error << std::endl;
 
+    throw AnalysisLevelConversionException(stream.str().c_str());
+
+}

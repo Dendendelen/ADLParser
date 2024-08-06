@@ -12,5 +12,11 @@ class ParsingException : public std::runtime_error {
         ParsingException(const char* what) : runtime_error(what) {}
 };
 
+class AnalysisLevelConversionException : public std::runtime_error {
+    public:
+        AnalysisLevelConversionException(const char* what) : runtime_error(what) {}
+};
+
 void raise_lexing_exception(PToken token);
 void raise_parsing_exception(std::string error, PToken token);
+void raise_analysis_conversion_exception(std::string error, PToken token);

@@ -64,13 +64,17 @@ void Parser::parse_input() {
 BLOCKS productions:
 ---
 
-    BLOCKS -> INITIALIZATION BLOCKS
+    BLOCKS -> INFO BLOCKS
 
     BLOCKS -> COUNT_FORMAT BLOCKS
 
-    BLOCKS -> DEFINITIONS_OBJECTS BLOCKS
+    BLOCKS -> DEFINITIONS BLOCKS
 
-    BLOCKS -> COMMAND BLOCKS
+    BLOCKS -> TABLE BLOCKS
+
+    BLOCKS -> OBJECT BLOCKS
+
+    BLOCKS -> REGION BLOCKS
 
     BLOCKS -> epsilon
 
@@ -204,7 +208,7 @@ PNode Parser::parse_object(PNode parent) {
     // OBJECT -> obj ID take OBJ_RVALUE 
     // OBJECT -> obj ID : OBJ_RVALUE    
     if (tok->get_token() != COLON && tok->get_token() != TAKE) raise_parsing_exception("Expected symbol for object definition, either ':' or TAKE", tok);
-    object->add_child(parse_obj_rvalue(object));
+    parse_obj_rvalue(object);
 
     return object;
 }
@@ -239,6 +243,7 @@ PNode Parser::parse_table(PNode parent) {
 
 /* REGION productions:
 ---    
+
     REGION -> algo ID REGION_COMMANDS
 */
 PNode Parser::parse_region(PNode parent) {
@@ -582,7 +587,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
     OBJ_RVALUE -> ID CRITERIA
 
  */
-PNode Parser::parse_obj_rvalue(PNode parent) {
+void Parser::parse_obj_rvalue(PNode parent) {
     
     auto tok = lexer->peek(0);
 
@@ -599,8 +604,9 @@ PNode Parser::parse_obj_rvalue(PNode parent) {
         case ELECTRON: case MUON: case TAU: case GEN: case PHOTON: case JET: case FJET: case LEPTON:
         {
             PNode type = make_terminal(parent, lexer->next());
-            parse_criteria(type);
-            return type;
+            parent->add_child(type);
+            parse_criteria(parent);
+            return;
         }
 
         // OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE)
@@ -638,13 +644,16 @@ PNode Parser::parse_obj_rvalue(PNode parent) {
 
             lexer->expect_and_consume(CLOSE_PAREN);
 
-            return union_type;
+            parent->add_child(union_type);
+            return;
         }
 
         // OBJ_RVALUE -> comb ( PARTICLES ) HAMHUM CRITERIA
         case COMB:
         {
             PNode comb_type = make_terminal(parent, lexer->next());
+
+            parent->add_child(comb_type);
 
             lexer->expect_and_consume(OPEN_PAREN);
 
@@ -656,20 +665,20 @@ PNode Parser::parse_obj_rvalue(PNode parent) {
 
             comb_type->add_child(parse_hamhum(comb_type));
             parse_criteria(comb_type);
+            return;
 
-            return comb_type;
         }
 
         // OBJ_RVALUE -> ID CRITERIA
         case STRING: case VARNAME:
         {
             PNode id = parse_id(parent);
-            parse_criteria(id);
-            return id;
+            parent->add_child(id);
+            parse_criteria(parent);
+            return;
         }
         default:
             raise_parsing_exception("Invalid rvalue for an object definition", tok);
-            return PNode(new Node(AST_ERROR, parent));
     }
 }
 
@@ -798,9 +807,13 @@ PNode Parser::parse_region_command_cmd(PNode parent) {
         // REGION_COMMAND_CMD -> btagsf
         // REGION_COMMAND_CMD -> xlumicorrsf
         case NONE: case ALL: case LEP_SF: case BTAGS_SF: case XSLUMICORR_SF:
+        {
             lexer->next();
-            return make_terminal(parent, next);
-
+            PNode cond(new Node(CONDITION, parent));
+            cond->add_child(make_terminal(cond, next));
+            return cond;
+        }
+        
         // REGION_COMMAND_CMD -> hlt DESCRIPTION
         case HLT:
         {
@@ -886,7 +899,11 @@ PNode Parser::parse_region_command(PNode parent) {
         
         // REGION_COMMAND -> cmd REGION_COMMAND_CMD
         case CMD:
-            return parse_region_command_cmd(parent);
+        {
+            PNode node(new Node(REGION_SELECT, parent));
+            node->add_child(parse_region_command_cmd(parent));
+            return node;
+        }
 
         // REGION_COMMAND -> weight ID number
         // REGION_COMMAND -> weight ID ID
@@ -922,9 +939,16 @@ PNode Parser::parse_region_command(PNode parent) {
             return node;
         }
 
-        // REGION_COMMAND -> bin CONDITION
         // REGION_COMMAND -> rejec CONDITION
-        case REJEC: case BIN:
+        case REJEC:
+        {
+            PNode node(new Node(REGION_REJECT, parent));
+            node->add_child(parse_condition(node));
+            return node;
+        }
+
+        // REGION_COMMAND -> bin CONDITION
+        case BIN:
         {
             PNode node(make_terminal(parent, tok));
             node->add_child(parse_condition(node));
@@ -934,7 +958,7 @@ PNode Parser::parse_region_command(PNode parent) {
         // REGION_COMMAND -> use ID
         case USE:
         {
-            PNode node(make_terminal(parent, tok));
+            PNode node(new Node(REGION_USE, parent));
             node->add_child(parse_id(node));
             return node;
         }
@@ -1270,6 +1294,7 @@ void Parser::parse_bin_or_box_values(PNode parent) {
 ---
 
     COUNTS -> COUNT, COUNTS
+
     COUNTS -> COUNT
  */
 void Parser::parse_counts(PNode parent) {
@@ -1396,6 +1421,8 @@ void Parser::parse_particle_list(PNode parent) {
 
     PARTICLE -> metlv INDEX
 
+    PARTICLE -> - PARTICLE
+
     PARTICLE -> ID INDEX
  */
 PNode Parser::parse_particle(PNode parent) {
@@ -1411,8 +1438,9 @@ PNode Parser::parse_particle(PNode parent) {
         {
             if (lexer->peek(1)->get_token()==CONSTITUENTS) {
                 PNode particle = make_terminal(parent, lexer->next());
-                particle->add_child(make_terminal(particle, lexer->next()));
-                return particle; 
+                PNode constituents = make_terminal(parent, lexer->next());
+                constituents->add_child(particle);
+                return constituents;
             }
             // Intentional fall-through
         }
@@ -1439,6 +1467,12 @@ PNode Parser::parse_particle(PNode parent) {
                 particle->add_child(parse_index(particle));
                 return particle;
             }
+        case MINUS:
+            {
+                PNode minus = make_terminal(parent, lexer->next());
+                minus->add_child(parse_particle(minus));
+                return minus;
+            }
 
         // PARTICLE -> ID INDEX
         default:
@@ -1455,9 +1489,13 @@ PNode Parser::parse_particle(PNode parent) {
 ---
 
     INDEX -> _integer
+
     INDEX -> [integer]
+
     INDEX -> [integer:integer]
+
     INDEX -> _integer:integer
+    
     INDEX -> epsilon
 
  */
@@ -1479,7 +1517,8 @@ PNode Parser::parse_index(PNode parent) {
             if (next->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
             index->add_child(make_terminal(index, next));
             
-
+            // INDEX -> [integer:integer]
+            // INDEX -> _integer:integer 
             if (lexer->peek(0)->get_token() == COLON) {
                 lexer->expect_and_consume(COLON);
 
@@ -1588,34 +1627,50 @@ void Parser::parse_criteria(PNode parent) {
 ---
 
     CRITERION -> cmd ACTION
+
     CRITERION -> histo ACTION
+
     CRITERION -> print VARIABLE_LIST
+
     CRITERION -> rejec CONDITION
  */
 PNode Parser::parse_criterion(PNode parent) {
 
     auto tok = lexer->next();
-    PNode node(make_terminal(parent, tok));
 
     switch (tok->get_token()) {
 
         // CRITERION -> cmd ACTION
-        // CRITERION -> histo ACTION
         case CMD: case HISTO:
+        {
+            PNode node(new Node(OBJECT_SELECT, parent));
             node->add_child(parse_action(node));
             return node;
-
-        // CRITERION -> print VARIABLE_LIST
-        case PRINT:
-            parse_variable_list(node);
-            return node;
-
+        }
         // CRITERION -> rejec CONDITION
         case REJEC:
+        {
+            PNode node(new Node(OBJECT_REJECT, parent, tok));
             node->add_child(parse_condition(node));
             return node;
+        }
+        // CRITERION -> histo ACTION
+        {
+            PNode node(make_terminal(parent, tok));
+            node->add_child(parse_action(node));
+            return node;
+        }
+        // CRITERION -> print VARIABLE_LIST
+        case PRINT:
+        {
+            PNode node(make_terminal(parent, tok));
+            parse_variable_list(node);
+            return node;
+        }
+
         default:
             raise_parsing_exception("Invalid token for a criterion", tok);
+            PNode node(make_terminal(parent, tok));
             return node;
     }
 
@@ -1697,14 +1752,21 @@ PNode Parser::parse_expression_helper(PNode parent) {
     PNode node(make_terminal(parent, tok));
 
     switch(tok->get_token()) {
-        case MINUS: case NOT:
-        { 
+        case MINUS: 
+        {
+            PNode negate_node(new Node(NEGATE, parent));
+            negate_node->add_child(parse_expression_helper(negate_node));
+            return negate_node;
+        }
+        case NOT:
+        {
             node->add_child(parse_expression_helper(node));
             return node;
         }
         case OPEN_PAREN:
         {
-            PNode subexpression = parse_expression_helper(parent);
+            PNode lhs = parse_expression_helper(parent);
+            PNode subexpression = precedence_climber(parent, lhs, 0);
             lexer->expect_and_consume(CLOSE_PAREN);
             return subexpression;
         }
@@ -1731,7 +1793,8 @@ PNode Parser::parse_expression_helper(PNode parent) {
         case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: 
         {
             lexer->expect_and_consume(OPEN_PAREN);
-            node->add_child(parse_expression_helper(node));
+            PNode lhs = parse_expression_helper(node);
+            node->add_child(precedence_climber(parent, lhs, 0));
             lexer->expect_and_consume(CLOSE_PAREN);
             return node;
         }
@@ -1827,9 +1890,14 @@ PNode Parser::parse_expression_helper(PNode parent) {
         case STRING: case VARNAME:
         {
             if (lexer->peek(1)->get_token() == OPEN_PAREN) {
+                PNode func(new Node(USER_FUNCTION, parent));
+                node->set_parent(func);
+
                 lexer->expect_and_consume(OPEN_PAREN);
-                node->add_child(parse_expression_helper(node));
+                PNode lhs = parse_expression_helper(node);
+                node->add_child(precedence_climber(node, lhs, 0));
                 lexer->expect_and_consume(CLOSE_PAREN);
+                return func;
             }
 
             return node;
@@ -1843,7 +1911,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
         }
         default:
             if(!is_numerical(tok->get_token())) raise_parsing_exception("Invalid token used in expression", tok);
-            return node;
+            return precedence_climber(parent, node, 0);
     }
 }
 
@@ -1890,4 +1958,8 @@ void Parser::print_parse_dot() {
     print_children_and_yourself(input_node, &top);
 
     std::cout << "}" << std::endl;
+}
+
+PNode Parser::get_root() {
+    return tree.get_root();
 }

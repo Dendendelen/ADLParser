@@ -36,7 +36,12 @@ enum AST_type{
     REGION_COMMANDS,
     REGION_COMMAND,
 
-    SELECTION_COMMAND,
+    OBJECT_SELECT,
+    OBJECT_REJECT,
+
+    REGION_SELECT,
+    REGION_REJECT,
+    REGION_USE,
 
     IF,
 
@@ -88,6 +93,10 @@ enum AST_type{
     
     COMMAND,
     IFSTATEMENT,
+
+    NEGATE,
+
+    USER_FUNCTION,
     
 
 };
@@ -114,7 +123,7 @@ class Node {
         std::shared_ptr<Node> get_parent();
 
         void add_child(std::shared_ptr<Node> child);
-        std::vector<std::shared_ptr<Node>> get_children();
+        std::vector<std::shared_ptr<Node>> &get_children();
         
         void set_token(std::shared_ptr<Token> tok);
         std::shared_ptr<Token> get_token();

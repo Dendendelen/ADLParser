@@ -23,7 +23,7 @@ void Node::add_child(std::shared_ptr<Node> child) {
     children.push_back((child));
 }
 
-std::vector<std::shared_ptr<Node>> Node::get_children() {
+std::vector<std::shared_ptr<Node>> &Node::get_children() {
     return children;
 }
 
