@@ -5,21 +5,42 @@
 #include "exceptions.h"
 #include <sstream>
 #include <iostream>
+#include <string>
 
+void TimberConverter::append_4vector_label(AnalysisCommand command, std::string suffix) {
 
-AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst): instruction(inst)  {
+    std::string output = command.get_argument(0);
+    std::string input = var_mappings[command.get_argument(1)];
+
+    std::stringstream delimit;
+    std::stringstream command_text;
+
+    delimit << input;
+    std::vector<std::string> delimited_by_space;
+    std::string buffer;
+    while (std::getline(delimit, buffer, ' ')) {
+        delimited_by_space.push_back(buffer);
+    }
+
+    for (auto it = delimited_by_space.begin(); it != delimited_by_space.end(); ++it) {
+        command_text << *it;
+        if (it->back() != '+' && it->back() != '-') command_text << suffix;
+    }
+
+    var_mappings[output] = command_text.str();
 
 }
 
-void AnalysisCommand::add_argument(std::string arg) {
-    arguments.push_back(arg);
+std::string TimberConverter::binary_command(AnalysisCommand command, std::string op) {
+    std::stringstream text;
+    text << var_mappings[command.get_argument(1)] << op << var_mappings[command.get_argument(2)];
+    return text.str();
 }
 
-void AnalysisCommand::convert_instruction() {
-    
-}
+std::string TimberConverter::command_convert(AnalysisCommand command) {
 
-std::string instruction_to_text(AnalysisLevelInstruction inst) {
+    AnalysisLevelInstruction inst = command.get_instruction();
+    std::stringstream command_text;
 
     switch (inst) {
         case BEGIN_REGION_BLOCK:
@@ -35,18 +56,39 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
         case RUN_REGION:
             return "RUN_REGION";
         case ADD_ALIAS:
-            return "ADD_ALIAS";
+        {
+            if (var_mappings.count(command.get_argument(1)) == 0) var_mappings[command.get_argument(1)] = command.get_argument(1);
+            var_mappings[command.get_argument(0)] = command.get_argument(1);
+            return "";
+        }
         case ADD_OBJECT:
             return "ADD_OBJECT";
         case CREATE_MASK:
-            return "CREATE_MASK";
+        {
+            command_text << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
+            command_text << command.get_argument(0) << ".Add('" << command.get_argument(0) << "', 'create_mask(" << command.get_argument(1) << ")')";            
+            var_mappings[command.get_argument(0)] = command.get_argument(0);
+            return command_text.str();
+        }
         case LIMIT_MASK:
-            return "LIMIT_MASK";
+        {   
+            command_text << var_mappings[command.get_argument(1)] << ".Add('" << command.get_argument(0) << "', 'limit_mask(" << command.get_argument(1) << ", " << var_mappings[command.get_argument(2)] << ")')";
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        }
         case APPLY_MASK:
-            return "APPLY_MASK";
+        {
+            command_text << var_mappings[command.get_argument(1)] << ".Add('" << command.get_argument(0) << "', 'apply_mask(" << command.get_argument(1) << ", " << command.get_argument(2) << ")')"; 
+            var_mappings[command.get_argument(0)] = command.get_argument(0);
+            return command_text.str();
+        }
         case BEGIN_EXPRESSION:
-            return "BEGIN_EXPRESSION";
+            return "";
         case END_EXPRESSION:
+        {
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return "";
+        }
             return "END_EXPRESSION";
         case BEGIN_IF:
             return "BEGIN_IF";
@@ -63,15 +105,18 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
         case EXPR_SUBTRACT:
             return "EXPR_SUBTRACT";
         case EXPR_LT:
-            return "EXPR_LT";
+            var_mappings[command.get_argument(0)] = binary_command(command, "<");
+            return "";
         case EXPR_LE:
             return "EXPR_LE";
         case EXPR_GT:
-            return "EXPR_GT";
+            var_mappings[command.get_argument(0)] = binary_command(command, ">");
+            return "";
         case EXPR_GE:
             return "EXPR_GE";
         case EXPR_EQ:
-            return "EXPR_EQ";
+            var_mappings[command.get_argument(0)] = binary_command(command, "==");
+            return "";
         case EXPR_NE:
             return "EXPR_NE";
         case EXPR_AMPERSAND:
@@ -94,16 +139,24 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
         case FUNC_BTAG:
             return "FUNC_BTAG"; 
         case FUNC_PT:
-            return "FUNC_PT"; 
+            append_4vector_label(command, "_pt");
+            return "";
         case FUNC_ETA:
-            return "FUNC_ETA"; 
+            append_4vector_label(command, "_eta");
+            return "";
         case FUNC_PHI:
-            return "FUNC_PHI"; 
+            append_4vector_label(command, "_phi");
+            return "";
         case FUNC_M:
-            return "FUNC_M"; 
+            append_4vector_label(command, "_mass");
+            return "";
         case FUNC_E:
             return "FUNC_E"; 
         case MAKE_EMPTY_PARTICLE:
+        {
+            var_mappings[command.get_argument(0)] = "";
+            return "";
+        }
             return "MAKE_EMPTY_PARTICLE"; 
         case CREATE_PARTICLE_VARIABLE:
             return "CREATE_PARTICLE_VARIABLE"; 
@@ -130,7 +183,11 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
         case ADD_PART_GEN:
             return "ADD_PART_GEN"; 
         case ADD_PART_JET:
-            return "ADD_PART_JET"; 
+        {
+            command_text << var_mappings[command.get_argument(1)] << (var_mappings[command.get_argument(1)] != "" ? " + Jet" : "Jet");
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
+        }
         case ADD_PART_FJET:
             return "ADD_PART_FJET"; 
         case ADD_PART_NAMED:
@@ -174,7 +231,9 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
         case FUNC_SQRT:
             return "FUNC_SQRT";
         case FUNC_ABS:
-            return "FUNC_ABS";
+            command_text << "abs(" << var_mappings[command.get_argument(1)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
         case FUNC_COS:
             return "FUNC_COS";
         case FUNC_SIN:
@@ -211,5 +270,11 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
 }
 
 void TimberConverter::print_timber() {
-    
+    while (alil->clear_to_next()) {
+        std::string out = command_convert(alil->next_command());
+        if (out == "") continue;
+        std::cout << out << std::endl;
+    }
 }
+
+TimberConverter::TimberConverter(ALIConverter *alil_in): alil(alil_in) {}

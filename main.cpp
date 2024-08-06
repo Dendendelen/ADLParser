@@ -18,7 +18,8 @@ int main(int argc, char** argv) {
     alil->vistitation(parser->get_root());
     alil->print_commands();
 
-    std::unique_ptr<TimberConverter> timber(new TimberConverter());
+    std::unique_ptr<TimberConverter> timber(new TimberConverter(alil.release()));
+    timber->print_timber();
 
     return 0;
 } 

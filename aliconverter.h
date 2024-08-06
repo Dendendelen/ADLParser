@@ -124,7 +124,10 @@ class AnalysisCommand {
     public:
         AnalysisCommand(AnalysisLevelInstruction inst);
         void add_argument(std::string arg);
-        void convert_instruction();
+
+        AnalysisLevelInstruction get_instruction();
+        std::string get_argument(int pos);
+    
         void print_instruction();
 };
 
@@ -164,6 +167,8 @@ class ALIConverter : ASTVisitor {
         std::string current_scope_name;
         int highest_var_val;
 
+        int iter_command;
+
     protected:
         void visit_object(PNode node) override;
         void visit_if(PNode node) override;
@@ -180,6 +185,9 @@ class ALIConverter : ASTVisitor {
 
         void vistitation(PNode root);
         void print_commands();
+
+        AnalysisCommand next_command();
+        bool clear_to_next();
 };
 
 

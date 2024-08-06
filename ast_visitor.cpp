@@ -1,6 +1,5 @@
 #include "ast_visitor.h"
 #include "node.h"
-#include "tokens.h"
 
 void ASTVisitor::visit(PNode node) {
     switch (node->get_ast_type()) {

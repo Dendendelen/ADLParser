@@ -15,8 +15,11 @@ void AnalysisCommand::add_argument(std::string arg) {
     arguments.push_back(arg);
 }
 
-void AnalysisCommand::convert_instruction() {
-    
+AnalysisLevelInstruction AnalysisCommand::get_instruction() {
+    return instruction;
+}
+std::string AnalysisCommand::get_argument(int pos) {
+    return arguments[pos];
 }
 
 std::string instruction_to_text(AnalysisLevelInstruction inst) {
@@ -714,7 +717,7 @@ void ALIConverter::visit_if(PNode node) {
 
         AnalysisCommand if_statement(BEGIN_IF);
 
-
+        
 
         AnalysisCommand end_if(END_IF);
 
@@ -930,4 +933,13 @@ void ALIConverter::print_commands() {
     }
 }
 
-ALIConverter::ALIConverter(): highest_var_val(0) {}
+bool ALIConverter::clear_to_next() {
+    if (iter_command >= command_list.size()) return false;
+    return true;
+}
+
+AnalysisCommand ALIConverter::next_command() {
+    return command_list[iter_command++];
+}
+
+ALIConverter::ALIConverter(): highest_var_val(0), iter_command(0) {}
