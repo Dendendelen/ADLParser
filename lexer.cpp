@@ -80,9 +80,11 @@ Token_type Lexer::identify_token(std::string &token) {
     if (std::regex_match(token, std::regex("\\s+"))) return LEXER_SPACE;
 
     if (uppercase_token == "DEF" || uppercase_token == "DEFINE") return DEF;
-    if (uppercase_token == "CMD" || uppercase_token == "CUT" || uppercase_token == "SELECT") return CMD;
+    if (uppercase_token == "CMD" || uppercase_token == "CUT" || uppercase_token == "SELECT") return SELECT;
     if (uppercase_token == "REJECT") return REJEC;
     if (uppercase_token == "OBJ" || uppercase_token == "OBJECT") return OBJ;
+
+    if (uppercase_token == "HISTOLIST") return HISTOLIST;
 
     if (uppercase_token == "ALGORITHM" || uppercase_token == "ALGO" || uppercase_token == "REGION") return ALGO;
     if (token == "TRGe") return TRGE;
@@ -104,6 +106,8 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == "stat") return ERR_STAT;
     if (token == "syst") return ERR_SYST;
     if (token == "process") return PROCESS;
+
+    if (uppercase_token == "PARTICLE") return PARTICLE_KEYWORD;
 
     if (token == "systematic") return SYSTEMATIC;
     if (token == "ttree") return SYST_TTREE;
@@ -130,11 +134,11 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "HISTO") return HISTO;
     if (uppercase_token == "WEIGHT") return WEIGHT;
     if (uppercase_token == "TABLE") return TABLE;
-    if (uppercase_token == "SKIPHISTOS") return SKPH;
-    if (uppercase_token == "SKIPEFS") return SKPE;
+    if (uppercase_token == "SKIPHISTOS") return SKIP_HISTO;
+    if (uppercase_token == "SKIPEFS") return SKIP_EFFS;
     if (uppercase_token == "GEN") return GEN;
-    if (uppercase_token == "ELE"|| token == "Electron"|| token == "electron") return ELECTRON;//particles
-    if (uppercase_token == "MUO" || token == "MUON"| token == "muon") return MUON;
+    if (uppercase_token == "ELE"|| uppercase_token == "ELECTRON"|| token == "electron") return ELECTRON;//particles
+    if (uppercase_token == "MUO" || uppercase_token == "MUON"| token == "muon") return MUON;
     if (uppercase_token == "TAU") return TAU;
     if (uppercase_token == "TRK") return TRACK;
     if (uppercase_token == "PHO" || uppercase_token == "PHOTON") return PHOTON;
@@ -381,7 +385,7 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
             bool delimiter = is_delimiter(current_char);
             bool symbol = is_symbol(current_char);
 
-            if (current_char == '(' || current_char == ')' || current_char == ',' || current_char == '_') {
+            if (current_char == '(' || current_char == ')' || current_char == ',' || current_char == '_' || current_char == '{' || current_char == '}' || current_char == '[' || current_char == ']') {
                 // Exception: commas and parenthesis must be allowed to be stacked adjacent to whatever, and that must unequivocably be its own token - there is never a situation in which this should not be the case
                 lex_token(running_token, line, column);
                 running_token += current_char;

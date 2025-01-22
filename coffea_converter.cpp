@@ -1,4 +1,4 @@
-#include "timber_converter.h"
+#include "coffea_converter.h"
 #include "lexer.h"
 #include "node.h"
 #include "tokens.h"
@@ -8,8 +8,10 @@
 #include <iostream>
 #include <string>
 
+// TODO: coffea converter is as of yet not functional, need to reformat TIMBER converter to handle new format
 
-std::string TimberConverter::add_all_relevant_tags_for_object(AnalysisCommand command) {
+
+std::string CoffeaConverter::add_all_relevant_tags_for_object(AnalysisCommand command) {
     std::stringstream command_text;
 
     std::string add_target = var_mappings[command.get_argument(1)];
@@ -31,7 +33,7 @@ std::string TimberConverter::add_all_relevant_tags_for_object(AnalysisCommand co
 
 }
 
-std::string TimberConverter::add_all_relevant_tags_for_union_empty(AnalysisCommand command) {
+std::string CoffeaConverter::add_all_relevant_tags_for_union_empty(AnalysisCommand command) {
     std::stringstream command_text;
 
     std::string dest_vec = command.get_argument(0);
@@ -46,7 +48,7 @@ std::string TimberConverter::add_all_relevant_tags_for_union_empty(AnalysisComma
 }
 
 
-std::string TimberConverter::add_all_relevant_tags_for_union_merge(AnalysisCommand command, std::string adding_name) {
+std::string CoffeaConverter::add_all_relevant_tags_for_union_merge(AnalysisCommand command, std::string adding_name) {
     std::stringstream command_text;
 
     std::string add_target = var_mappings[command.get_argument(1)];
@@ -67,7 +69,7 @@ std::string TimberConverter::add_all_relevant_tags_for_union_merge(AnalysisComma
     return command_text.str();  
 }
 
-std::string TimberConverter::existing_definitions_string() {
+std::string CoffeaConverter::existing_definitions_string() {
     std::stringstream defs;
     defs << "[";
     
@@ -79,7 +81,7 @@ std::string TimberConverter::existing_definitions_string() {
     return defs.str();
 }
 
-void TimberConverter::index_particle(AnalysisCommand command, bool is_named, std::string part_text) {
+void CoffeaConverter::index_particle(AnalysisCommand command, bool is_named, std::string part_text) {
     if (command.get_num_arguments() - is_named >= 4) {
         std::stringstream idx_text;
         idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << "," << command.get_argument(3+is_named) << ")";
@@ -94,7 +96,7 @@ void TimberConverter::index_particle(AnalysisCommand command, bool is_named, std
     }
 }
 
-void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
+void CoffeaConverter::add_particle(AnalysisCommand command, std::string name) {
     bool is_named = false;
     if (command.get_instruction() == ADD_PART_NAMED) is_named = true;
     std::stringstream command_text;
@@ -103,7 +105,7 @@ void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
     index_particle(command, is_named, command_text.str());
 }  
 
-void TimberConverter::sub_particle(AnalysisCommand command, std::string name) {
+void CoffeaConverter::sub_particle(AnalysisCommand command, std::string name) {
     bool is_named = false;
     if (command.get_instruction() == ADD_PART_NAMED) is_named = true;
     std::stringstream command_text;
@@ -113,7 +115,7 @@ void TimberConverter::sub_particle(AnalysisCommand command, std::string name) {
     
 }
 
-void TimberConverter::append_4vector_label(AnalysisCommand command, std::string suffix) {
+void CoffeaConverter::append_4vector_label(AnalysisCommand command, std::string suffix) {
 
     std::string output = command.get_argument(0);
     std::string input = var_mappings[command.get_argument(1)];
@@ -137,13 +139,13 @@ void TimberConverter::append_4vector_label(AnalysisCommand command, std::string 
 
 }
 
-std::string TimberConverter::binary_command(AnalysisCommand command, std::string op) {
+std::string CoffeaConverter::binary_command(AnalysisCommand command, std::string op) {
     std::stringstream text;
     text << var_mappings[command.get_argument(1)] << op << var_mappings[command.get_argument(2)];
     return text.str();
 }
 
-std::string TimberConverter::command_convert(AnalysisCommand command) {
+std::string CoffeaConverter::command_convert(AnalysisCommand command) {
 
     AnalysisLevelInstruction inst = command.get_instruction();
     std::stringstream command_text;
@@ -550,7 +552,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
     }
 }
 
-void TimberConverter::print_timber() {
+void CoffeaConverter::print_coffea() {
 
     std::string preliminary = 
         "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\nfrom adl_helpers import combine_without_duplicates\nCompileCpp('adl_cmds.cc')";
@@ -563,4 +565,4 @@ void TimberConverter::print_timber() {
     }
 }
 
-TimberConverter::TimberConverter(ALIConverter *alil_in): alil(alil_in) {}
+CoffeaConverter::CoffeaConverter(ALIConverter *alil_in): alil(alil_in) {}

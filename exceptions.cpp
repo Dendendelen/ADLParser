@@ -22,3 +22,10 @@ void raise_analysis_conversion_exception(std::string error, PToken token) {
     throw AnalysisLevelConversionException(stream.str().c_str());
 
 }
+
+void raise_non_implemented_conversion_exception(std::string inst) {
+    std::stringstream stream;
+    stream << "No implemented conversion exists for \"" << inst << "\"";
+
+    throw AnalysisLevelConversionException(stream.str().c_str());
+}

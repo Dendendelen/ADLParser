@@ -1,8 +1,8 @@
 
-CFLAGS = -g
+CFLAGS = -g -fsanitize=address
 
-main: main.o node.o lexer.o parser.o exceptions.o aliconverter.o timber_converter.o ast_visitor.o
-	g++ $(CFLAGS) -g -o main main.o node.o lexer.o parser.o exceptions.o aliconverter.o timber_converter.o ast_visitor.o
+main: main.o node.o lexer.o parser.o exceptions.o ali_converter.o timber_converter.o ast_visitor.o
+	g++ $(CFLAGS) -g -o main main.o node.o lexer.o parser.o exceptions.o ali_converter.o timber_converter.o ast_visitor.o
 
 main.o: main.cpp lexer.h
 	g++ $(CFLAGS) -o main.o -c main.cpp
@@ -19,8 +19,8 @@ parser.o: parser.cpp parser.h
 ast_visitor.o: ast_visitor.cpp ast_visitor.h
 	g++ $(CFLAGS) -o ast_visitor.o -c ast_visitor.cpp
 
-aliconverter.o: aliconverter.cpp aliconverter.h
-	g++ $(CFLAGS) -o aliconverter.o -c aliconverter.cpp
+ali_converter.o: ali_converter.cpp ali_converter.h
+	g++ $(CFLAGS) -o ali_converter.o -c ali_converter.cpp
 
 timber_converter.o: timber_converter.cpp timber_converter.h
 	g++ $(CFLAGS) -o timber_converter.o -c timber_converter.cpp

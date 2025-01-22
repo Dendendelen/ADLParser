@@ -26,6 +26,7 @@ enum AST_type{
     DEFINITION,
     TABLE_DEF,
     REGION,
+    HISTO_LIST,
 
     INITIALIZATIONS,
     INITIALIZATION,
@@ -62,8 +63,13 @@ enum AST_type{
     PRINT_CMD,
     HISTO_CMD,
     BINS_CMD,
+    BIN_CMD,
 
-    PARTICLES,
+    HISTOGRAM,
+    HISTOLIST_HISTOGRAM,
+    HISTO_USE,
+
+    PARTICLE_LIST,
     INDEX,
     BOXLIST,
 
@@ -105,7 +111,7 @@ class Node {
     private:
         Node(AST_type in);
         std::vector<std::shared_ptr<Node>> children;
-        std::shared_ptr<Node> m_parent;
+        std::weak_ptr<Node> m_parent;
         int line_number;
         int column_number;
         AST_type type;
@@ -120,7 +126,7 @@ class Node {
         Node(AST_type in, std::shared_ptr<Node> parent, std::shared_ptr<Token> tok);
         
         void set_parent(std::shared_ptr<Node> parent);
-        std::shared_ptr<Node> get_parent();
+        std::weak_ptr<Node> get_parent();
 
         void add_child(std::shared_ptr<Node> child);
         std::vector<std::shared_ptr<Node>> &get_children();

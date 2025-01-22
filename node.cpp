@@ -14,7 +14,7 @@ void Node::set_parent(std::shared_ptr<Node> in) {
     m_parent = in;
 }
 
-std::shared_ptr<Node> Node::get_parent() {
+std::weak_ptr<Node> Node::get_parent() {
     return m_parent;
 }
 

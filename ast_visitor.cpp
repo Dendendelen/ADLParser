@@ -5,6 +5,8 @@ void ASTVisitor::visit(PNode node) {
     switch (node->get_ast_type()) {
         case OBJECT:
             return visit_object(node);
+        case DEFINITION:
+            return visit_definition(node);
         case REGION:
             return visit_region(node);
         case CONDITION:
@@ -19,6 +21,21 @@ void ASTVisitor::visit(PNode node) {
             return visit_region_select(node);
         case REGION_USE:
             return visit_use(node);
+        case HISTO_LIST:
+            return visit_histo_list(node);
+        case HISTOGRAM: case HISTOLIST_HISTOGRAM:
+            return visit_histogram(node);
+        case HISTO_USE:
+            return visit_histo_use(node);
+        case PARTICLE_LIST:
+            return visit_particle_list(node);
+        case EXPRESSION:
+            return visit_expression(node);
+        case BIN_CMD:
+            return visit_bin(node);
+        case BINS_CMD:
+            return visit_bin_list(node);
+
         default:
             return visit_children(node);
     }

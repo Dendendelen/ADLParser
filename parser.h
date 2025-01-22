@@ -17,9 +17,14 @@ class Parser {
         PNode parse_object(PNode parent);
         PNode parse_definition(PNode parent);
         PNode parse_table(PNode parent);
+        PNode parse_histo_list(PNode parent);
+
+        PNode parse_histo_entry(PNode parent);
 
         void parse_initializations(PNode parent);
         void parse_count_processes(PNode parent);
+        void parse_histo_entries(PNode parent);
+
 
         void parse_region_commands(PNode parent);
         PNode parse_region_command(PNode parent);
@@ -65,10 +70,13 @@ class Parser {
 
         PNode parse_syst_vtype(PNode parent);
 
-        PNode parse_region_command_cmd(PNode parent);
+        PNode parse_region_command_select(PNode parent);
         PNode parse_region_command_bins(PNode parent);
         PNode parse_region_command_weight(PNode parent);
         PNode parse_region_command_histo(PNode parent);
+
+        void print_children_and_yourself(PNode node, int *top_number);
+
 
     public:
         Parser(Lexer *lex);

@@ -19,12 +19,14 @@ enum Token_type {
     // VARDEF,
     
     DEF,
-    CMD,
+    SELECT,
     REJEC,
     OBJ,
     ALGO,
     TRGE,
     TRGM,
+
+    HISTOLIST,
 
     ADLINFO,
     PAP_EXPERIMENT,
@@ -36,6 +38,8 @@ enum Token_type {
     PAP_ARXIV,
     PAP_HEPDATA,
     PAP_DOI,
+
+    PARTICLE_KEYWORD,
 
     COUNTS,
     COUNTSFORMAT,
@@ -69,8 +73,8 @@ enum Token_type {
     HISTO,
     WEIGHT,
     TABLE,
-    SKPH,
-    SKPE,
+    SKIP_HISTO,
+    SKIP_EFFS,
     GEN,
     
     ELECTRON,
