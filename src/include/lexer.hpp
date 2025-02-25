@@ -1,7 +1,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include "tokens.h"
+#include "tokens.hpp"
 #include <exception>
 #include <regex>
 #include <stdexcept>

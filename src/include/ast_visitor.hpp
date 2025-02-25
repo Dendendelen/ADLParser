@@ -1,7 +1,7 @@
 #ifndef AST_VISITOR_H
 #define AST_VISITOR_H
 
-#include "node.h"
+#include "node.hpp"
 #include <vector>
 class ASTVisitor {
     protected:

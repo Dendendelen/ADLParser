@@ -1,5 +1,5 @@
 
-#include "node.h"
+#include "node.hpp"
 #include <memory>
 
 // private constructor allows node to have no parent

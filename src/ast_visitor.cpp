@@ -1,5 +1,5 @@
-#include "ast_visitor.h"
-#include "node.h"
+#include "ast_visitor.hpp"
+#include "node.hpp"
 
 void ASTVisitor::visit(PNode node) {
     switch (node->get_ast_type()) {

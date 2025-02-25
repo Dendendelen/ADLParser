@@ -1,4 +1,4 @@
-#include "lexer.h"
+#include "lexer.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -7,7 +7,7 @@
 #include <regex>
 #include <vector>
 
-#include "exceptions.h"
+#include "exceptions.hpp"
 
 Token::Token(Token_type in): type(in) {}
 

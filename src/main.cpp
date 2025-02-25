@@ -1,6 +1,6 @@
-#include "lexer.h"
-#include "parser.h"
-#include "timber_converter.h"
+#include "lexer.hpp"
+#include "parser.hpp"
+#include "timber_converter.hpp"
 #include <iostream>
 
 int main(int argc, char** argv) {

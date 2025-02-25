@@ -1,4 +1,4 @@
-#include "exceptions.h"
+#include "exceptions.hpp"
 
 void raise_lexing_exception(PToken token) {
     std::stringstream stream;

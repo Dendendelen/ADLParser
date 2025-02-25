@@ -1,8 +1,8 @@
-#include "coffea_converter.h"
-#include "lexer.h"
-#include "node.h"
-#include "tokens.h"
-#include "exceptions.h"
+#include "coffea_converter.hpp"
+#include "lexer.hpp"
+#include "node.hpp"
+#include "tokens.hpp"
+#include "exceptions.hpp"
 #include <ostream>
 #include <sstream>
 #include <iostream>

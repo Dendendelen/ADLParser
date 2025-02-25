@@ -1,12 +1,12 @@
-#include "parser.h"
+#include "parser.hpp"
 #include <iterator>
 #include <memory>
 
 #include <iostream>
 
-#include "exceptions.h"
-#include "node.h"
-#include "tokens.h"
+#include "exceptions.hpp"
+#include "node.hpp"
+#include "tokens.hpp"
 
 
 

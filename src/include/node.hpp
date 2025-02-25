@@ -4,7 +4,7 @@
 #include <vector>
 #include <memory>
 
-#include "lexer.h"
+#include "lexer.hpp"
 
 enum AST_type{
 

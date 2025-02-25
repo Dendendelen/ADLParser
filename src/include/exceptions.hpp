@@ -1,6 +1,6 @@
 #include <string>
 #include <sstream>
-#include "lexer.h"
+#include "lexer.hpp"
 
 class LexingException : public std::runtime_error {
     public:

@@ -1,7 +1,7 @@
 #ifndef ALI_CONVERTER_H
 #define ALI_CONVERTER_H
 
-#include "ast_visitor.h"
+#include "ast_visitor.hpp"
 #include <string>
 #include <vector>
 

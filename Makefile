@@ -1,36 +1,40 @@
+CFLAGS2 = -g -fsanitize=address
+CFLAGS = -g -Isrc/include
+SRCDIR = src/
+INCDIR = src/include/
+ODIR = out/
 
-CFLAGS = -g -fsanitize=address
+main: $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)ast_visitor.o
+	g++ $(CFLAGS) -g -o main $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)ast_visitor.o
 
-main: main.o node.o lexer.o parser.o exceptions.o ali_converter.o timber_converter.o ast_visitor.o
-	g++ $(CFLAGS) -g -o main main.o node.o lexer.o parser.o exceptions.o ali_converter.o timber_converter.o ast_visitor.o
+out/main.o: $(SRCDIR)main.cpp $(INCDIR)lexer.hpp
+	g++ $(CFLAGS) -o $(ODIR)main.o -c $(SRCDIR)main.cpp
 
-main.o: main.cpp lexer.h
-	g++ $(CFLAGS) -o main.o -c main.cpp
+out/node.o: $(SRCDIR)node.cpp $(INCDIR)node.hpp
+	g++ $(CFLAGS) -o $(ODIR)node.o -c $(SRCDIR)node.cpp
 
-node.o: node.cpp node.h
-	g++ $(CFLAGS) -o node.o -c node.cpp
+out/lexer.o: $(SRCDIR)lexer.cpp $(INCDIR)lexer.hpp
+	g++ $(CFLAGS) -o $(ODIR)lexer.o -c $(SRCDIR)lexer.cpp
 
-lexer.o: lexer.cpp lexer.h 
-	g++ $(CFLAGS) -o lexer.o -c lexer.cpp
+out/parser.o: $(SRCDIR)parser.cpp $(INCDIR)parser.hpp
+	g++ $(CFLAGS) -o $(ODIR)parser.o -c $(SRCDIR)parser.cpp
 
-parser.o: parser.cpp parser.h
-	g++ $(CFLAGS) -o parser.o -c parser.cpp
+out/ast_visitor.o: $(SRCDIR)ast_visitor.cpp $(INCDIR)ast_visitor.hpp
+	g++ $(CFLAGS) -o $(ODIR)ast_visitor.o -c $(SRCDIR)ast_visitor.cpp
 
-ast_visitor.o: ast_visitor.cpp ast_visitor.h
-	g++ $(CFLAGS) -o ast_visitor.o -c ast_visitor.cpp
+out/ali_converter.o: $(SRCDIR)ali_converter.cpp $(INCDIR)ali_converter.hpp
+	g++ $(CFLAGS) -o $(ODIR)ali_converter.o -c $(SRCDIR)ali_converter.cpp
 
-ali_converter.o: ali_converter.cpp ali_converter.h
-	g++ $(CFLAGS) -o ali_converter.o -c ali_converter.cpp
+out/timber_converter.o: $(SRCDIR)timber_converter.cpp $(INCDIR)timber_converter.hpp
+	g++ $(CFLAGS) -o $(ODIR)timber_converter.o -c $(SRCDIR)timber_converter.cpp
 
-timber_converter.o: timber_converter.cpp timber_converter.h
-	g++ $(CFLAGS) -o timber_converter.o -c timber_converter.cpp
+out/exceptions.o: $(SRCDIR)exceptions.cpp $(INCDIR)exceptions.hpp
+	g++ $(CFLAGS) -o $(ODIR)exceptions.o -c $(SRCDIR)exceptions.cpp
 
-exceptions.o: exceptions.cpp exceptions.h
-	g++ $(CFLAGS) -o exceptions.o -c exceptions.cpp
 
 .PHONY: clean dot
 clean:
-	rm -rf *.o main
+	rm -rf out/*.o main
 
 dot:
 	dot -T png -O graph.gv

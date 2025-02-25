@@ -1,8 +1,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
-#include "lexer.h"
-#include "node.h"
+#include "lexer.hpp"
+#include "node.hpp"
 
 class Parser {
     private:

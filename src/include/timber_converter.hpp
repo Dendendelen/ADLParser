@@ -1,14 +1,14 @@
-#ifndef COFFEA_CONVERTER_H
-#define COFFEA_CONVERTER_H
+#ifndef TIMBER_CONVERTER_H
+#define TIMBER_CONVERTER_H
 
-#include "aliconverter.h"
+#include "ali_converter.hpp"
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 
-class CoffeaConverter {
+class TimberConverter {
 
     private:
         
@@ -33,9 +33,9 @@ class CoffeaConverter {
 
 
     public:
-        CoffeaConverter(ALIConverter *alil_in);
+        TimberConverter(ALIConverter *alil_in);
 
-        void print_coffea();
+        void print_timber();
 };
 
 
