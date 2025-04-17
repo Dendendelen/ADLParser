@@ -79,18 +79,21 @@ std::string TimberConverter::existing_definitions_string() {
     return defs.str();
 }
 
-void TimberConverter::index_particle(AnalysisCommand command, bool is_named, std::string part_text) {
+/**
+    Adds an index tag to a particle, as NanoAOD handles 4-vector indices in this way
+*/
+std::string TimberConverter::index_particle(AnalysisCommand command, bool is_named, std::string part_text) {
     if (command.get_num_arguments() - is_named >= 4) {
         std::stringstream idx_text;
-        idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << "," << command.get_argument(3+is_named) << ")";
-        var_mappings[command.get_argument(0)] = idx_text.str();
+        idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << "," << command.get_argument(3+is_named) << ")";\
+        return idx_text.str();
 
     } else if (command.get_num_arguments() - is_named >= 3) {
         std::stringstream idx_text;
         idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << ")";
-        var_mappings[command.get_argument(0)] = idx_text.str();
+        return idx_text.str();
     } else {
-        var_mappings[command.get_argument(0)] = part_text;
+        return part_text;
     }
 }
 
@@ -98,19 +101,20 @@ void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
     bool is_named = false;
     if (command.get_instruction() == ADD_PART_NAMED) is_named = true;
     std::stringstream command_text;
-    command_text << var_mappings[command.get_argument(1+is_named)] << (var_mappings[command.get_argument(1+is_named)] != "" ? " + " : "") << name;
 
-    index_particle(command, is_named, command_text.str());
+    std::string indexed_if_needed = index_particle(command, is_named, name);
+
+    command_text << var_mappings[command.get_argument(1+is_named)] << (var_mappings[command.get_argument(1+is_named)] != "" ? " + " : "") << indexed_if_needed;
+    var_mappings[command.get_argument(0)] = command_text.str();
 }  
 
 void TimberConverter::sub_particle(AnalysisCommand command, std::string name) {
     bool is_named = false;
     if (command.get_instruction() == ADD_PART_NAMED) is_named = true;
     std::stringstream command_text;
-    command_text << var_mappings[command.get_argument(1+is_named)] << " - " << name;
 
-    index_particle(command, is_named, command_text.str());
-    
+    std::string indexed_if_needed = index_particle(command, is_named, name);
+    command_text << var_mappings[command.get_argument(1+is_named)] << " - " << indexed_if_needed;
 }
 
 void TimberConverter::append_4vector_label(AnalysisCommand command, std::string suffix) {
@@ -152,6 +156,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
 
         case HIST_1D:
             command_text << "\n_histogram" << command.get_argument(0) << " = []";
+            command_text << "\n_histogram" << command.get_argument(0) << ".append('" << command.get_argument(0) << "')";
             command_text << "\n_histogram" << command.get_argument(0) << ".append('" << command.get_argument(1) << "')";
             for (int i = 2; i < 5; i++) {
                 command_text << "\n_histogram" << command.get_argument(0) << ".append(" << var_mappings[command.get_argument(i)] << ")";
@@ -160,6 +165,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return command_text.str();
         case HIST_2D:
             command_text << "\n_histogram" << command.get_argument(0) << " = []";
+            command_text << "\n_histogram" << command.get_argument(0) << ".append('" << command.get_argument(0) << "')";
             command_text << "\n_histogram" << command.get_argument(0) << ".append('" << command.get_argument(1) << "')";
             for (int i = 2; i < 5; i++) {
                 command_text << "\n_histogram" << command.get_argument(0) << ".append(" << var_mappings[command.get_argument(i)] << ")";
@@ -172,8 +178,10 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
 
             return command_text.str();      
         case USE_HIST:
-            command_text << "\n_groups_for_histo" << command.get_argument(1) << " = copy.deepcopy(_groups" << var_mappings[command.get_argument(1)] << ")";
-            command_text << "\nuse_histo(_histogram" << command.get_argument(0) << ", _groups_for_histo" << command.get_argument(1) << ")";
+            command_text << "\n_old_node = a.GetActiveNode()";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(_groups" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "\nuse_histo(_histogram" << command.get_argument(0) << ", _histogram_node_" << command.get_argument(1) << ")";
+            command_text << "\na.SetActiveNode(_old_node)";
             return command_text.str();
         case CREATE_HIST_LIST:
             command_text << "\n_histogram_list" << command.get_argument(0) << " = []";
@@ -184,8 +192,10 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << "\n_histogram_list" << var_mappings[command.get_argument(1)] << ".append(_histogram" << command.get_argument(2) << ")";
             return command_text.str();
         case USE_HIST_LIST:
-            command_text << "\n_groups_for_histo" << command.get_argument(1) << " = copy.deepcopy(_groups" << var_mappings[command.get_argument(1)] << ")";
-            command_text << "\n_use_histo_list(" << var_mappings[command.get_argument(0)] << "_groups_for_histo" << command.get_argument(1) << ")";
+            command_text << "\n_old_node = a.GetActiveNode()";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(_groups" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "\nuse_histo_list(_histogram_list" << var_mappings[command.get_argument(0)] << ", _histogram_node_" << command.get_argument(1) << ")";
+            command_text << "\na.SetActiveNode(_old_node)";
             return command_text.str();
 
         case CREATE_REGION:
@@ -498,7 +508,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return command_text.str();        
         case ADD_NAMED_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, var_mappings[command.get_argument(2)]);
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            var_mappings[command.get_argument(0)] = command.get_argument(0);
             return command_text.str();        
         case ADD_ELECTRON_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "Electron");
@@ -598,14 +608,23 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
 void TimberConverter::print_timber() {
 
     std::string preliminary = 
-        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\nfrom adl_helpers import combine_without_duplicates\nCompileCpp('adl_cmds.cc')";
+        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\nfrom adl_helpers import combine_without_duplicates, use_histo, use_histo_list\nCompileCpp('adl_cmds.cc')\na = analyzer('filename.root')\nout = ROOT.TFile.Open('adl_out.root','UPDATE')";
     std::cout << preliminary << std::endl;
+
+    std::string definitions =
+        "\na.Define('MET', 'MET_pt')\n";
+
+    std::cout << definitions << std::endl;
 
     while (alil->clear_to_next()) {
         std::string out = command_convert(alil->next_command());
         if (out == "") continue;
         std::cout << out << std::endl;
     }
+
+    std::string postscriptum = 
+        "\nout.Close()\n";
+    std::cout << postscriptum << std::endl;
 }
 
 TimberConverter::TimberConverter(ALIConverter *alil_in): alil(alil_in) {}

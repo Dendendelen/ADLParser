@@ -596,6 +596,16 @@ PNode Parser::parse_def_rvalue(PNode parent) {
             return constituents;
         }
 
+        // DEF_RVALUE -> external STRING
+        case EXTERNAL:
+        {
+            auto external_func = make_terminal(parent, tok);
+
+            if (lexer->peek(0)->get_token() != STRING) raise_parsing_exception("External functions must be given an explicit code string to run", external_func->get_token());
+
+            external_func->add_child(parse_id(external_func));
+        }
+
         // DEF_RVALUE -> add PARTICLE_LIST
         // DEF_RVALUE -> particle_keyword PARTICLE_LIST
         case ADD: case PARTICLE_KEYWORD:

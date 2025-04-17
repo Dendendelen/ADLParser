@@ -79,18 +79,22 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token.front() == '#') return LEXER_COMMENT;
     if (std::regex_match(token, std::regex("\\s+"))) return LEXER_SPACE;
 
+    // Top level ADL syntax
     if (uppercase_token == "DEF" || uppercase_token == "DEFINE") return DEF;
-    if (uppercase_token == "CMD" || uppercase_token == "CUT" || uppercase_token == "SELECT") return SELECT;
-    if (uppercase_token == "REJECT") return REJEC;
+    if (uppercase_token == "ALGORITHM" || uppercase_token == "ALGO" || uppercase_token == "REGION") return ALGO;
+    if (uppercase_token == "HISTOLIST") return HISTOLIST;
+    if (uppercase_token == "INFO") return ADLINFO;
     if (uppercase_token == "OBJ" || uppercase_token == "OBJECT") return OBJ;
 
-    if (uppercase_token == "HISTOLIST") return HISTOLIST;
 
-    if (uppercase_token == "ALGORITHM" || uppercase_token == "ALGO" || uppercase_token == "REGION") return ALGO;
+    if (uppercase_token == "CMD" || uppercase_token == "CUT" || uppercase_token == "SELECT") return SELECT;
+    if (uppercase_token == "REJECT") return REJEC;
+
+
     if (token == "TRGe") return TRGE;
     if (token == "TRGm") return TRGM;
-    if (uppercase_token == "INFO") return ADLINFO;
 
+    // Header info tags
     if (token == "experiment") return PAP_EXPERIMENT;
     if (token == "id") return PAP_ID;
     if (uppercase_token == "TITLE") return PAP_TITLE;
@@ -107,7 +111,9 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == "syst") return ERR_SYST;
     if (token == "process") return PROCESS;
 
-    if (uppercase_token == "PARTICLE") return PARTICLE_KEYWORD;
+    
+    if (uppercase_token == "PARTICLE") return PARTICLE_KEYWORD; // keyword that allows definitions to be of particles and not functions
+    if (uppercase_token == "EXTERN" || uppercase_token  == "EXTERNAL") return EXTERNAL; // keyword that allows arbitrary external functions to be included
 
     if (token == "systematic") return SYSTEMATIC;
     if (token == "ttree") return SYST_TTREE;
@@ -150,6 +156,8 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == "daughters" || token == "constituents") return CONSTITUENTS;
     if (token == "NUMET") return NUMET;
     if (token == "METLV") return METLV;
+    if (token == "MET") return MET;
+
     if (token == "LEP") return LEPTON;
     if (uppercase_token == "HLT") return HLT;
     if (token == "BJET") return BJET;
@@ -169,6 +177,7 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "TAUTAG") return IS_TAUTAG;
 
     if (uppercase_token == "PDGID") return PDG_ID;
+    if (uppercase_token == "STATUSFLAGS") return STATUS_FLAGS;
     if (uppercase_token == "FLAVOR" | uppercase_token == "BTAGGER") return FLAVOR;
     if (uppercase_token == "PTCONE") return PTCONE;
     if (uppercase_token == "ETCONE") return ETCONE;
@@ -202,17 +211,16 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "PHI") return PHI;//functions
     if (uppercase_token == "ETA") return ETA;
     if (uppercase_token == "RAP") return RAPIDITY;
-    if (uppercase_token == "EBSETA") return ABS_ETA;
+    if (uppercase_token == "ABSETA") return ABS_ETA;
     if (uppercase_token == "THETA") return THETA;
     if (uppercase_token == "PT") return PT;
     if (uppercase_token == "PZ") return PZ;
-    if (uppercase_token == "DR") return DR;
-    if (uppercase_token == "DPHI") return DPHI;
-    if (uppercase_token == "DETA") return DETA;
+    if (uppercase_token == "DR" || uppercase_token == "DELTAR") return DR;
+    if (uppercase_token == "DPHI" || uppercase_token == "DELTAPHI") return DPHI;
+    if (uppercase_token == "DETA" || uppercase_token == "DELTAETA") return DETA;
     if (uppercase_token == "SIZE" || uppercase_token == "COUNT" || uppercase_token == "NUMOF") return NUMOF;//no arg funcs 
     if (uppercase_token == "NBJ") return NBF;
     if (uppercase_token == "FHT") return HT; // attention
-    if (token == "MET") return MET;
     if (token == "fAplanarity") return APLANARITY;
     if (token == "fSphericity") return SPHERICITY;
     if (token == "LEPsf") return LEP_SF;
@@ -291,17 +299,17 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == ",") return COMMA;
 
     // these letters are keywords in ADL, and so are their own tokens
-    if (uppercase_token == "Q") return LETTER_Q;
-    if (uppercase_token == "E") return LETTER_E;
-    if (uppercase_token == "P") return LETTER_P;
-    if (uppercase_token == "M") return LETTER_M;
+    if (uppercase_token == "Q") return LETTER_Q; // charge
+    if (uppercase_token == "E") return LETTER_E; // energy
+    if (uppercase_token == "P") return LETTER_P; // momentum
+    if (uppercase_token == "M") return LETTER_M; // mass
 
     // We have as of yet failed to lex this - if this is a number, we lex it
     if (std::regex_match(token, reg_int)) return INTEGER;
     if (std::regex_match(token, reg_decimal)) return DECIMAL;
     if (std::regex_match(token, reg_scientific)) return SCIENTIFIC;
 
-    // It definintely isn't a number - maybe it's a variable name format?
+    // It definintely isn't a number - maybe it's a variable name format
     if (std::regex_match(token, reg_varname)) return VARNAME;
 
     // Not that either - maybe it's just a valid string

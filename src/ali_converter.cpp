@@ -330,7 +330,8 @@ void visit_if(PNode node) {
 std::string ALIConverter::reserve_scoped_value_name() {
     std::stringstream new_var_name;
     new_var_name << "_V" << highest_var_val++ << "_" << current_scope_name;
-    return new_var_name.str();
+    last_value_name = new_var_name.str();
+    return last_value_name;
 }
 
 std::string ALIConverter::reserve_scoped_limit_name() {
@@ -638,6 +639,7 @@ std::string ALIConverter::particle_list_function(PNode node) {
         case APLANARITY:
             inst = FUNC_APLANARITY; break;
         default:
+            raise_analysis_conversion_exception("Undefined particle function", node->get_token());
             break;
 
     }
@@ -1130,7 +1132,7 @@ void ALIConverter::visit_object(PNode node) {
     AnalysisCommand apply_mask(APPLY_MASK);
 
     apply_mask.add_argument(name_lexeme);
-    apply_mask.add_argument(current_scope_name);
+    apply_mask.add_argument(current_limit);
     apply_mask.add_argument(source_lexeme);
 
     command_list.push_back(apply_mask);
@@ -1220,7 +1222,7 @@ void ALIConverter::visit_definition(PNode node) {
     AnalysisCommand add_def_name(ADD_ALIAS);
 
     add_def_name.add_argument(name_lexeme);
-    add_def_name.add_argument(current_scope_name);
+    add_def_name.add_argument(last_value_name);
 
     command_list.push_back(add_def_name);
     current_scope_name = prev_name;

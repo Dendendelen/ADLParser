@@ -25,7 +25,7 @@ class TimberConverter {
         void append_4vector_label(AnalysisCommand command, std::string suffix);
         void sub_particle(AnalysisCommand command, std::string name);
         void add_particle(AnalysisCommand command, std::string name);
-        void index_particle(AnalysisCommand command, bool is_named, std::string part_text);
+        std::string index_particle(AnalysisCommand command, bool is_named, std::string part_text);
         std::string existing_definitions_string();
         std::string add_all_relevant_tags_for_object(AnalysisCommand command);
         std::string add_all_relevant_tags_for_union_merge(AnalysisCommand command, std::string adding_name);

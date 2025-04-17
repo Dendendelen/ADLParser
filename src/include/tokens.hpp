@@ -40,6 +40,7 @@ enum Token_type {
     PAP_DOI,
 
     PARTICLE_KEYWORD,
+    EXTERNAL,
 
     COUNTS,
     COUNTSFORMAT,
@@ -110,6 +111,8 @@ enum Token_type {
     IS_TAUTAG,
 
     PDG_ID,
+    STATUS_FLAGS,
+    
     FLAVOR,
     PTCONE,
     ETCONE,
