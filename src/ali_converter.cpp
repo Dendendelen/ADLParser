@@ -39,6 +39,8 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
             return "RUN_REGION";
         case ADD_ALIAS:
             return "ADD_ALIAS";
+        case ADD_EXTERNAL:
+            return "ADD_EXTERNAL";
         case ADD_OBJECT:
             return "ADD_OBJECT";
         case CREATE_MASK:
@@ -120,12 +122,12 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
             return "FUNC_PHI"; 
         case FUNC_MASS:
             return "FUNC_M"; 
+        case FUNC_MSOFTDROP:
+            return "FUNC_MSOFTDROP";
         case FUNC_ENERGY:
             return "FUNC_E"; 
         case MAKE_EMPTY_PARTICLE:
             return "MAKE_EMPTY_PARTICLE"; 
-        case CREATE_PARTICLE_VARIABLE:
-            return "CREATE_PARTICLE_VARIABLE"; 
         case ADD_PART_ELECTRON:
             return "ADD_PART_ELECTRON"; 
         case ADD_PART_MUON:
@@ -233,6 +235,8 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
             return "FUNC_CONSTITUENTS";
         case FUNC_PDG_ID:
             return "FUNC_PDG_ID";
+        case FUNC_JET_ID:
+            return "FUNC_JET_ID";
         case FUNC_IDX:
             return "FUNC_IDX";
         case FUNC_TAUTAG:
@@ -289,7 +293,7 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
             return "FUNC_VER_T";
         case FUNC_GEN_PART_IDX:
             return "FUNC_GEN_PART_IDX";
-        case FUNC_Q:
+        case FUNC_CHARGE:
             return "FUNC_Q";
         case FUNC_RAPIDITY:
             return "FUNC_RAPIDITY";
@@ -553,15 +557,18 @@ std::string ALIConverter::particle_list_function(PNode node) {
             inst = FUNC_PT; break;
         case LETTER_M: 
             inst = FUNC_MASS; break;
+        case MSOFTDROP:
+            inst = FUNC_MSOFTDROP; break;
         case LETTER_Q: 
-            inst = FUNC_Q; // ????????
-            break; //TODO: what is Q? // NOTE: Q is charge for some reason
+            inst = FUNC_CHARGE; break;
         case FLAVOR: 
             inst = FUNC_FLAVOR; break;
         case CONSTITUENTS: 
             inst = FUNC_CONSTITUENTS; break;
         case PDG_ID: 
             inst = FUNC_PDG_ID; break;
+        case JET_ID:
+            inst = FUNC_JET_ID; break;
         case IDX: 
             inst = FUNC_IDX; break;
         case IS_TAUTAG: 
@@ -830,6 +837,7 @@ std::string ALIConverter::handle_expression(PNode node) {
         case DXY: case EDXY: case EDZ: case DZ: case VERTR: case VERZ: case VERY: case VERX: case VERT: 
         case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case ABS_ETA: case THETA: 
         case PTCONE: case ETCONE: case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
+        case  MSOFTDROP: case JET_ID:
         case PT: case PZ: case NBF: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY:
             return particle_list_function(node);
         case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: 
@@ -842,7 +850,7 @@ std::string ALIConverter::handle_expression(PNode node) {
 void ALIConverter::visit_condition(PNode node) {
 
     std::stringstream cond_name;
-    cond_name << "_COND_" << current_scope_name;
+    cond_name << reserve_scoped_value_name() << "_COND_" << current_scope_name;
 
     std::string final = handle_expression(node->get_children()[0]);
 
@@ -1204,12 +1212,12 @@ void ALIConverter::visit_region(PNode node) {
 
 }
 
+
 void ALIConverter::visit_definition(PNode node) {
 
     std::string prev_name = current_scope_name;
 
     PNode name = node->get_children()[0];
-
     std::string name_lexeme = name->get_token()->get_lexeme();
 
     std::stringstream def_name;
@@ -1217,15 +1225,29 @@ void ALIConverter::visit_definition(PNode node) {
 
     current_scope_name = def_name.str();
 
-    visit_children_after_index(node, 0);
 
-    AnalysisCommand add_def_name(ADD_ALIAS);
+    if (node->get_children()[1]->get_ast_type() == TERMINAL && node->get_children()[1]->get_token()->get_token() == EXTERNAL) {
+        PNode func = node->get_children()[1]->get_children()[0];
+        std::string func_name = func->get_token()->get_lexeme();
 
-    add_def_name.add_argument(name_lexeme);
-    add_def_name.add_argument(last_value_name);
+        AnalysisCommand add_extern_name(ADD_EXTERNAL);
+        add_extern_name.add_argument(name_lexeme);
+        add_extern_name.add_argument(func_name);
 
-    command_list.push_back(add_def_name);
+        command_list.push_back(add_extern_name);
+    } else {
+        visit_children_after_index(node, 0);
+
+        AnalysisCommand add_def_name(ADD_ALIAS);
+
+        add_def_name.add_argument(name_lexeme);
+        add_def_name.add_argument(last_value_name);
+
+        command_list.push_back(add_def_name);
+    }
+    
     current_scope_name = prev_name;
+    
 }
 
 void ALIConverter::visit_criteria(PNode node) {

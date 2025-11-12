@@ -19,6 +19,7 @@ class TimberConverter {
         std::unordered_map<std::string, std::vector<std::string>> region_groups;
 
         std::unordered_set<std::string> needs_btag;
+        std::unordered_set<std::string> empty_union_names;
 
         std::string command_convert(AnalysisCommand command);
         std::string binary_command(AnalysisCommand command, std::string op);

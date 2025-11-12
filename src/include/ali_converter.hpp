@@ -14,6 +14,7 @@ enum AnalysisLevelInstruction {
     RUN_REGION,
 
     ADD_ALIAS,
+    ADD_EXTERNAL,
 
     ADD_OBJECT,
     CREATE_MASK,
@@ -64,7 +65,7 @@ enum AnalysisLevelInstruction {
     FUNC_VER_T,
     FUNC_GEN_PART_IDX,
 
-    FUNC_Q,
+    FUNC_CHARGE,
 
     FUNC_BTAG,
     FUNC_PT,
@@ -73,6 +74,7 @@ enum AnalysisLevelInstruction {
     FUNC_PHI,
     FUNC_MASS,
     FUNC_ENERGY,
+    FUNC_MSOFTDROP,
 
     FUNC_ABS_ETA,
     FUNC_THETA,
@@ -95,7 +97,6 @@ enum AnalysisLevelInstruction {
     FUNC_APLANARITY,
 
     MAKE_EMPTY_PARTICLE,
-    CREATE_PARTICLE_VARIABLE,
 
     MAKE_EMPTY_UNION,
     ADD_NAMED_TO_UNION,
@@ -153,6 +154,7 @@ enum AnalysisLevelInstruction {
     FUNC_FLAVOR,
     FUNC_CONSTITUENTS,
     FUNC_PDG_ID,
+    FUNC_JET_ID,
     FUNC_IDX,
     FUNC_TAUTAG,
     FUNC_CTAG,

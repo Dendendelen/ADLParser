@@ -534,6 +534,8 @@ PNode Parser::parse_histo_entry(PNode parent) {
 
         DEF_RVALUE -> add PARTICLE_LIST
 
+        DEF_RVALUE -> extern string
+
         DEF_RVALUE -> particle_keyword PARTICLE_LIST
 
         DEF_RVALUE -> E
@@ -560,7 +562,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
         // DEF_RVALUE -> OME ( DESCRIPTION, {VARIABLE_LIST}, INDEX)
         case OME:
         {   
-            auto ome = make_terminal(parent, tok);            
+            auto ome = make_terminal(parent, lexer->next());            
             lexer->expect_and_consume(OME);
 
             lexer->expect_and_consume(OPEN_PAREN);
@@ -587,7 +589,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
         // DEF_RVALUE -> constituents PARTICLE_LIST
         case CONSTITUENTS:
         {
-            auto constituents = make_terminal(parent, tok);
+            auto constituents = make_terminal(parent, lexer->next());
 
             PNode particle_list(new Node(PARTICLE_LIST, constituents));
             parse_particle_list(particle_list);
@@ -599,11 +601,13 @@ PNode Parser::parse_def_rvalue(PNode parent) {
         // DEF_RVALUE -> external STRING
         case EXTERNAL:
         {
-            auto external_func = make_terminal(parent, tok);
+            auto external_func = make_terminal(parent, lexer->next());
 
             if (lexer->peek(0)->get_token() != STRING) raise_parsing_exception("External functions must be given an explicit code string to run", external_func->get_token());
 
             external_func->add_child(parse_id(external_func));
+
+            return external_func;
         }
 
         // DEF_RVALUE -> add PARTICLE_LIST
@@ -667,7 +671,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
 
     OBJ_RVALUE -> union (ID, ID)
 
-    OBJ_RVALUE -> comb ( PARTICLE_LIST ) HAMHUM CRITERIA
+    OBJ_RVALUE -> comb ( PARTICLE_LIST )
 
     OBJ_RVALUE -> ID CRITERIA
 
@@ -733,7 +737,7 @@ void Parser::parse_obj_rvalue(PNode parent) {
             return;
         }
 
-        // OBJ_RVALUE -> comb ( PARTICLE_LIST ) HAMHUM CRITERIA
+        // OBJ_RVALUE -> comb ( PARTICLE_LIST )
         case COMB:
         {
             PNode comb_type = make_terminal(parent, lexer->next());
@@ -748,8 +752,6 @@ void Parser::parse_obj_rvalue(PNode parent) {
             parse_particle_list(particle_list);
             lexer->expect_and_consume(CLOSE_PAREN);
 
-            comb_type->add_child(parse_hamhum(comb_type));
-            parse_criteria(comb_type);
             return;
 
         }
@@ -859,24 +861,13 @@ void Parser::parse_region_commands(PNode parent) {
     }
 }
 
+
 /*  REGION_COMMAND_SELECT productions:
 ---
 
     REGION_COMMAND_SELECT -> none
 
     REGION_COMMAND_SELECT -> all
-
-    REGION_COMMAND_SELECT -> lepsf
-
-    REGION_COMMAND_SELECT -> btagsf
-
-    REGION_COMMAND_SELECT -> xlumicorrsf
-
-    REGION_COMMAND_SELECT -> hlt DESCRIPTION
-
-    REGION_COMMAND_SELECT -> applyhm (ID (E, E) eq integer)
-
-    REGION_COMMAND_SELECT -> applyhm (ID (E) eq integer)
     
     REGION_COMMAND_SELECT -> IF_OR_CONDITION
 
@@ -977,6 +968,22 @@ PNode Parser::parse_region_command_select(PNode parent) {
     REGION_COMMAND -> sort EXPRESSION ascend
 
     REGION_COMMAND -> sort EXPRESSION descend
+
+    REGION_COMMAND -> if EXPRESSION then REGION_COMMAND else REGION_COMMAND
+
+    REGION_COMMAND -> if EXPRESSION do REGION_COMMAND
+
+    REGION_COMMAND_SELECT -> lepsf
+
+    REGION_COMMAND_SELECT -> btagsf
+
+    REGION_COMMAND_SELECT -> xlumicorrsf
+
+    REGION_COMMAND_SELECT -> hlt DESCRIPTION
+
+    REGION_COMMAND_SELECT -> applyhm (ID (E, E) eq integer)
+
+    REGION_COMMAND_SELECT -> applyhm (ID (E) eq integer)
  */
 
 PNode Parser::parse_region_command(PNode parent) {
@@ -1119,6 +1126,40 @@ PNode Parser::parse_region_command(PNode parent) {
             return sort;
         }
 
+        // REGION_COMMAND_SELECT -> hlt DESCRIPTION
+        case HLT:
+        {
+            auto node = make_terminal(parent, tok);
+            lexer->next();
+            node->add_child(parse_description(node));
+            return node;
+        }
+
+        // REGION_COMMAND_SELECT -> applyhm (ID (E, E) eq integer)
+        // REGION_COMMAND_SELECT -> applyhm (ID (E) eq integer)
+        case APPLY_HM:
+        {
+            auto node = make_terminal(parent, tok);
+            lexer->next();
+            lexer->expect_and_consume(OPEN_PAREN);
+            node->add_child(parse_id(node));
+            lexer->expect_and_consume(OPEN_PAREN);
+            node->add_child(parse_expression(node));
+
+            if (lexer->peek(0)->get_token() == COMMA) {
+                lexer->expect_and_consume(COMMA);
+                node->add_child(parse_expression(node));
+            }
+
+            lexer->expect_and_consume(CLOSE_PAREN);
+            lexer->expect_and_consume(EQ);
+            auto integer = lexer->next();
+
+            if (integer->get_token() != INTEGER) raise_parsing_exception("Needs integer type", integer);
+            node->add_child(make_terminal(node, integer));
+
+            return node;
+        }
         default:
             raise_parsing_exception("Unexpected token in region block", tok);
             return PNode(new Node(AST_ERROR, parent));
@@ -1230,6 +1271,26 @@ void Parser::parse_variable_list(PNode parent) {
     }
 }
 
+
+/* REGION_CONDITIONAL_COMMAND productions:
+---
+
+    REGION_CONDITIONAL_COMMAND -> if CONDITION then ACTION else ACTION
+    REGION_CONDITIONAL_COMMAND -> if CONDITION do ACTION
+
+*/
+
+//TODO: replace other condition with this one, make expressions parse to them only in parentheses
+/* CONDITION productions: 
+---
+
+    CONDITION -> E ? E : E
+
+    CONDITION -> E
+
+*/
+
+
 /* IF_OR_CONDITION productions:
 ---
 
@@ -1239,7 +1300,8 @@ void Parser::parse_variable_list(PNode parent) {
  */
 PNode Parser::parse_if_or_condition(PNode parent) {
 
-    PNode node(new Node(IF, parent));
+    //TODO: change IF token to something else
+    PNode node(new Node(IF_STATEMENT, parent));
 
     node->add_child(parse_condition(node));
 
@@ -1256,8 +1318,6 @@ PNode Parser::parse_if_or_condition(PNode parent) {
 
 /* ACTION productions:
 ---
-
-    ACTION -> print VARIABLE_LIST
 
     ACTION -> all
 
@@ -1691,19 +1751,6 @@ PNode Parser::parse_syst_vtype(PNode parent) {
 }
 
 
-/* HAMHUM productions:
----
-
-    HAMHUM -> hamhum ID
- */
-PNode Parser::parse_hamhum(PNode parent) {
-    PNode hamhum(new Node(HAMHUM, parent));
-    lexer->expect_and_consume(ALIAS);
-    
-    hamhum->add_child(parse_id(hamhum));
-    return hamhum;
-}
-
 /* CRITERIA productions:
 ---
 
@@ -1728,8 +1775,6 @@ void Parser::parse_criteria(PNode parent) {
 ---
 
     CRITERION -> select ACTION
-
-    CRITERION -> histo ACTION
 
     CRITERION -> print VARIABLE_LIST
 
@@ -1899,9 +1944,9 @@ PNode Parser::parse_expression_helper(PNode parent) {
             return node;
         }
         case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: 
-        case FLAVOR: case CONSTITUENTS: case PDG_ID: case IDX: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
+        case FLAVOR: case CONSTITUENTS: case PDG_ID: case JET_ID: case IDX: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
         case DXY: case EDXY: case EDZ: case DZ: case VERTR: case VERZ: case VERY: case VERX: case VERT: 
-        case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case ABS_ETA: case THETA: 
+        case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case ABS_ETA: case MSOFTDROP: case THETA: 
         case PTCONE: case ETCONE: case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
         case PT: case PZ: case NBF: case DR: case DPHI: case DETA: case NUMOF: case HT: case FMT2: case FMTAUTAU: case APLANARITY: case SPHERICITY:
         {
@@ -2005,7 +2050,8 @@ PNode Parser::parse_expression_helper(PNode parent) {
         }
         default:
             if(!is_numerical(tok->get_token())) raise_parsing_exception("Invalid token used in expression", tok);
-            return precedence_climber(parent, node, 0);
+            // return precedence_climber(parent, node, 0);
+            return node;
     }
 }
 

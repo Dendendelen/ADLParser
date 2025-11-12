@@ -8,7 +8,6 @@ class ASTVisitor {
         virtual void visit_object(PNode node) = 0;
         virtual void visit_region(PNode node) = 0;
         virtual void visit_definition(PNode node) = 0;
-        
 
         virtual void visit_criteria(PNode node) = 0;
 

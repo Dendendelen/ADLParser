@@ -44,7 +44,7 @@ enum AST_type{
     REGION_REJECT,
     REGION_USE,
 
-    IF,
+    IF_STATEMENT,
 
     DESCRIPTION,
     BOOL,

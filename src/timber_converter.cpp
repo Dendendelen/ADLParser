@@ -1,4 +1,5 @@
 #include "timber_converter.hpp"
+#include "ali_converter.hpp"
 #include "lexer.hpp"
 #include "node.hpp"
 #include "tokens.hpp"
@@ -17,15 +18,19 @@ std::string TimberConverter::add_all_relevant_tags_for_object(AnalysisCommand co
     std::string mask = command.get_argument(1);
     std::string src_vec = command.get_argument(2);
 
-    command_text << add_target << ".Add('" << dest_vec << "_pt', 'apply_mask(" << mask << ", " << src_vec << "_pt)')\n"; 
-    command_text << add_target << ".Add('" << dest_vec << "_eta', 'apply_mask(" << mask << ", " << src_vec << "_eta)')\n"; 
-    command_text << add_target << ".Add('" << dest_vec << "_phi', 'apply_mask(" << mask << ", " << src_vec << "_phi)')\n"; 
-    command_text << add_target << ".Add('" << dest_vec << "_mass', 'apply_mask(" << mask << ", " << src_vec << "_mass)')\n"; 
+    command_text << "a.Apply(" <<add_target << ")\n";
 
-    if (needs_btag.count(src_vec) > 0 || src_vec == "Jet" || src_vec == "FatJet") {
-        command_text << add_target << ".Add('" << dest_vec << "_btagDeepFlavB', 'apply_mask(" << mask << ", " << src_vec << "_btagDeepFlavB)')\n"; 
-        needs_btag.insert(dest_vec);
-    }
+    command_text << "a.SubCollection('" << dest_vec << "', '" << src_vec << "', '" << mask << "', useTake=False)\n";
+
+    // command_text << add_target << ".Add('" << dest_vec << "_pt', 'apply_mask(" << mask << ", " << src_vec << "_pt)')\n"; 
+    // command_text << add_target << ".Add('" << dest_vec << "_eta', 'apply_mask(" << mask << ", " << src_vec << "_eta)')\n"; 
+    // command_text << add_target << ".Add('" << dest_vec << "_phi', 'apply_mask(" << mask << ", " << src_vec << "_phi)')\n"; 
+    // command_text << add_target << ".Add('" << dest_vec << "_mass', 'apply_mask(" << mask << ", " << src_vec << "_mass)')\n"; 
+
+    // if (needs_btag.count(src_vec) > 0 || src_vec == "Jet" || src_vec == "FatJet") {
+    //     command_text << add_target << ".Add('" << dest_vec << "_btagDeepFlavB', 'apply_mask(" << mask << ", " << src_vec << "_btagDeepFlavB)')\n"; 
+    //     needs_btag.insert(dest_vec);
+    // }
 
     return command_text.str();
 
@@ -36,11 +41,13 @@ std::string TimberConverter::add_all_relevant_tags_for_union_empty(AnalysisComma
 
     std::string dest_vec = command.get_argument(0);
 
-    command_text << dest_vec << ".Add('" << dest_vec << "_pt', 'empty_union()')\n";            
-    command_text << dest_vec << ".Add('" << dest_vec << "_eta', 'empty_union()')\n";            
-    command_text << dest_vec << ".Add('" << dest_vec << "_phi', 'empty_union()')\n";            
-    command_text << dest_vec << ".Add('" << dest_vec << "_mass', 'empty_union()')\n";            
-    command_text << dest_vec << ".Add('" << dest_vec << "_btagDeepFlavB', 'empty_union()')\n";            
+    empty_union_names.insert(dest_vec);
+
+    // command_text << dest_vec << ".Add('" << dest_vec << "_pt', 'empty_union()')\n";            
+    // command_text << dest_vec << ".Add('" << dest_vec << "_eta', 'empty_union()')\n";            
+    // command_text << dest_vec << ".Add('" << dest_vec << "_phi', 'empty_union()')\n";            
+    // command_text << dest_vec << ".Add('" << dest_vec << "_mass', 'empty_union()')\n";            
+    // command_text << dest_vec << ".Add('" << dest_vec << "_btagDeepFlavB', 'empty_union()')\n";            
 
     return command_text.str();  
 }
@@ -53,16 +60,22 @@ std::string TimberConverter::add_all_relevant_tags_for_union_merge(AnalysisComma
     std::string dest_vec = command.get_argument(0);
     std::string old_union = command.get_argument(1);
 
-
-    command_text << add_target << ".Add('" << dest_vec << "_pt', 'union_merge(" << old_union << "_pt, " << adding_name << "_pt)')\n";
-    command_text << add_target << ".Add('" << dest_vec << "_eta', 'union_merge(" << old_union << "_eta, " << adding_name << "_eta)')\n";
-    command_text << add_target << ".Add('" << dest_vec << "_phi', 'union_merge(" << old_union << "_phi, " << adding_name << "_phi)')\n";
-    command_text << add_target << ".Add('" << dest_vec << "_mass', 'union_merge(" << old_union << "_mass, " << adding_name << "_mass)')\n";
-
-    if (needs_btag.count(adding_name) > 0 || adding_name == "Jet" || adding_name == "FatJet") {
-        command_text << add_target << ".Add('" << dest_vec << "_btagDeepFlavB', 'union_merge(" << old_union << "_btagDeepFlavB, " << adding_name << "_btagDeepFlavB)')\n";
-        needs_btag.insert(dest_vec);
+    if (empty_union_names.find(old_union) != empty_union_names.end()) {
+        empty_union_names.erase(empty_union_names.find(old_union));
+        command_text << add_target << ".MergeCollections('" << dest_vec << "', ["  << adding_name << "])\n";
+    } else {
+        command_text << add_target << ".MergeCollections('" << dest_vec << "', [" << old_union << ", " << adding_name << "])\n";
     }
+
+    // command_text << add_target << ".Add('" << dest_vec << "_pt', 'union_merge(" << old_union << "_pt, " << adding_name << "_pt)')\n";
+    // command_text << add_target << ".Add('" << dest_vec << "_eta', 'union_merge(" << old_union << "_eta, " << adding_name << "_eta)')\n";
+    // command_text << add_target << ".Add('" << dest_vec << "_phi', 'union_merge(" << old_union << "_phi, " << adding_name << "_phi)')\n";
+    // command_text << add_target << ".Add('" << dest_vec << "_mass', 'union_merge(" << old_union << "_mass, " << adding_name << "_mass)')\n";
+
+    // if (needs_btag.count(adding_name) > 0 || adding_name == "Jet" || adding_name == "FatJet") {
+    //     command_text << add_target << ".Add('" << dest_vec << "_btagDeepFlavB', 'union_merge(" << old_union << "_btagDeepFlavB, " << adding_name << "_btagDeepFlavB)')\n";
+    //     needs_btag.insert(dest_vec);
+    // }
 
     return command_text.str();  
 }
@@ -179,7 +192,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return command_text.str();      
         case USE_HIST:
             command_text << "\n_old_node = a.GetActiveNode()";
-            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(_groups" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(" << var_mappings[command.get_argument(1)] << ")";
             command_text << "\nuse_histo(_histogram" << command.get_argument(0) << ", _histogram_node_" << command.get_argument(1) << ")";
             command_text << "\na.SetActiveNode(_old_node)";
             return command_text.str();
@@ -193,20 +206,21 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return command_text.str();
         case USE_HIST_LIST:
             command_text << "\n_old_node = a.GetActiveNode()";
-            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(_groups" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(" << var_mappings[command.get_argument(1)] << ")";
             command_text << "\nuse_histo_list(_histogram_list" << var_mappings[command.get_argument(0)] << ", _histogram_node_" << command.get_argument(1) << ")";
             command_text << "\na.SetActiveNode(_old_node)";
             return command_text.str();
 
         case CREATE_REGION:
-            command_text << "\n_groups" << command.get_argument(0) << " = " << existing_definitions_string() << "\n";
+            // command_text << "\n_groups" << command.get_argument(0) << " = " << existing_definitions_string() << "\n";
             command_text << command.get_argument(0) << " = CutGroup('" << command.get_argument(0) << "')\n";
-            command_text << "_groups" << command.get_argument(0) << ".append(" << command.get_argument(0) << ")\n";
+            // command_text << "_groups" << command.get_argument(0) << ".append(" << command.get_argument(0) << ")\n";
 
             var_mappings[command.get_argument(0)] = command.get_argument(0);
             return command_text.str();
         case MERGE_REGIONS:
-            command_text << "_groups" << var_mappings[command.get_argument(2)] << " = combine_without_duplicates(_groups" << var_mappings[command.get_argument(1)] << ", _groups" << var_mappings[command.get_argument(2)] << ")\n";
+            // command_text << "_groups" << var_mappings[command.get_argument(2)] << " = combine_without_duplicates(_groups" << var_mappings[command.get_argument(1)] << ", _groups" << var_mappings[command.get_argument(2)] << ")\n";
+            command_text << var_mappings[command.get_argument(2)] << " = " << var_mappings[command.get_argument(2)] << " + " << var_mappings[command.get_argument(1)] << "\n";
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(2)];
             return command_text.str();
         case CUT_REGION:
@@ -219,6 +233,13 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         {
             if (var_mappings.count(command.get_argument(1)) == 0) var_mappings[command.get_argument(1)] = command.get_argument(1);
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return "";
+        }
+        case ADD_EXTERNAL:
+        {
+            std::string fn_name_with_quotes = command.get_argument(1);
+            std::string fn_name_wo_quotes = fn_name_with_quotes.substr(1,fn_name_with_quotes.size()-2);
+            var_mappings[command.get_argument(0)] = fn_name_wo_quotes;
             return "";
         }
         case ADD_OBJECT:
@@ -342,17 +363,29 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             append_4vector_label(command, "_mass");
             return "";
         case FUNC_ENERGY:
+            raise_non_implemented_conversion_exception("FUNC_ENERGY");
             return "FUNC_E"; 
-        case FUNC_Q:
+        case FUNC_CHARGE:
             append_4vector_label(command, "_charge");
             return "";
+        case FUNC_MSOFTDROP:
+            append_4vector_label(command, "_msoftdrop");
+            return "";
+        case FUNC_IS_TIGHT:
+            append_4vector_label(command, "_tightId");
+            return "";
+        case FUNC_IS_MEDIUM:
+            append_4vector_label(command, "_mediumId");
+            return "";
+        case FUNC_IS_LOOSE:
+            append_4vector_label(command, "_looseId");
+            return "";
+
         case MAKE_EMPTY_PARTICLE:
         {
             var_mappings[command.get_argument(0)] = "";
             return "";
         }
-        case CREATE_PARTICLE_VARIABLE:
-            return "CREATE_PARTICLE_VARIABLE"; 
         case ADD_PART_ELECTRON:
             add_particle(command, "Electron");
             return "";
@@ -525,6 +558,9 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_FLAVOR:
             append_4vector_label(command, "_partonFlavor");
             return "";
+        case FUNC_JET_ID:
+            append_4vector_label(command, "_jetId");
+            return "";
         case FUNC_CONSTITUENTS:
             raise_non_implemented_conversion_exception("FUNC_CONSTITUENTS");
             return "FUNC_CONSTITUENTS";
@@ -541,8 +577,8 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             raise_non_implemented_conversion_exception("FUNC_CTAG");
             return "FUNC_CTAG";
         case FUNC_DXY:
-            raise_non_implemented_conversion_exception("FUNC_DXY");
-            return "FUNC_DXY";
+            append_4vector_label(command, "_dxy");
+            return "";
         case FUNC_EDXY:
             raise_non_implemented_conversion_exception("FUNC_EDXY");
             return "FUNC_EDXY";
@@ -552,15 +588,6 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_DZ:
             raise_non_implemented_conversion_exception("FUNC_DZ");
             return "FUNC_DZ";
-        case FUNC_IS_TIGHT:
-            raise_non_implemented_conversion_exception("FUNC_IS_TIGHT");
-            return "FUNC_IS_TIGHT";
-        case FUNC_IS_MEDIUM:
-            raise_non_implemented_conversion_exception("FUNC_IS_MEDIUM");
-            return "FUNC_IS_MEDIUM";
-        case FUNC_IS_LOOSE:
-            raise_non_implemented_conversion_exception("FUNC_IS_LOOSE");
-            return "FUNC_IS_LOOSE";
         case FUNC_ABS_ETA:
             raise_non_implemented_conversion_exception("FUNC_ABS_ETA");
             return "FUNC_ABS_ETA";
@@ -602,13 +629,14 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             std::stringstream error;
             error << (int)inst;
             raise_non_implemented_conversion_exception(error.str());
+            return "";
     }
 }
 
 void TimberConverter::print_timber() {
 
     std::string preliminary = 
-        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\nfrom adl_helpers import combine_without_duplicates, use_histo, use_histo_list\nCompileCpp('adl_cmds.cc')\na = analyzer('filename.root')\nout = ROOT.TFile.Open('adl_out.root','UPDATE')";
+        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\nfrom adl_helpers import combine_without_duplicates, use_histo, use_histo_list\nCompileCpp('adl_helpers.cc')\na = analyzer('filename.root')\nout = ROOT.TFile.Open('adl_out.root','UPDATE')";
     std::cout << preliminary << std::endl;
 
     std::string definitions =

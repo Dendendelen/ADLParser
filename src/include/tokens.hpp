@@ -64,6 +64,10 @@ enum Token_type {
     OME,
 
     USE,
+    IF,
+    THEN,
+    ELSE,
+    DO,
     PRINT,
     TRUE,
     FALSE,
@@ -111,6 +115,7 @@ enum Token_type {
     IS_TAUTAG,
 
     PDG_ID,
+    JET_ID,
     STATUS_FLAGS,
     
     FLAVOR,
@@ -149,6 +154,9 @@ enum Token_type {
     ETA,
     RAPIDITY,
     ABS_ETA,
+
+    MSOFTDROP,
+
     THETA,
     PT,
     PZ,

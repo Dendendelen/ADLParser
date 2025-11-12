@@ -117,11 +117,11 @@ Token_type Lexer::identify_token(std::string &token) {
 
     if (token == "systematic") return SYSTEMATIC;
     if (token == "ttree") return SYST_TTREE;
-    if (token == "weight_mc") return SYST_WEIGHT_MC;
-    if (token == "weight_pileup") return SYST_WEIGHT_PILEUP;
-    if (token == "weight_jvt") return SYST_WEIGHT_JVT;
-    if (token == "weight_leptonSF") return SYST_WEIGHT_LEPTON_SF;
-    if (token == "weight_BTagSF") return SYST_WEIGHT_BTAG_SF;
+    if (token == "weightMc") return SYST_WEIGHT_MC;
+    if (token == "weightPileup") return SYST_WEIGHT_PILEUP;
+    if (token == "weightJvt") return SYST_WEIGHT_JVT;
+    if (token == "weightLeptonSF") return SYST_WEIGHT_LEPTON_SF;
+    if (token == "weightBTagSF") return SYST_WEIGHT_BTAG_SF;
     if (token == "RunYear") return RUNYEAR;
     if (token == "mcChannelNumber") return MC_CHANNEL_NUMBER;
     if (uppercase_token == "EVENTNO") return EVENT_NO;
@@ -131,12 +131,16 @@ Token_type Lexer::identify_token(std::string &token) {
 
     if (uppercase_token == "USE") return USE;
     if (uppercase_token == "PRINT") return PRINT;
+    if (uppercase_token == "IF") return IF;
+    if (uppercase_token == "THEN") return THEN;
+    if (uppercase_token == "ELSE") return ELSE;
+    if (uppercase_token == "DO") return DO;
     if (uppercase_token == "ON" || uppercase_token == "TRUE") return TRUE; 
     if (uppercase_token == "OFF" || uppercase_token == "FALSE") return FALSE; 
     if (uppercase_token == "NVARS") return NVARS;
     if (uppercase_token == "ERRORS") return ERRORS;
     if (uppercase_token == "TABLETYPE") return TABLETYPE;
-    if (uppercase_token == "TAKE" || uppercase_token == "USING") return TAKE;
+    if (uppercase_token == "TAKE"  || uppercase_token == "USING") return TAKE;
     if (uppercase_token == "HISTO") return HISTO;
     if (uppercase_token == "WEIGHT") return WEIGHT;
     if (uppercase_token == "TABLE") return TABLE;
@@ -176,7 +180,8 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "CTAG") return IS_CTAG;
     if (uppercase_token == "TAUTAG") return IS_TAUTAG;
 
-    if (uppercase_token == "PDGID") return PDG_ID;
+    if (uppercase_token == "PDGID" || uppercase_token == "PDG_ID") return PDG_ID;
+    if (uppercase_token == "JETID") return JET_ID;
     if (uppercase_token == "STATUSFLAGS") return STATUS_FLAGS;
     if (uppercase_token == "FLAVOR" | uppercase_token == "BTAGGER") return FLAVOR;
     if (uppercase_token == "PTCONE") return PTCONE;
@@ -188,9 +193,9 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "VERTEXZ") return VERZ;
     if (uppercase_token == "VERTEXTR") return VERTR;
 
-    if (uppercase_token == "ISTIGHT") return IS_TIGHT;
-    if (uppercase_token == "MEDIUM") return IS_MEDIUM;
-    if (uppercase_token == "LOOSE") return IS_LOOSE;
+    if (uppercase_token == "ISTIGHT" ) return IS_TIGHT;
+    if (uppercase_token == "ISMEDIUM") return IS_MEDIUM;
+    if (uppercase_token == "ISLOOSE" ) return IS_LOOSE;
     if (token == "fmegajets") return FMEGAJETS;
     if (token == "fhemisphere") return FHEMISPHERE;
     if (token == "fMR") return FMR;
@@ -212,6 +217,9 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "ETA") return ETA;
     if (uppercase_token == "RAP") return RAPIDITY;
     if (uppercase_token == "ABSETA") return ABS_ETA;
+
+    if (uppercase_token == "MSOFTDROP") return MSOFTDROP;
+
     if (uppercase_token == "THETA") return THETA;
     if (uppercase_token == "PT") return PT;
     if (uppercase_token == "PZ") return PZ;

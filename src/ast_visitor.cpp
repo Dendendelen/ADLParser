@@ -11,7 +11,7 @@ void ASTVisitor::visit(PNode node) {
             return visit_region(node);
         case CONDITION:
             return visit_condition(node);
-        case IF:
+        case IF_STATEMENT:
             return visit_if(node);
         case OBJECT_SELECT:
             return visit_object_select(node);
