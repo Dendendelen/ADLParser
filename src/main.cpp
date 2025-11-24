@@ -1,14 +1,16 @@
+#include "coffea_converter.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
 #include "timber_converter.hpp"
 #include <iostream>
+#include <memory>
 
 int main(int argc, char** argv) {
 
     std::string argument;
 
     if (argc < 2) {
-        std::cerr << "Usage: main FILENAME.adl [timber]|[lex]|[parse]|[alil] " << std::endl;
+        std::cerr << "Usage: main FILENAME.adl [timber]|[coffea]|[lex]|[parse]|[alil] " << std::endl;
         return -1;
     }
 
@@ -46,6 +48,12 @@ int main(int argc, char** argv) {
     if (argument == "timber") {
         std::unique_ptr<TimberConverter> timber(new TimberConverter(alil.release()));
         timber->print_timber();
+        return 0;
+    }
+    
+    if (argument == "coffea") {
+        std::unique_ptr<CoffeaConverter> coffea(new CoffeaConverter(alil.release()));
+        coffea->print_coffea();
         return 0;
     }
 

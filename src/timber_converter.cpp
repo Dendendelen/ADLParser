@@ -19,19 +19,7 @@ std::string TimberConverter::add_all_relevant_tags_for_object(AnalysisCommand co
     std::string src_vec = command.get_argument(2);
 
     command_text << "a.Apply(" <<add_target << ")\n";
-
     command_text << "a.SubCollection('" << dest_vec << "', '" << src_vec << "', '" << mask << "', useTake=False)\n";
-
-    // command_text << add_target << ".Add('" << dest_vec << "_pt', 'apply_mask(" << mask << ", " << src_vec << "_pt)')\n"; 
-    // command_text << add_target << ".Add('" << dest_vec << "_eta', 'apply_mask(" << mask << ", " << src_vec << "_eta)')\n"; 
-    // command_text << add_target << ".Add('" << dest_vec << "_phi', 'apply_mask(" << mask << ", " << src_vec << "_phi)')\n"; 
-    // command_text << add_target << ".Add('" << dest_vec << "_mass', 'apply_mask(" << mask << ", " << src_vec << "_mass)')\n"; 
-
-    // if (needs_btag.count(src_vec) > 0 || src_vec == "Jet" || src_vec == "FatJet") {
-    //     command_text << add_target << ".Add('" << dest_vec << "_btagDeepFlavB', 'apply_mask(" << mask << ", " << src_vec << "_btagDeepFlavB)')\n"; 
-    //     needs_btag.insert(dest_vec);
-    // }
-
     return command_text.str();
 
 }
@@ -42,13 +30,6 @@ std::string TimberConverter::add_all_relevant_tags_for_union_empty(AnalysisComma
     std::string dest_vec = command.get_argument(0);
 
     empty_union_names.insert(dest_vec);
-
-    // command_text << dest_vec << ".Add('" << dest_vec << "_pt', 'empty_union()')\n";            
-    // command_text << dest_vec << ".Add('" << dest_vec << "_eta', 'empty_union()')\n";            
-    // command_text << dest_vec << ".Add('" << dest_vec << "_phi', 'empty_union()')\n";            
-    // command_text << dest_vec << ".Add('" << dest_vec << "_mass', 'empty_union()')\n";            
-    // command_text << dest_vec << ".Add('" << dest_vec << "_btagDeepFlavB', 'empty_union()')\n";            
-
     return command_text.str();  
 }
 
@@ -56,26 +37,15 @@ std::string TimberConverter::add_all_relevant_tags_for_union_empty(AnalysisComma
 std::string TimberConverter::add_all_relevant_tags_for_union_merge(AnalysisCommand command, std::string adding_name) {
     std::stringstream command_text;
 
-    std::string add_target = var_mappings[command.get_argument(1)];
     std::string dest_vec = command.get_argument(0);
     std::string old_union = command.get_argument(1);
 
     if (empty_union_names.find(old_union) != empty_union_names.end()) {
         empty_union_names.erase(empty_union_names.find(old_union));
-        command_text << add_target << ".MergeCollections('" << dest_vec << "', ["  << adding_name << "])\n";
+        command_text << "a.MergeCollections('" << dest_vec << "', ['"  << adding_name << "'])\n";
     } else {
-        command_text << add_target << ".MergeCollections('" << dest_vec << "', [" << old_union << ", " << adding_name << "])\n";
+        command_text << "a.MergeCollections('" << dest_vec << "', ['" << old_union << "', '" << adding_name << "'])\n";
     }
-
-    // command_text << add_target << ".Add('" << dest_vec << "_pt', 'union_merge(" << old_union << "_pt, " << adding_name << "_pt)')\n";
-    // command_text << add_target << ".Add('" << dest_vec << "_eta', 'union_merge(" << old_union << "_eta, " << adding_name << "_eta)')\n";
-    // command_text << add_target << ".Add('" << dest_vec << "_phi', 'union_merge(" << old_union << "_phi, " << adding_name << "_phi)')\n";
-    // command_text << add_target << ".Add('" << dest_vec << "_mass', 'union_merge(" << old_union << "_mass, " << adding_name << "_mass)')\n";
-
-    // if (needs_btag.count(adding_name) > 0 || adding_name == "Jet" || adding_name == "FatJet") {
-    //     command_text << add_target << ".Add('" << dest_vec << "_btagDeepFlavB', 'union_merge(" << old_union << "_btagDeepFlavB, " << adding_name << "_btagDeepFlavB)')\n";
-    //     needs_btag.insert(dest_vec);
-    // }
 
     return command_text.str();  
 }
@@ -281,8 +251,6 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case EXPR_RAISE:
             command_text << "raise_power(" << var_mappings[command.get_argument(1)] << "," << var_mappings[command.get_argument(2)] <<  ")";
             var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
-            var_mappings[command.get_argument(0)] = binary_command(command, "==");
             return "";
         case EXPR_MULTIPLY:
             var_mappings[command.get_argument(0)] = binary_command(command, "*");
@@ -533,7 +501,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             raise_non_implemented_conversion_exception("FUNC_NAMED");
             return "FUNC_NAMED";
         case MAKE_EMPTY_UNION:
-            command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
+            // command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
             var_mappings[command.get_argument(0)] = command.get_argument(0);
             command_text << add_all_relevant_tags_for_union_empty(command);
 
@@ -555,6 +523,47 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << add_all_relevant_tags_for_union_merge(command, "Tau");
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
+        case ADD_TRACK_TO_UNION:
+            command_text << add_all_relevant_tags_for_union_merge(command, "IsoTrack");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_LEPTON_TO_UNION:
+            command_text << add_all_relevant_tags_for_union_merge(command, "Lepton");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_PHOTON_TO_UNION:
+            command_text << add_all_relevant_tags_for_union_merge(command, "Photon");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_BJET_TO_UNION:
+            command_text << add_all_relevant_tags_for_union_merge(command, "BJet");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_QGJET_TO_UNION:
+            command_text << add_all_relevant_tags_for_union_merge(command, "QGJet");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_NUMET_TO_UNION:
+            command_text << add_all_relevant_tags_for_union_merge(command, "MET");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_METLV_TO_UNION:
+            command_text << add_all_relevant_tags_for_union_merge(command, "METLV");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_GEN_TO_UNION:
+            command_text << add_all_relevant_tags_for_union_merge(command, "GenPart");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_JET_TO_UNION:
+            command_text << add_all_relevant_tags_for_union_merge(command, "Jet");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_FJET_TO_UNION:
+            command_text << add_all_relevant_tags_for_union_merge(command, "FatJet");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+
         case FUNC_FLAVOR:
             append_4vector_label(command, "_partonFlavor");
             return "";

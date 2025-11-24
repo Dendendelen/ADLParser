@@ -1,4 +1,5 @@
 #include "coffea_converter.hpp"
+#include "ali_converter.hpp"
 #include "lexer.hpp"
 #include "node.hpp"
 #include "tokens.hpp"
@@ -8,62 +9,28 @@
 #include <iostream>
 #include <string>
 
-// TODO: coffea converter is as of yet not functional, need to reformat TIMBER converter to handle new format
 
-
-std::string CoffeaConverter::add_all_relevant_tags_for_object(AnalysisCommand command) {
-    std::stringstream command_text;
-
-    std::string add_target = var_mappings[command.get_argument(1)];
-    std::string dest_vec = command.get_argument(0);
-    std::string mask = command.get_argument(1);
-    std::string src_vec = command.get_argument(2);
-
-    command_text << add_target << ".Add('" << dest_vec << "_pt', 'apply_mask(" << mask << ", " << src_vec << "_pt)')\n"; 
-    command_text << add_target << ".Add('" << dest_vec << "_eta', 'apply_mask(" << mask << ", " << src_vec << "_eta)')\n"; 
-    command_text << add_target << ".Add('" << dest_vec << "_phi', 'apply_mask(" << mask << ", " << src_vec << "_phi)')\n"; 
-    command_text << add_target << ".Add('" << dest_vec << "_mass', 'apply_mask(" << mask << ", " << src_vec << "_mass)')\n"; 
-
-    if (needs_btag.count(src_vec) > 0 || src_vec == "Jet" || src_vec == "FatJet") {
-        command_text << add_target << ".Add('" << dest_vec << "_btagDeepFlavB', 'apply_mask(" << mask << ", " << src_vec << "_btagDeepFlavB)')\n"; 
-        needs_btag.insert(dest_vec);
-    }
-
-    return command_text.str();
-
-}
-
-std::string CoffeaConverter::add_all_relevant_tags_for_union_empty(AnalysisCommand command) {
+std::string CoffeaConverter::handle_union_empty(AnalysisCommand command) {
     std::stringstream command_text;
 
     std::string dest_vec = command.get_argument(0);
-
-    command_text << dest_vec << ".Add('" << dest_vec << "_pt', 'empty_union()')\n";            
-    command_text << dest_vec << ".Add('" << dest_vec << "_eta', 'empty_union()')\n";            
-    command_text << dest_vec << ".Add('" << dest_vec << "_phi', 'empty_union()')\n";            
-    command_text << dest_vec << ".Add('" << dest_vec << "_mass', 'empty_union()')\n";            
-    command_text << dest_vec << ".Add('" << dest_vec << "_btagDeepFlavB', 'empty_union()')\n";            
-
+    empty_union_names.insert(dest_vec);
+  
     return command_text.str();  
 }
 
 
-std::string CoffeaConverter::add_all_relevant_tags_for_union_merge(AnalysisCommand command, std::string adding_name) {
+std::string CoffeaConverter::handle_union_merge(AnalysisCommand command, std::string adding_name) {
     std::stringstream command_text;
 
-    std::string add_target = var_mappings[command.get_argument(1)];
     std::string dest_vec = command.get_argument(0);
     std::string old_union = command.get_argument(1);
 
-
-    command_text << add_target << ".Add('" << dest_vec << "_pt', 'union_merge(" << old_union << "_pt, " << adding_name << "_pt)')\n";
-    command_text << add_target << ".Add('" << dest_vec << "_eta', 'union_merge(" << old_union << "_eta, " << adding_name << "_eta)')\n";
-    command_text << add_target << ".Add('" << dest_vec << "_phi', 'union_merge(" << old_union << "_phi, " << adding_name << "_phi)')\n";
-    command_text << add_target << ".Add('" << dest_vec << "_mass', 'union_merge(" << old_union << "_mass, " << adding_name << "_mass)')\n";
-
-    if (needs_btag.count(adding_name) > 0 || adding_name == "Jet" || adding_name == "FatJet") {
-        command_text << add_target << ".Add('" << dest_vec << "_btagDeepFlavB', 'union_merge(" << old_union << "_btagDeepFlavB, " << adding_name << "_btagDeepFlavB)')\n";
-        needs_btag.insert(dest_vec);
+    if (empty_union_names.find(old_union) != empty_union_names.end()) {
+        empty_union_names.erase(empty_union_names.find(old_union));
+        command_text << dest_vec << " = " << adding_name << "\n";
+    } else {
+        command_text << dest_vec << " = ak.concatenate(" << old_union << "," << adding_name << ")\n";
     }
 
     return command_text.str();  
@@ -81,18 +48,23 @@ std::string CoffeaConverter::existing_definitions_string() {
     return defs.str();
 }
 
-void CoffeaConverter::index_particle(AnalysisCommand command, bool is_named, std::string part_text) {
+
+
+/**
+    Adds an index tag to a particle, as NanoAOD handles 4-vector indices in this way
+*/
+std::string CoffeaConverter::index_particle(AnalysisCommand command, bool is_named, std::string part_text) {
     if (command.get_num_arguments() - is_named >= 4) {
         std::stringstream idx_text;
-        idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << "," << command.get_argument(3+is_named) << ")";
-        var_mappings[command.get_argument(0)] = idx_text.str();
+        idx_text << part_text << "[" << command.get_argument(2+is_named) << ":" << command.get_argument(3+is_named) << "]";
+        return idx_text.str();
 
     } else if (command.get_num_arguments() - is_named >= 3) {
         std::stringstream idx_text;
-        idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << ")";
-        var_mappings[command.get_argument(0)] = idx_text.str();
+        idx_text << part_text << "[" << command.get_argument(2+is_named) << "]";
+        return idx_text.str();
     } else {
-        var_mappings[command.get_argument(0)] = part_text;
+        return part_text;
     }
 }
 
@@ -100,19 +72,20 @@ void CoffeaConverter::add_particle(AnalysisCommand command, std::string name) {
     bool is_named = false;
     if (command.get_instruction() == ADD_PART_NAMED) is_named = true;
     std::stringstream command_text;
-    command_text << var_mappings[command.get_argument(1+is_named)] << (var_mappings[command.get_argument(1+is_named)] != "" ? " + " : "") << name;
 
-    index_particle(command, is_named, command_text.str());
+    std::string indexed_if_needed = index_particle(command, is_named, name);
+
+    command_text << var_mappings[command.get_argument(1+is_named)] << (var_mappings[command.get_argument(1+is_named)] != "" ? " + " : "") << indexed_if_needed;
+    var_mappings[command.get_argument(0)] = command_text.str();
 }  
 
 void CoffeaConverter::sub_particle(AnalysisCommand command, std::string name) {
     bool is_named = false;
     if (command.get_instruction() == ADD_PART_NAMED) is_named = true;
     std::stringstream command_text;
-    command_text << var_mappings[command.get_argument(1+is_named)] << " - " << name;
 
-    index_particle(command, is_named, command_text.str());
-    
+    std::string indexed_if_needed = index_particle(command, is_named, name);
+    command_text << var_mappings[command.get_argument(1+is_named)] << " - " << indexed_if_needed;
 }
 
 void CoffeaConverter::append_4vector_label(AnalysisCommand command, std::string suffix) {
@@ -120,20 +93,9 @@ void CoffeaConverter::append_4vector_label(AnalysisCommand command, std::string 
     std::string output = command.get_argument(0);
     std::string input = var_mappings[command.get_argument(1)];
 
-    std::stringstream delimit;
     std::stringstream command_text;
+    command_text << input << "." << suffix;
 
-    delimit << input;
-    std::vector<std::string> delimited_by_space;
-    std::string buffer;
-    while (std::getline(delimit, buffer, ' ')) {
-        delimited_by_space.push_back(buffer);
-    }
-
-    for (auto it = delimited_by_space.begin(); it != delimited_by_space.end(); ++it) {
-        command_text << *it;
-        if (it->back() != '+' && it->back() != '-' && it->back() != ')') command_text << suffix;
-    }
 
     var_mappings[output] = command_text.str();
 
@@ -151,19 +113,57 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
     std::stringstream command_text;
 
     switch (inst) {
+
+        case HIST_1D:
+            command_text << "# making histogram " << command.get_argument(1) << "\n";
+            command_text << "\n_histogram" << command.get_argument(0) << " = Hist(axis.Regular(";
+            for (int i = 2; i < 5; i++) {
+                command_text << var_mappings[command.get_argument(i)] << ",";
+            }
+            command_text << "name='dim1'))";
+            command_text << "\n_histogram" << command.get_argument(0) << ".fill(dim1=" << var_mappings[command.get_argument(5)] << ")";
+            return command_text.str();
+        case HIST_2D:
+            command_text << "# making histogram " << command.get_argument(1) << "\n";
+            command_text << "\n_histogram" << command.get_argument(0) << " = Hist(axes=(axis.Regular(";
+            for (int i = 2; i < 5; i++) {
+                command_text << var_mappings[command.get_argument(i)] << ",";
+            }
+            command_text << "name='dim1'), axis.Regular(";
+            for (int i = 6; i < 9; i++) {
+                command_text << var_mappings[command.get_argument(i)] << ", ";
+            }
+            command_text << "name='dim2')))";
+            command_text << "\n_histogram" << command.get_argument(0) << ".fill(dim1=" << var_mappings[command.get_argument(5)] << ", ";
+            command_text << "dim2=" << var_mappings[command.get_argument(9)] << ")";
+            return command_text.str();      
+        case USE_HIST:
+            
+            return "";
+        case CREATE_HIST_LIST:
+            command_text << "\n_histogram_list" << command.get_argument(0) << " = []";
+            var_mappings[command.get_argument(0)] = command.get_argument(0);
+            return command_text.str();
+        case ADD_HIST_TO_LIST:
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            command_text << "\n_histogram_list" << var_mappings[command.get_argument(1)] << ".append(_histogram" << command.get_argument(2) << ")";
+            return command_text.str();
+        case USE_HIST_LIST: //TODO: change
+            command_text << "\nuse_histo_list(_histogram_list" << var_mappings[command.get_argument(0)] << ", _histogram_node_" << command.get_argument(1) << ")";
+            return command_text.str();
+
         case CREATE_REGION:
-            command_text << "\n_groups" << command.get_argument(0) << " = " << existing_definitions_string() << "\n";
-            command_text << command.get_argument(0) << " = CutGroup('" << command.get_argument(0) << "')\n";
-            command_text << "_groups" << command.get_argument(0) << ".append(" << command.get_argument(0) << ")\n";
+            command_text << command.get_argument(0) << " = (events == 0) | (events != 0) \n";
 
             var_mappings[command.get_argument(0)] = command.get_argument(0);
             return command_text.str();
         case MERGE_REGIONS:
-            command_text << "_groups" << var_mappings[command.get_argument(2)] << " = combine_without_duplicates(_groups" << var_mappings[command.get_argument(1)] << ", _groups" << var_mappings[command.get_argument(2)] << ")\n";
+            // command_text << "_groups" << var_mappings[command.get_argument(2)] << " = combine_without_duplicates(_groups" << var_mappings[command.get_argument(1)] << ", _groups" << var_mappings[command.get_argument(2)] << ")\n";
+            command_text << var_mappings[command.get_argument(2)] << " = " << var_mappings[command.get_argument(2)] << " & " << var_mappings[command.get_argument(1)] << "\n";
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(2)];
             return command_text.str();
         case CUT_REGION:
-            command_text << var_mappings[command.get_argument(1)] << ".Add('" << command.get_argument(0) << "', '" << var_mappings[command.get_argument(2)] << "')"; 
+            command_text << var_mappings[command.get_argument(1)] << " = "<< var_mappings[command.get_argument(1)] << " & " << var_mappings[command.get_argument(2)] << ""; 
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case RUN_REGION:
@@ -174,12 +174,18 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return "";
         }
+        case ADD_EXTERNAL:
+        {
+            std::string fn_name_with_quotes = command.get_argument(1);
+            std::string fn_name_wo_quotes = fn_name_with_quotes.substr(1,fn_name_with_quotes.size()-2);
+            var_mappings[command.get_argument(0)] = fn_name_wo_quotes;
+            return "";
+        }
         case ADD_OBJECT:
             return "ADD_OBJECT";
         case CREATE_MASK:
         {
-            command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
-            command_text << command.get_argument(0) << ".Add('" << command.get_argument(0) << "', 'create_mask(" << command.get_argument(1) << "_pt)')";            
+            command_text << "\n" << command.get_argument(0) << " = ak.Array(np.empty((ak.num(" << var_mappings[command.get_argument(1)] << ", axis=1))))\n"; 
             var_mappings[command.get_argument(0)] = command.get_argument(0);
 
             existing_definitions.push_back(command.get_argument(0));
@@ -187,14 +193,13 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
         }
         case LIMIT_MASK:
         {   
-            command_text << var_mappings[command.get_argument(1)] << ".Add('" << command.get_argument(0) << "', 'limit_mask(" << command.get_argument(1) << ", " << var_mappings[command.get_argument(2)] << ")')";
+            command_text << var_mappings[command.get_argument(1)] << " = " << var_mappings[command.get_argument(1)] << " & " << var_mappings[command.get_argument(2)] << "";
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         }
         case APPLY_MASK:
         {
-            command_text << add_all_relevant_tags_for_object(command);
-
+            command_text << command.get_argument(0) << " = " << var_mappings[command.get_argument(2)] << "[" << var_mappings[command.get_argument(1)] << "] \n";
             var_mappings[command.get_argument(0)] = command.get_argument(0);
             return command_text.str();
         }
@@ -211,10 +216,7 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
         case END_IF:
             return "END_IF";
         case EXPR_RAISE:
-            command_text << "raise_power(" << var_mappings[command.get_argument(1)] << "," << var_mappings[command.get_argument(2)] <<  ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
-            var_mappings[command.get_argument(0)] = binary_command(command, "==");
+            var_mappings[command.get_argument(0)] = binary_command(command, "**");
             return "";
         case EXPR_MULTIPLY:
             var_mappings[command.get_argument(0)] = binary_command(command, "*");
@@ -277,33 +279,47 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
 
         case FUNC_BTAG:
         {
-            append_4vector_label(command, "_btagDeepFlavB");
+            append_4vector_label(command, "btagDeepFlavB");
             command_text << "(" << var_mappings[command.get_argument(0)] << " > 0.3040)";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         }
         case FUNC_PT:
-            append_4vector_label(command, "_pt");
+            append_4vector_label(command, "pt");
             return "";
         case FUNC_ETA:
-            append_4vector_label(command, "_eta");
+            append_4vector_label(command, "eta");
             return "";
         case FUNC_PHI:
-            append_4vector_label(command, "_phi");
+            append_4vector_label(command, "phi");
             return "";
         case FUNC_MASS:
-            append_4vector_label(command, "_mass");
+            append_4vector_label(command, "mass");
             return "";
         case FUNC_ENERGY:
+            raise_non_implemented_conversion_exception("FUNC_ENERGY");
             return "FUNC_E"; 
+        case FUNC_CHARGE:
+            append_4vector_label(command, "charge");
+            return "";
+        case FUNC_MSOFTDROP:
+            append_4vector_label(command, "msoftdrop");
+            return "";
+        case FUNC_IS_TIGHT:
+            append_4vector_label(command, "tightId");
+            return "";
+        case FUNC_IS_MEDIUM:
+            append_4vector_label(command, "mediumId");
+            return "";
+        case FUNC_IS_LOOSE:
+            append_4vector_label(command, "looseId");
+            return "";
+
         case MAKE_EMPTY_PARTICLE:
         {
             var_mappings[command.get_argument(0)] = "";
             return "";
         }
-            return "MAKE_EMPTY_PARTICLE"; 
-        case CREATE_PARTICLE_VARIABLE:
-            return "CREATE_PARTICLE_VARIABLE"; 
         case ADD_PART_ELECTRON:
             add_particle(command, "Electron");
             return "";
@@ -332,7 +348,7 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
             add_particle(command, "MET");
             return "";
         case ADD_PART_METLV:
-            sub_particle(command, "METLV");
+            add_particle(command, "METLV");
             return "";
         case ADD_PART_GEN:
             add_particle(command, "GenPart");
@@ -451,36 +467,77 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
             raise_non_implemented_conversion_exception("FUNC_NAMED");
             return "FUNC_NAMED";
         case MAKE_EMPTY_UNION:
-            command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
             var_mappings[command.get_argument(0)] = command.get_argument(0);
-            command_text << add_all_relevant_tags_for_union_empty(command);
-
+            command_text << handle_union_empty(command);
             existing_definitions.push_back(command.get_argument(0));
             return command_text.str();        
         case ADD_NAMED_TO_UNION:
-            command_text << add_all_relevant_tags_for_union_merge(command, var_mappings[command.get_argument(2)]);
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            command_text << handle_union_merge(command, var_mappings[command.get_argument(2)]);
+            var_mappings[command.get_argument(0)] = command.get_argument(0);
             return command_text.str();        
         case ADD_ELECTRON_TO_UNION:
-            command_text << add_all_relevant_tags_for_union_merge(command, "Electron");
+            command_text << handle_union_merge(command, "Electron");
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_MUON_TO_UNION:
-            command_text << add_all_relevant_tags_for_union_merge(command, "Muon");
+            command_text << handle_union_merge(command, "Muon");
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_TAU_TO_UNION:
-            command_text << add_all_relevant_tags_for_union_merge(command, "Tau");
+            command_text << handle_union_merge(command, "Tau");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_TRACK_TO_UNION:
+            command_text << handle_union_merge(command, "IsoTrack");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_LEPTON_TO_UNION:
+            command_text << handle_union_merge(command, "Lepton");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_PHOTON_TO_UNION:
+            command_text << handle_union_merge(command, "Photon");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_BJET_TO_UNION:
+            command_text << handle_union_merge(command, "BJet");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_QGJET_TO_UNION:
+            command_text << handle_union_merge(command, "QGJet");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_NUMET_TO_UNION:
+            command_text << handle_union_merge(command, "MET");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_METLV_TO_UNION:
+            command_text << handle_union_merge(command, "METLV");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_GEN_TO_UNION:
+            command_text << handle_union_merge(command, "GenPart");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_JET_TO_UNION:
+            command_text << handle_union_merge(command, "Jet");
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+        case ADD_FJET_TO_UNION:
+            command_text << handle_union_merge(command, "FatJet");
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case FUNC_FLAVOR:
-            append_4vector_label(command, "_partonFlavor");
+            append_4vector_label(command, "partonFlavor");
+            return "";
+        case FUNC_JET_ID:
+            append_4vector_label(command, "jetId");
             return "";
         case FUNC_CONSTITUENTS:
             raise_non_implemented_conversion_exception("FUNC_CONSTITUENTS");
             return "FUNC_CONSTITUENTS";
         case FUNC_PDG_ID:
-            append_4vector_label(command, "_pdgId");
+            append_4vector_label(command, "pdgId");
             return "";
         case FUNC_IDX:
             raise_non_implemented_conversion_exception("FUNC_IDX");
@@ -492,8 +549,8 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
             raise_non_implemented_conversion_exception("FUNC_CTAG");
             return "FUNC_CTAG";
         case FUNC_DXY:
-            raise_non_implemented_conversion_exception("FUNC_DXY");
-            return "FUNC_DXY";
+            append_4vector_label(command, "dxy");
+            return "";
         case FUNC_EDXY:
             raise_non_implemented_conversion_exception("FUNC_EDXY");
             return "FUNC_EDXY";
@@ -503,15 +560,6 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
         case FUNC_DZ:
             raise_non_implemented_conversion_exception("FUNC_DZ");
             return "FUNC_DZ";
-        case FUNC_IS_TIGHT:
-            raise_non_implemented_conversion_exception("FUNC_IS_TIGHT");
-            return "FUNC_IS_TIGHT";
-        case FUNC_IS_MEDIUM:
-            raise_non_implemented_conversion_exception("FUNC_IS_MEDIUM");
-            return "FUNC_IS_MEDIUM";
-        case FUNC_IS_LOOSE:
-            raise_non_implemented_conversion_exception("FUNC_IS_LOOSE");
-            return "FUNC_IS_LOOSE";
         case FUNC_ABS_ETA:
             raise_non_implemented_conversion_exception("FUNC_ABS_ETA");
             return "FUNC_ABS_ETA";
@@ -545,24 +593,50 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
         case FUNC_DETA:
             raise_non_implemented_conversion_exception("FUNC_DETA");
             return "FUNC_DETA";
-        case FUNC_SIZE: //TODO: check this does not conflict with a valid use case
-            command_text << "size(" << var_mappings[command.get_argument(1)] << "_pt)";
+        case FUNC_SIZE:
+            command_text << "ak.num(" << var_mappings[command.get_argument(1)] << ", axis=1)";
             var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
+        default:
+            std::stringstream error;
+            error << (int)inst;
+            raise_non_implemented_conversion_exception(error.str());
             return "";
     }
 }
 
+void CoffeaConverter::initialize_all_particles() {
+
+    std::vector<std::string> part_names = {"Electron", "Muon", "Tau", "IsoTrack", "Lepton", "Photon", "BJet", "QGJet", "MET", "METLV", "GenPart", "Jet", "FatJet"};
+
+    for (auto it = part_names.begin(); it != part_names.end(); ++it) {
+        std::stringstream ss;
+        ss << "events." << *it;
+        var_mappings[*it] = ss.str();
+    }
+
+}
+
 void CoffeaConverter::print_coffea() {
 
-    std::string preliminary = 
-        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\nfrom adl_helpers import combine_without_duplicates\nCompileCpp('adl_cmds.cc')";
+    initialize_all_particles();
+
+    std::string preliminary = "import coffea\nfrom hist import Hist, axis\nimport awkward as ak\nimport numpy as np\n\nALL = 1\n\n";
     std::cout << preliminary << std::endl;
+
+    std::string definitions = "";
+
+    std::cout << definitions << std::endl;
 
     while (alil->clear_to_next()) {
         std::string out = command_convert(alil->next_command());
         if (out == "") continue;
         std::cout << out << std::endl;
     }
+
+    std::string postscriptum = 
+        "";
+    std::cout << postscriptum << std::endl;
 }
 
 CoffeaConverter::CoffeaConverter(ALIConverter *alil_in): alil(alil_in) {}

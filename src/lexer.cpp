@@ -146,8 +146,10 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "TABLE") return TABLE;
     if (uppercase_token == "SKIPHISTOS") return SKIP_HISTO;
     if (uppercase_token == "SKIPEFS") return SKIP_EFFS;
+
+    // Particle types
     if (uppercase_token == "GEN") return GEN;
-    if (uppercase_token == "ELE"|| uppercase_token == "ELECTRON"|| token == "electron") return ELECTRON;//particles
+    if (uppercase_token == "ELE"|| uppercase_token == "ELECTRON"|| token == "electron") return ELECTRON;
     if (uppercase_token == "MUO" || uppercase_token == "MUON"| token == "muon") return MUON;
     if (uppercase_token == "TAU") return TAU;
     if (uppercase_token == "TRK") return TRACK;
@@ -155,35 +157,48 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "JET") return JET;
     if (uppercase_token == "FJET"|| uppercase_token == "FATJET") return FJET;
     if (uppercase_token == "QGJET") return QGJET;
-    if (uppercase_token == "BIN") return BIN;
-    if (uppercase_token == "BINS") return BINS;
-    if (token == "daughters" || token == "constituents") return CONSTITUENTS;
     if (token == "NUMET") return NUMET;
     if (token == "METLV") return METLV;
-    if (token == "MET") return MET;
-
     if (token == "LEP") return LEPTON;
     if (uppercase_token == "HLT") return HLT;
     if (token == "BJET") return BJET;
+    if (token == "MET") return MET;
+
+    
+    // Particle extra keywords
+    if (token == "daughters" || token == "constituents") return CONSTITUENTS;
+
+
+
     if (uppercase_token == "INDEX") return IDX;
 
+if (uppercase_token == "BIN") return BIN;
+    if (uppercase_token == "BINS") return BINS;
+
     if (uppercase_token == "METSIG") return METSIGNIF;
+
+    // 
     if (token == "applyHM") return APPLY_HM;
     if (token == "applyPTF" || token == "scalePT" ) return APPLY_PTF;
     if (token == "applyEF" || token == "scaleE" ) return APPLY_EF;
     if (token == "genPartIdx") return GENPART_IDX;
 
+
     if (uppercase_token == "UNION") return UNION;
     if (uppercase_token == "ALIAS") return ALIAS;
 
+    // Tagging functions
     if (uppercase_token == "BTAG") return IS_BTAG;
     if (uppercase_token == "CTAG") return IS_CTAG;
     if (uppercase_token == "TAUTAG") return IS_TAUTAG;
+    if (uppercase_token == "FLAVOR" | uppercase_token == "BTAGGER") return FLAVOR;
 
+    // Id functions
     if (uppercase_token == "PDGID" || uppercase_token == "PDG_ID") return PDG_ID;
     if (uppercase_token == "JETID") return JET_ID;
+
+
     if (uppercase_token == "STATUSFLAGS") return STATUS_FLAGS;
-    if (uppercase_token == "FLAVOR" | uppercase_token == "BTAGGER") return FLAVOR;
     if (uppercase_token == "PTCONE") return PTCONE;
     if (uppercase_token == "ETCONE") return ETCONE;
 
@@ -196,6 +211,7 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "ISTIGHT" ) return IS_TIGHT;
     if (uppercase_token == "ISMEDIUM") return IS_MEDIUM;
     if (uppercase_token == "ISLOOSE" ) return IS_LOOSE;
+
     if (token == "fmegajets") return FMEGAJETS;
     if (token == "fhemisphere") return FHEMISPHERE;
     if (token == "fMR") return FMR;
@@ -231,15 +247,18 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "FHT") return HT; // attention
     if (token == "fAplanarity") return APLANARITY;
     if (token == "fSphericity") return SPHERICITY;
+
+    // Built-in scale factors
     if (token == "LEPsf") return LEP_SF;
     if (token == "bTagSF") return BTAGS_SF;
     if (token == "XSLumiCorrSF") return XSLUMICORR_SF;
 
-    if (uppercase_token == "ANYOF") return ANYOF;
-    if (uppercase_token == "ALLOF") return ALLOF;
+    // Global analysis tokens
     if (uppercase_token == "ALL") return ALL;
     if (uppercase_token == "NONE") return NONE;
-    if (token == "=="|| uppercase_token == "EQ") return EQ;//comparison operators
+
+    // Comparison operators
+    if (token == "=="|| uppercase_token == "EQ") return EQ;
     if (token == "!="|| uppercase_token == "NE") return NE;
     if (token == "~!") return MAXIMIZE;
     if (token == "~=") return MINIMIZE;
@@ -249,12 +268,15 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == ">"|| uppercase_token == "GT") return GT;
     if (token == "[]") return IRG;
     if (token == "][") return ERG;
-    if (uppercase_token == "AND" || token == "&&") return AND;//logical ops
+
+    // Logical operators
+    if (uppercase_token == "AND" || token == "&&") return AND;
     if (uppercase_token == "OR" || token == "||") return OR;
     if (uppercase_token == "NOT") return NOT;
     if (uppercase_token == "WITHIN" || uppercase_token == "IN") return WITHIN;
     if (uppercase_token == "OUTSIDE") return OUTSIDE;
 
+    
     if (token == "-") return MINUS;
     if (token == "+") return PLUS;
     if (token == "*") return MULTIPLY;
@@ -276,12 +298,8 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == "=") return ASSIGN;
     if (token == "_") return UNDERSCORE;
 
-    if (uppercase_token == "AVE") return AVE;
-    if (uppercase_token == "SUM") return SUM;
-    if (uppercase_token == "ADD") return ADD;
-    if (uppercase_token == "SAVE") return SAVE;
-    if (uppercase_token == "CSV") return CSV;
-    if (uppercase_token == "ASCEND") return ASCEND;
+
+    // Purely mathematical functions
     if (uppercase_token == "DESCEND") return DESCEND;
     if (uppercase_token == "TAN") return TAN;
     if (uppercase_token == "SIN") return SIN;
@@ -295,6 +313,18 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "DELTA") return DELTA;
     if (uppercase_token == "ABS") return ABS;
     if (uppercase_token == "SQRT") return SQRT;
+
+    // Functions on variable lists
+    if (uppercase_token == "AVE") return AVE;
+    if (uppercase_token == "SUM") return SUM;
+    if (uppercase_token == "ADD") return ADD;
+    if (uppercase_token == "SAVE") return SAVE;
+    if (uppercase_token == "CSV") return CSV;
+    if (uppercase_token == "ANYOF") return ANYOF;
+    if (uppercase_token == "ALLOF") return ALLOF;
+
+    if (uppercase_token == "ASCEND") return ASCEND;
+    
     if (uppercase_token == "SORT") return SORT;
     if (uppercase_token == "COMB") return COMB;
     if (uppercase_token == "PERM") return PERM;

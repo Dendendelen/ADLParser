@@ -228,7 +228,26 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
             return "ADD_MUON_TO_UNION";
         case ADD_TAU_TO_UNION:
             return "ADD_TAU_TO_UNION";
-
+        case ADD_TRACK_TO_UNION:
+            return "ADD_TRACK_TO_UNION"; 
+        case ADD_LEPTON_TO_UNION:
+            return "ADD_LEPTON_TO_UNION"; 
+        case ADD_PHOTON_TO_UNION:
+            return "ADD_PHOTON_TO_UNION"; 
+        case ADD_BJET_TO_UNION:
+            return "ADD_BJET_TO_UNION"; 
+        case ADD_QGJET_TO_UNION:
+            return "ADD_QGJET_TO_UNION"; 
+        case ADD_NUMET_TO_UNION:
+            return "ADD_NUMET_TO_UNION"; 
+        case ADD_METLV_TO_UNION:
+            return "ADD_METLV_TO_UNION"; 
+        case ADD_GEN_TO_UNION:
+            return "ADD_GEN_TO_UNION"; 
+        case ADD_JET_TO_UNION:
+            return "ADD_JET_TO_UNION"; 
+        case ADD_FJET_TO_UNION:
+            return "ADD_FJET_TO_UNION"; 
         case FUNC_FLAVOR:
             return "FUNC_FLAVOR";
         case FUNC_CONSTITUENTS:
@@ -1026,6 +1045,26 @@ std::string ALIConverter::union_list(PNode node, std::string prev) {
             inst = ADD_MUON_TO_UNION; break;
         case TAU:
             inst = ADD_TAU_TO_UNION; break;
+        case TRACK:
+            inst = ADD_TRACK_TO_UNION; break;
+        case LEPTON:
+            inst = ADD_LEPTON_TO_UNION; break;
+        case PHOTON:
+            inst = ADD_PHOTON_TO_UNION; break;
+        case BJET:
+            inst = ADD_BJET_TO_UNION; break;
+        case QGJET:
+            inst = ADD_QGJET_TO_UNION; break;
+        case NUMET:
+            inst = ADD_NUMET_TO_UNION; break;
+        case METLV:
+            inst = ADD_METLV_TO_UNION; break;
+        case GEN:
+            inst = ADD_GEN_TO_UNION; break;
+        case JET:
+            inst = ADD_JET_TO_UNION; break;
+        case FJET:
+            inst = ADD_FJET_TO_UNION; break;
         default:
             inst = ADD_NAMED_TO_UNION; break;
     }

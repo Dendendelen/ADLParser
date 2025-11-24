@@ -530,11 +530,11 @@ PNode Parser::parse_histo_entry(PNode parent) {
 
         DEF_RVALUE -> constituents PARTICLE_LIST
 
-        DEF_RVALUE -> constituents PARTICLE_LIST
-
         DEF_RVALUE -> add PARTICLE_LIST
 
         DEF_RVALUE -> extern string
+
+        DEF_RVALUE -> correctionlib string
 
         DEF_RVALUE -> particle_keyword PARTICLE_LIST
 
@@ -649,31 +649,11 @@ PNode Parser::parse_def_rvalue(PNode parent) {
 /* OBJ_RVALUE productions:
 ---
 
-    OBJ_RVALUE -> electron CRITERIA
-
-    OBJ_RVALUE -> muon CRITERIA
-
-    OBJ_RVALUE -> tau CRITERIA
-
-    OBJ_RVALUE -> gen CRITERIA
-
-    OBJ_RVALUE -> photon CRITERIA
-
-    OBJ_RVALUE -> jet CRITERIA
-
-    OBJ_RVALUE -> fjet CRITERIA
-
-    OBJ_RVALUE -> lepton CRITERIA
-
-    OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE)
-
-    OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE, LEPTON_TYPE)
-
-    OBJ_RVALUE -> union (ID, ID)
+    OBJ_RVALUE -> union ( PARTICLE_LIST )
 
     OBJ_RVALUE -> comb ( PARTICLE_LIST )
 
-    OBJ_RVALUE -> ID CRITERIA
+    OBJ_RVALUE -> PARTICLE CRITERIA
 
  */
 void Parser::parse_obj_rvalue(PNode parent) {
@@ -682,25 +662,7 @@ void Parser::parse_obj_rvalue(PNode parent) {
 
     switch(tok->get_token()) {
 
-        // OBJ_RVALUE -> electron CRITERIA
-        // OBJ_RVALUE -> muon CRITERIA
-        // OBJ_RVALUE -> tau CRITERIA
-        // OBJ_RVALUE -> gen CRITERIA
-        // OBJ_RVALUE -> photon CRITERIA
-        // OBJ_RVALUE -> jet CRITERIA
-        // OBJ_RVALUE -> fjet CRITERIA
-        // OBJ_RVALUE -> lepton CRITERIA
-        case ELECTRON: case MUON: case TAU: case GEN: case PHOTON: case JET: case FJET: case LEPTON:
-        {
-            PNode type = make_terminal(parent, lexer->next());
-            parent->add_child(type);
-            parse_criteria(parent);
-            return;
-        }
-
-        // OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE)
-        // OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE, LEPTON_TYPE)
-        // OBJ_RVALUE -> union (ID, ID)
+        // OBJ_RVALUE -> union ( PARTICLE_LIST )
         case UNION:
         {
             PNode union_type = make_terminal(parent, lexer->next());
@@ -708,28 +670,8 @@ void Parser::parse_obj_rvalue(PNode parent) {
             lexer->expect_and_consume(OPEN_PAREN);
             auto next = lexer->peek(0);
                 
-            if (next->get_token() == ELECTRON || next->get_token() == MUON || next->get_token() == TAU) {
-                // OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE)
-                union_type->add_child(parse_lepton(union_type));
-                lexer->expect_and_consume(COMMA, "Union needs at least two elements comma-separated, token does not match up with that");
-                union_type->add_child(parse_lepton(union_type));
-
-                // OBJ_RVALUE -> union (LEPTON_TYPE, LEPTON_TYPE, LEPTON_TYPE)
-                if (lexer->peek(0)->get_token() == COMMA) {
-                    lexer->expect_and_consume(COMMA);
-                    union_type->add_child(parse_lepton(union_type));
-                }
-
-            // OBJ_RVALUE -> union (ID, ID)
-            } else if (next->get_token() == STRING || next->get_token() == VARNAME) {
-                union_type->add_child(parse_id(union_type));
-                lexer->expect_and_consume(COMMA, "Union needs at least two elements comma-separated, token does not match up with that");
-
-                union_type->add_child(parse_id(union_type));
-
-            } else {
-                raise_parsing_exception("Invalid type specified in union, union only accepts leptons or variable IDs", next);
-            }
+            // OBJ_RVALUE -> union ( PARTICLE_LIST )
+            parse_particle_list(union_type);
 
             lexer->expect_and_consume(CLOSE_PAREN);
 
@@ -753,19 +695,16 @@ void Parser::parse_obj_rvalue(PNode parent) {
             lexer->expect_and_consume(CLOSE_PAREN);
 
             return;
-
         }
 
-        // OBJ_RVALUE -> ID CRITERIA
-        case STRING: case VARNAME:
+        // OBJ_RVALUE -> PARTICLE CRITERIA
+        default:
         {
-            PNode id = parse_id(parent);
-            parent->add_child(id);
+            PNode type = parse_particle(parent);
+            parent->add_child(type);
             parse_criteria(parent);
             return;
         }
-        default:
-            raise_parsing_exception("Invalid rvalue for an object definition", tok);
     }
 }
 
@@ -790,8 +729,8 @@ PNode Parser::parse_bool(PNode parent) {
 ---
 
     ID -> string
-    ID -> varname
 
+    ID -> varname
 
  */
 PNode Parser::parse_id(PNode parent) {
@@ -829,6 +768,7 @@ PNode Parser::parse_description(PNode parent) {
 ---
 
     ERR_TYPE -> ERR_SYST
+
     ERR_TYPE -> ERR_STAT
  */
 PNode Parser::parse_err_type(PNode parent) {
@@ -879,10 +819,8 @@ PNode Parser::parse_region_command_select(PNode parent) {
 
         // REGION_COMMAND_SELECT -> none
         // REGION_COMMAND_SELECT -> all
-        // REGION_COMMAND_SELECT -> lepsf
-        // REGION_COMMAND_SELECT -> btagsf
-        // REGION_COMMAND_SELECT -> xlumicorrsf
-        case NONE: case ALL: case LEP_SF: case BTAGS_SF: case XSLUMICORR_SF:
+
+        case NONE: case ALL: 
         {
             lexer->next();
             PNode cond(new Node(CONDITION, parent));
@@ -890,40 +828,6 @@ PNode Parser::parse_region_command_select(PNode parent) {
             return cond;
         }
         
-        // REGION_COMMAND_SELECT -> hlt DESCRIPTION
-        case HLT:
-        {
-            auto node = make_terminal(parent, next);
-            lexer->next();
-            node->add_child(parse_description(node));
-            return node;
-        }
-
-        // REGION_COMMAND_SELECT -> applyhm (ID (E, E) eq integer)
-        // REGION_COMMAND_SELECT -> applyhm (ID (E) eq integer)
-        case APPLY_HM:
-        {
-            auto node = make_terminal(parent, next);
-            lexer->next();
-            lexer->expect_and_consume(OPEN_PAREN);
-            node->add_child(parse_id(node));
-            lexer->expect_and_consume(OPEN_PAREN);
-            node->add_child(parse_expression(node));
-
-            if (lexer->peek(0)->get_token() == COMMA) {
-                lexer->expect_and_consume(COMMA);
-                node->add_child(parse_expression(node));
-            }
-
-            lexer->expect_and_consume(CLOSE_PAREN);
-            lexer->expect_and_consume(EQ);
-            auto integer = lexer->next();
-
-            if (integer->get_token() != INTEGER) raise_parsing_exception("Needs integer type", integer);
-            node->add_child(make_terminal(node, integer));
-
-            return node;
-        }
 
         // REGION_COMMAND_SELECT -> IF_OR_CONDITION
         default:
@@ -973,17 +877,17 @@ PNode Parser::parse_region_command_select(PNode parent) {
 
     REGION_COMMAND -> if EXPRESSION do REGION_COMMAND
 
-    REGION_COMMAND_SELECT -> lepsf
+    REGION_COMMAND -> lepsf
 
-    REGION_COMMAND_SELECT -> btagsf
+    REGION_COMMAND -> btagsf
 
-    REGION_COMMAND_SELECT -> xlumicorrsf
+    REGION_COMMAND -> xlumicorrsf
 
-    REGION_COMMAND_SELECT -> hlt DESCRIPTION
+    REGION_COMMAND -> hlt DESCRIPTION
 
-    REGION_COMMAND_SELECT -> applyhm (ID (E, E) eq integer)
+    REGION_COMMAND -> applyhm (ID (E, E) eq integer)
 
-    REGION_COMMAND_SELECT -> applyhm (ID (E) eq integer)
+    REGION_COMMAND -> applyhm (ID (E) eq integer)
  */
 
 PNode Parser::parse_region_command(PNode parent) {
@@ -1135,8 +1039,8 @@ PNode Parser::parse_region_command(PNode parent) {
             return node;
         }
 
-        // REGION_COMMAND_SELECT -> applyhm (ID (E, E) eq integer)
-        // REGION_COMMAND_SELECT -> applyhm (ID (E) eq integer)
+        // REGION_COMMAND -> applyhm (ID (E, E) eq integer)
+        // REGION_COMMAND -> applyhm (ID (E) eq integer)
         case APPLY_HM:
         {
             auto node = make_terminal(parent, tok);
@@ -1158,6 +1062,16 @@ PNode Parser::parse_region_command(PNode parent) {
             if (integer->get_token() != INTEGER) raise_parsing_exception("Needs integer type", integer);
             node->add_child(make_terminal(node, integer));
 
+            return node;
+        }
+
+        // REGION_COMMAND -> lepsf
+        // REGION_COMMAND -> btagsf
+        // REGION_COMMAND -> xlumicorrsf
+        case LEP_SF: case BTAGS_SF: case XSLUMICORR_SF:
+        {
+            auto node = make_terminal(parent, tok);
+            lexer->next();
             return node;
         }
         default:
@@ -1513,7 +1427,7 @@ void Parser::parse_count(PNode parent) {
 
     PARTICLE_LIST -> PARTICLE PARTICLE_LIST
 
-    PARTICLE_LIST -> PARTICLE
+    PARTICLE_LIST -> PARTICLE 
 
 */
 void Parser::parse_particle_list(PNode parent) {
