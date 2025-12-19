@@ -52,7 +52,6 @@ enum AST_type{
     VARIABLE_LIST,
     NUMBER,
 
-    // Defines a specific type of lepton
     LEPTON_TYPE,
     ERR_TYPE,
     SYST_VTYPE,
@@ -64,6 +63,7 @@ enum AST_type{
     HISTO_CMD,
     BINS_CMD,
     BIN_CMD,
+    SORT_CMD,
 
     HISTOGRAM,
     HISTOLIST_HISTOGRAM,
@@ -74,11 +74,8 @@ enum AST_type{
     BOXLIST,
 
     VALUES,
-    EXPRESSION, // TODO: this is an expression, make sure to precedence climb this
+    EXPRESSION, 
     FUNCTION,
-
-    LIST2, // TODO: this should not be a name
-    LIST3,
 
     CONDITION,
     INTERVAL,
@@ -136,6 +133,7 @@ class Node {
         bool has_token();
 
         AST_type get_ast_type();
+        std::string get_ast_type_as_string();
         
         friend class Tree;
 };

@@ -13,6 +13,8 @@ void ASTVisitor::visit(PNode node) {
             return visit_condition(node);
         case IF_STATEMENT:
             return visit_if(node);
+        case SORT_CMD:
+            return visit_sort(node);
         case OBJECT_SELECT:
             return visit_object_select(node);
         case OBJECT_REJECT:
@@ -31,10 +33,14 @@ void ASTVisitor::visit(PNode node) {
             return visit_particle_list(node);
         case EXPRESSION:
             return visit_expression(node);
+        case TABLE_DEF:
+            return visit_table_def(node);
         case BIN_CMD:
             return visit_bin(node);
         case BINS_CMD:
-            return visit_bin_list(node);
+            return visit_bin_list(node);     
+        case WEIGHT_CMD:
+            return visit_weight(node);   
 
         default:
             return visit_children(node);

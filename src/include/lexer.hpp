@@ -21,6 +21,7 @@ class Token {
         int get_line();
         int get_column();
         Token_type get_token();
+        std::string get_token_type_as_string();
         std::string get_lexeme();
 };
 

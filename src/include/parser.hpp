@@ -40,6 +40,7 @@ class Parser {
         PNode parse_hamhum(PNode parent);
         PNode parse_index(PNode parent);
 
+        void parse_particle_sum(PNode parent);
         void parse_particle_list(PNode parent);
         PNode parse_particle(PNode parent);
 

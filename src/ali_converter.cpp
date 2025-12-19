@@ -3,6 +3,7 @@
 #include "node.hpp"
 #include "tokens.hpp"
 #include "exceptions.hpp"
+#include <cassert>
 #include <sstream>
 #include <iostream>
 
@@ -26,7 +27,7 @@ int AnalysisCommand::get_num_arguments() {
     return arguments.size();
 }
 
-std::string instruction_to_text(AnalysisLevelInstruction inst) {
+std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) {
 
     switch (inst) {
         case CREATE_REGION:
@@ -64,6 +65,26 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
             return "HIST_2D";
         case CREATE_BIN:
             return "CREATE_BIN";
+
+        case CREATE_TABLE:
+            return "CREATE_TABLE";
+        case CREATE_TABLE_LOWER_BOUNDS:
+            return "CREATE_TABLE_LOWER_BOUNDS";
+        case  CREATE_TABLE_UPPER_BOUNDS:
+            return "CREATE_TABLE_UPPER_BOUNDS";
+        case CREATE_TABLE_VALUE:
+            return "CREATE_TABLE_VALUE";
+        case APPEND_TO_TABLE:
+            return "APPEND_TO_TABLE";
+        case FINISH_TABLE:
+            return "FINISH_TABLE";
+
+        case SORT_ASCEND:
+            return "SORT_ASCEND";
+        case SORT_DESCEND:
+            return "SORT_DESCEND";
+        case WEIGHT_APPLY:
+            return "WEIGHT_APPLY";
 
         case BEGIN_EXPRESSION:
             return "BEGIN_EXPRESSION";
@@ -216,6 +237,10 @@ std::string instruction_to_text(AnalysisLevelInstruction inst) {
             return "FUNC_AVE";
         case FUNC_SUM:
             return "FUNC_SUM";
+        case FUNC_SORT_ASCEND:
+            return "FUNC_SORT_ASCEND";
+        case FUNC_SORT_DESCEND:
+            return "FUNC_SORT_DESCEND";
         case FUNC_NAMED:
             return "FUNC_NAMED";
         case MAKE_EMPTY_UNION:
@@ -542,6 +567,21 @@ void ALIConverter::visit_bin_list(PNode node) {
 
 }
 
+void ALIConverter::visit_weight(PNode node) {
+    std::string prev_name = current_region;
+    current_region = reserve_scoped_limit_name();
+
+    visit_children(node);
+
+    AnalysisCommand weight_apply(WEIGHT_APPLY);
+    weight_apply.add_argument(current_region);
+    weight_apply.add_argument(prev_name);
+    weight_apply.add_argument(node->get_children()[0]->get_token()->get_lexeme());
+    weight_apply.add_argument(last_condition_name);
+
+    command_list.push_back(weight_apply);
+}
+
 std::string ALIConverter::handle_particle_list(PNode node) {
 
     AnalysisCommand start(MAKE_EMPTY_PARTICLE);
@@ -673,10 +713,15 @@ std::string ALIConverter::particle_list_function(PNode node) {
     AnalysisCommand func(inst);
 
     std::string dest = reserve_scoped_value_name();
-    std::string particle_name = handle_particle_list(node->get_children()[0]);
-    
     func.add_argument(dest);
-    func.add_argument(particle_name);
+
+    PNode particle_list_node = node->get_children()[0];
+    for (auto it = particle_list_node->get_children().begin(); it != particle_list_node->get_children().end(); ++it) {
+        func.add_argument((*it)->get_token()->get_lexeme());
+    }
+    // std::string particle_name = handle_particle_list(node->get_children()[0]);
+    
+    // func.add_argument(particle_name);
 
     command_list.push_back(func);
 
@@ -816,6 +861,14 @@ std::string ALIConverter::expression_function(PNode node) {
             inst = FUNC_AVE; break;
         case SUM: 
             inst = FUNC_SUM; break;
+        case SORT:
+            if (node->get_children()[1]->get_token()->get_token() == DESCEND) {
+                inst = FUNC_SORT_DESCEND; 
+            } else {
+                inst = FUNC_SORT_ASCEND;
+            }
+            break;
+            
         default:
             raise_analysis_conversion_exception("Invalid function acting on an expression", node->get_token());
             break;
@@ -837,7 +890,14 @@ void ALIConverter::visit_expression(PNode node) {
 std::string ALIConverter::handle_expression(PNode node) {
 
     if (node->get_ast_type() == USER_FUNCTION) {
+        std::string source = handle_expression(node->get_children()[0]);
+        std::string dest = reserve_scoped_limit_name();
+        AnalysisCommand func(FUNC_NAMED);
+        func.add_argument(dest);
+        func.add_argument(source);
+        func.add_argument(node->get_children()[1]->get_token()->get_lexeme());
 
+    command_list.push_back(func);
     } else if (node->get_ast_type() == NEGATE) {
         return unary_operator(node);
     } else if (node->get_ast_type() == EXPRESSION) {
@@ -859,7 +919,7 @@ std::string ALIConverter::handle_expression(PNode node) {
         case  MSOFTDROP: case JET_ID:
         case PT: case PZ: case NBF: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY:
             return particle_list_function(node);
-        case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: 
+        case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT:
             return expression_function(node);
         default:
             return literal_value(node);
@@ -901,6 +961,22 @@ void ALIConverter::visit_if(PNode node) {
 
         current_scope_name = old_scope;
     }
+}
+
+void ALIConverter::visit_sort(PNode node) {
+    std::string to_be_sorted = handle_expression(node->get_children()[0]);
+    AnalysisLevelInstruction which_way;
+    if (node->get_children()[1]->get_token()->get_token() == ASCEND) {
+        which_way = SORT_ASCEND;
+    } else {
+        which_way = SORT_DESCEND;
+    }
+
+    AnalysisCommand sort(which_way);
+    sort.add_argument(reserve_scoped_value_name());
+    sort.add_argument(to_be_sorted);
+
+    command_list.push_back(sort);
 }
 
 void ALIConverter::visit_histo_use(PNode node) {
@@ -1287,6 +1363,88 @@ void ALIConverter::visit_definition(PNode node) {
     
     current_scope_name = prev_name;
     
+}
+
+// we precompile the table to get it to have the right dimensionality for easy array operations
+void ALIConverter::visit_table_def(PNode node) {
+    PNode name = node->get_children()[0];
+    PNode nvars = node->get_children()[2];
+    PNode do_errors_node = node->get_children()[3];
+    
+    bool do_errors = false;
+    if (do_errors_node->get_token()->get_token() == TRUE) do_errors = true;
+
+    // size of the actual table
+    int table_size = node->get_children().size() - 4;
+
+    int num_vars = std::stoi(nvars->get_token()->get_lexeme());
+    
+    // get the number of entries this table has implicitly - it should be table_size / ((1 or 3) + 2*num_vars)
+    int num_columns_per_row = (do_errors ? 3 : 1) + 2*num_vars;
+    if ((table_size % num_columns_per_row) != 0) {
+        raise_analysis_conversion_exception("Invalid table, it is not square: likely at least one row is missing at least one component", nvars->get_token());
+    }
+    int num_entries = table_size / num_columns_per_row;
+
+    std::string current_name = "";
+    std::string prev_name = reserve_scoped_value_name();
+
+    AnalysisCommand create_table(CREATE_TABLE);
+    create_table.add_argument(prev_name);
+    create_table.add_argument(nvars->get_token()->get_lexeme());
+
+    command_list.push_back(create_table);
+
+    int entry = 4;
+    for (int row = 0; row < num_entries; row++) {
+        AnalysisCommand append_to_table(APPEND_TO_TABLE);
+
+        current_name = reserve_scoped_value_name();
+        append_to_table.add_argument(current_name);
+        append_to_table.add_argument(prev_name);
+
+        AnalysisCommand create_table_value(CREATE_TABLE_VALUE);
+        std::string values_name = reserve_scoped_value_name();
+        create_table_value.add_argument(values_name);
+
+        AnalysisCommand create_table_lower_bounds(CREATE_TABLE_LOWER_BOUNDS);
+        std::string lower_bound_name = reserve_scoped_value_name();
+        create_table_lower_bounds.add_argument(lower_bound_name);
+
+        AnalysisCommand create_table_upper_bounds(CREATE_TABLE_UPPER_BOUNDS);
+        std::string upper_bound_name = reserve_scoped_value_name();
+        create_table_upper_bounds.add_argument(upper_bound_name);
+
+        append_to_table.add_argument(values_name);
+        append_to_table.add_argument(lower_bound_name);
+        append_to_table.add_argument(upper_bound_name);
+
+        for (int col = 0; col < num_columns_per_row; col++) {
+            std::string cur_lexeme = node->get_children()[entry]->get_token()->get_lexeme();
+            if (col <= (do_errors ? 2 : 0)) {
+                create_table_value.add_argument(cur_lexeme);
+            } else if (col % 2 == 0) {
+                create_table_upper_bounds.add_argument(cur_lexeme);
+            } else {
+                create_table_lower_bounds.add_argument(cur_lexeme);
+            }
+            
+            entry += 1;
+        }
+
+        command_list.push_back(create_table_value);
+        command_list.push_back(create_table_lower_bounds);
+        command_list.push_back(create_table_upper_bounds);
+        command_list.push_back(append_to_table);
+
+        prev_name = current_name;
+    }
+
+    AnalysisCommand finish_table(FINISH_TABLE);
+    finish_table.add_argument(name->get_token()->get_lexeme());
+    finish_table.add_argument(prev_name);
+    command_list.push_back(finish_table);
+
 }
 
 void ALIConverter::visit_criteria(PNode node) {

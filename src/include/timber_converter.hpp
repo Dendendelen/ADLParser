@@ -20,9 +20,11 @@ class TimberConverter {
 
         std::unordered_set<std::string> needs_btag;
         std::unordered_set<std::string> empty_union_names;
-
+        std::unordered_set<std::string> is_lorentz_vector;
+ 
         std::string command_convert(AnalysisCommand command);
         std::string binary_command(AnalysisCommand command, std::string op);
+        std::string generate_4vector_label(std::string input, std::string suffix);
         void append_4vector_label(AnalysisCommand command, std::string suffix);
         void sub_particle(AnalysisCommand command, std::string name);
         void add_particle(AnalysisCommand command, std::string name);

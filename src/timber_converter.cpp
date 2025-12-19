@@ -87,7 +87,34 @@ void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
 
     std::string indexed_if_needed = index_particle(command, is_named, name);
 
-    command_text << var_mappings[command.get_argument(1+is_named)] << (var_mappings[command.get_argument(1+is_named)] != "" ? " + " : "") << indexed_if_needed;
+    std::string source = var_mappings[command.get_argument(1+is_named)];
+
+    if (is_lorentz_vector.count(source) != 0) {
+        //TODO: finish the logic here
+        // we want to keep track of what is just NanoAOD and what is a 4-vector object (like literally which numbered values in ALIL correspond to what),
+        // and then from there handle them differently for when we are running functions on them
+        
+    }
+
+    if (source != "") {
+        command_text << "hardware::TLVector(" << generate_4vector_label(source, "pt");
+        command_text << ", " << generate_4vector_label(source, "eta");
+        command_text << ", " << generate_4vector_label(source, "phi");
+        command_text << ", " << generate_4vector_label(source, "m");
+        command_text << ")";
+        command_text << " + ";
+        command_text << "hardware::TLVector(" << generate_4vector_label(indexed_if_needed, "pt");
+        command_text << ", " << generate_4vector_label(indexed_if_needed, "eta");
+        command_text << ", " << generate_4vector_label(indexed_if_needed, "phi");
+        command_text << ", " << generate_4vector_label(indexed_if_needed, "m");
+        command_text << ") ";
+
+    } else {
+        command_text << indexed_if_needed;
+    }
+
+    command_text << '\x1d';
+    
     var_mappings[command.get_argument(0)] = command_text.str();
 }  
 
@@ -100,18 +127,14 @@ void TimberConverter::sub_particle(AnalysisCommand command, std::string name) {
     command_text << var_mappings[command.get_argument(1+is_named)] << " - " << indexed_if_needed;
 }
 
-void TimberConverter::append_4vector_label(AnalysisCommand command, std::string suffix) {
-
-    std::string output = command.get_argument(0);
-    std::string input = var_mappings[command.get_argument(1)];
-
+std::string TimberConverter::generate_4vector_label(std::string input, std::string suffix) {
     std::stringstream delimit;
     std::stringstream command_text;
 
     delimit << input;
     std::vector<std::string> delimited_by_space;
     std::string buffer;
-    while (std::getline(delimit, buffer, ' ')) {
+    while (std::getline(delimit, buffer, '\x1d')) {
         delimited_by_space.push_back(buffer);
     }
 
@@ -119,8 +142,15 @@ void TimberConverter::append_4vector_label(AnalysisCommand command, std::string 
         command_text << *it;
         if (it->back() != '+' && it->back() != '-' && it->back() != ')') command_text << suffix;
     }
+    return command_text.str();
 
-    var_mappings[output] = command_text.str();
+}
+
+void TimberConverter::append_4vector_label(AnalysisCommand command, std::string suffix) {
+
+    std::string output = command.get_argument(0);
+    std::string input = var_mappings[command.get_argument(1)];
+    var_mappings[output] = generate_4vector_label(input, suffix);
 
 }
 
@@ -162,7 +192,8 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return command_text.str();      
         case USE_HIST:
             command_text << "\n_old_node = a.GetActiveNode()";
-            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(" << var_mappings[command.get_argument(1)] << "[0])";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.AddCorrections(" << var_mappings[command.get_argument(1)] << "[1])";
             command_text << "\nuse_histo(_histogram" << command.get_argument(0) << ", _histogram_node_" << command.get_argument(1) << ")";
             command_text << "\na.SetActiveNode(_old_node)";
             return command_text.str();
@@ -177,24 +208,22 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case USE_HIST_LIST:
             command_text << "\n_old_node = a.GetActiveNode()";
             command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.AddCorrections(" << var_mappings[command.get_argument(1)] << "[1])";
             command_text << "\nuse_histo_list(_histogram_list" << var_mappings[command.get_argument(0)] << ", _histogram_node_" << command.get_argument(1) << ")";
             command_text << "\na.SetActiveNode(_old_node)";
             return command_text.str();
 
         case CREATE_REGION:
-            // command_text << "\n_groups" << command.get_argument(0) << " = " << existing_definitions_string() << "\n";
-            command_text << command.get_argument(0) << " = CutGroup('" << command.get_argument(0) << "')\n";
-            // command_text << "_groups" << command.get_argument(0) << ".append(" << command.get_argument(0) << ")\n";
-
+            command_text << command.get_argument(0) << " = [CutGroup('" << command.get_argument(0) << "'), []]\n";
             var_mappings[command.get_argument(0)] = command.get_argument(0);
             return command_text.str();
         case MERGE_REGIONS:
-            // command_text << "_groups" << var_mappings[command.get_argument(2)] << " = combine_without_duplicates(_groups" << var_mappings[command.get_argument(1)] << ", _groups" << var_mappings[command.get_argument(2)] << ")\n";
-            command_text << var_mappings[command.get_argument(2)] << " = " << var_mappings[command.get_argument(2)] << " + " << var_mappings[command.get_argument(1)] << "\n";
+            command_text << var_mappings[command.get_argument(2)] << "[0] = " << var_mappings[command.get_argument(2)] << "[0] + " << var_mappings[command.get_argument(1)] << "[0]\n";
+            command_text << var_mappings[command.get_argument(2)] << "[1] = " << var_mappings[command.get_argument(2)] << "[1] + " << var_mappings[command.get_argument(1)] << "[1]\n";
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(2)];
             return command_text.str();
         case CUT_REGION:
-            command_text << var_mappings[command.get_argument(1)] << ".Add('" << command.get_argument(0) << "', '" << var_mappings[command.get_argument(2)] << "')"; 
+            command_text << var_mappings[command.get_argument(1)] << "[0].Add('" << command.get_argument(0) << "', '" << var_mappings[command.get_argument(2)] << "')"; 
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case RUN_REGION:
@@ -212,6 +241,13 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = fn_name_wo_quotes;
             return "";
         }
+        //TODO: check that this is consistant with the overall syntax
+        case SORT_ASCEND:
+            command_text << "VecOps::Sort(" << command.get_argument(1) << ")";
+            var_mappings[command.get_argument(0)] = command_text.str(); return "";
+        case SORT_DESCEND:
+            command_text << "VecOps::Reverse(VecOps::Sort(" << command.get_argument(1) << "))";
+            var_mappings[command.get_argument(0)] = command_text.str(); return "";
         case ADD_OBJECT:
             return "ADD_OBJECT";
         case CREATE_MASK:
@@ -236,6 +272,58 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = command.get_argument(0);
             return command_text.str();
         }
+        case CREATE_TABLE:
+        {
+            var_mappings[command.get_argument(0)] = command.get_argument(0);
+            command_text << command.get_argument(0) << "_nvars = " << command.get_argument(0) << "\n";
+            command_text << command.get_argument(0) << "_lower_bounds = []\n";
+            command_text << command.get_argument(0) << "_upper_bounds = []\n";
+            command_text << command.get_argument(0) << "_values = []\n";
+            return command_text.str();
+        }
+        case CREATE_TABLE_LOWER_BOUNDS:
+        case CREATE_TABLE_UPPER_BOUNDS:
+            if (command.get_num_arguments() < 3) {
+                var_mappings[command.get_argument(0)] = command.get_argument(1); 
+                return "";
+            }
+            command_text << "[" << command.get_argument(1);
+            for (int i = 2; i < command.get_num_arguments(); i++) {
+                command_text << "," << command.get_argument(i); 
+            }
+            command_text << "]";
+            var_mappings[command.get_argument(0)] = command_text.str(); return "";
+        case CREATE_TABLE_VALUE:
+
+            if (command.get_num_arguments() < 3) {
+                var_mappings[command.get_argument(0)] = command.get_argument(1);
+            } else {
+                command_text << "[" << command.get_argument(1) << "," << command.get_argument(2) << "," << command.get_argument(3) << "]";
+                var_mappings[command.get_argument(0)] = command_text.str();
+            }
+            return "";
+        case APPEND_TO_TABLE:
+        {
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            command_text << var_mappings[command.get_argument(1)] << "_values.append(" << var_mappings[command.get_argument(2)] << "\n";
+            command_text << var_mappings[command.get_argument(1)] << "_lower_bounds.append(" << var_mappings[command.get_argument(3)] << "\n";
+            command_text << var_mappings[command.get_argument(1)] << "_upper_bounds.append(" << var_mappings[command.get_argument(4)] << "\n";
+            return command_text.str();
+        }
+        case FINISH_TABLE:
+        {
+            std::string old_name = var_mappings[command.get_argument(1)];
+            command_text << old_name << "_values_array = ROOT.VecOps.AsRVec(np.array(" << old_name << "_values, dtype=np.float32))\n";
+            command_text << old_name << "_lower_bounds_array = ROOT.VecOps.AsRVec(np.array(" << old_name << "_lower_bounds, dtype=np.float32))\n";
+            command_text << old_name << "_upper_bounds_array = ROOT.VecOps.AsRVec(np.array(" << old_name << "_upper_bounds, dtype=np.float32))\n"; 
+
+            command_text << "ROOT.gInterpreter.Declare('" << command.get_argument(0);
+            command_text << " = create_table_function(' + str(" << old_name << "_nvars) + '," << old_name << "_lower_bound_array," << old_name << "_upper_bound_array," << old_name << "_values_array);')";
+        }
+        case WEIGHT_APPLY:
+            command_text << var_mappings[command.get_argument(1)] << "[1].append(Correction('" << command.get_argument(2) << "', '', '" << var_mappings[command.get_argument(2)] << "')"; 
+            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
         case BEGIN_EXPRESSION:
             return "";
         case END_EXPRESSION:
@@ -497,6 +585,14 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_SUM:
             raise_non_implemented_conversion_exception("FUNC_SUM");
             return "FUNC_SUM";
+
+        case FUNC_SORT_ASCEND:
+            command_text << "VecOps::Sort(" << command.get_argument(1) << ")";
+            var_mappings[command.get_argument(0)] = command_text.str(); return "";
+        case FUNC_SORT_DESCEND:
+            command_text << "VecOps::Reverse(VecOps::Sort(" << command.get_argument(1) << "))";
+            var_mappings[command.get_argument(0)] = command_text.str(); return "";
+
         case FUNC_NAMED:
             raise_non_implemented_conversion_exception("FUNC_NAMED");
             return "FUNC_NAMED";
@@ -622,24 +718,42 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             raise_non_implemented_conversion_exception("FUNC_NBF");
             return "FUNC_NBF";
         case FUNC_DR:
-            raise_non_implemented_conversion_exception("FUNC_DR");
-            return "FUNC_DR";
+            command_text << "hardware::DeltaR(" << var_mappings[command.get_argument(1)] << ", " << var_mappings[command.get_argument(2)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
         case FUNC_DPHI:
-            raise_non_implemented_conversion_exception("FUNC_DPHI");
-            return "FUNC_DPHI";
+            command_text << "hardware::DeltaPhi(" << var_mappings[command.get_argument(1)] << ", " << var_mappings[command.get_argument(2)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
         case FUNC_DETA:
-            raise_non_implemented_conversion_exception("FUNC_DETA");
-            return "FUNC_DETA";
+            command_text << "hardware::DeltaEta(" << var_mappings[command.get_argument(1)] << ", " << var_mappings[command.get_argument(2)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
         case FUNC_SIZE: //TODO: check this does not conflict with a valid use case
             command_text << "size(" << var_mappings[command.get_argument(1)] << "_pt)";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
+        case CREATE_BIN:
+        case FUNC_VER_TR:
+        case FUNC_VER_Z:
+        case FUNC_VER_Y:
+        case FUNC_VER_X:
+        case FUNC_VER_T:
+        case FUNC_GEN_PART_IDX:
+        case FUNC_RAPIDITY:
+        case FUNC_FMT2:
+        case FUNC_TAUTAU:
+        case FUNC_HT:
+        case FUNC_SPHERICITY:
+        case FUNC_APLANARITY:
+            raise_non_implemented_conversion_exception("Function not implemented");
+            return "";
         default:
             std::stringstream error;
-            error << (int)inst;
+            error << AnalysisCommand::instruction_to_text(inst);
             raise_non_implemented_conversion_exception(error.str());
             return "";
-    }
+        }
 }
 
 void TimberConverter::print_timber() {

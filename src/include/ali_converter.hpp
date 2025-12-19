@@ -29,12 +29,24 @@ enum AnalysisLevelInstruction {
     HIST_1D,
     HIST_2D,
 
+    WEIGHT_APPLY,
+
     CREATE_BIN,
+
+    CREATE_TABLE,
+    CREATE_TABLE_VALUE,
+    CREATE_TABLE_LOWER_BOUNDS,
+    CREATE_TABLE_UPPER_BOUNDS,
+    APPEND_TO_TABLE,
+    FINISH_TABLE,
 
     BEGIN_EXPRESSION,
     END_EXPRESSION,
     BEGIN_IF,
     END_IF,
+
+    SORT_ASCEND,
+    SORT_DESCEND,
 
     EXPR_RAISE,
     EXPR_MULTIPLY,
@@ -103,6 +115,16 @@ enum AnalysisLevelInstruction {
     ADD_ELECTRON_TO_UNION,
     ADD_MUON_TO_UNION,
     ADD_TAU_TO_UNION,
+    ADD_TRACK_TO_UNION,
+    ADD_LEPTON_TO_UNION,
+    ADD_PHOTON_TO_UNION,
+    ADD_BJET_TO_UNION,
+    ADD_QGJET_TO_UNION,
+    ADD_NUMET_TO_UNION,
+    ADD_METLV_TO_UNION,
+    ADD_GEN_TO_UNION,
+    ADD_JET_TO_UNION,
+    ADD_FJET_TO_UNION,
 
     ADD_PART_ELECTRON,
     ADD_PART_MUON,
@@ -150,6 +172,8 @@ enum AnalysisLevelInstruction {
     FUNC_LOG, 
     FUNC_AVE, 
     FUNC_SUM, 
+    FUNC_SORT_ASCEND,
+    FUNC_SORT_DESCEND,
 
     FUNC_FLAVOR,
     FUNC_CONSTITUENTS,
@@ -184,6 +208,7 @@ class AnalysisCommand {
         int get_num_arguments();
     
         void print_instruction();
+        std::string static instruction_to_text(AnalysisLevelInstruction inst);
 };
 
 class ALIConverter : ASTVisitor {
@@ -232,6 +257,7 @@ class ALIConverter : ASTVisitor {
     protected:
         void visit_object(PNode node) override;
         void visit_if(PNode node) override;
+        void visit_sort(PNode node) override;
         void visit_object_select(PNode node) override;
         void visit_object_reject(PNode node) override;
         void visit_region_select(PNode node) override;
@@ -247,6 +273,9 @@ class ALIConverter : ASTVisitor {
         void visit_expression(PNode node) override;
         void visit_bin(PNode node) override;
         void visit_bin_list(PNode node) override;
+        void visit_table_def(PNode node) override;
+        void visit_weight(PNode node) override;
+
 
     public:
         ALIConverter();

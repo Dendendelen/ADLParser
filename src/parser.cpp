@@ -610,14 +610,14 @@ PNode Parser::parse_def_rvalue(PNode parent) {
             return external_func;
         }
 
-        // DEF_RVALUE -> add PARTICLE_LIST
-        // DEF_RVALUE -> particle_keyword PARTICLE_LIST
+        // DEF_RVALUE -> add PARTICLE_SUM
+        // DEF_RVALUE -> particle_keyword PARTICLE_SUM
         case ADD: case PARTICLE_KEYWORD:
         {
             auto add_particles = make_terminal(parent, lexer->next());
             
             PNode particle_list(new Node(PARTICLE_LIST, add_particles));
-            parse_particle_list(particle_list);
+            parse_particle_sum(particle_list);
             add_particles->add_child(particle_list);
 
             return add_particles;
@@ -841,15 +841,7 @@ PNode Parser::parse_region_command_select(PNode parent) {
 
     REGION_COMMAND -> select REGION_COMMAND_SELECT
 
-    REGION_COMMAND -> weight ID number
-
-    REGION_COMMAND -> weight ID ID
-
-    REGION_COMMAND -> weight ID ID (E, E)
-
-    REGION_COMMAND -> weight ID ID (E)
-
-    REGION_COMMAND -> weight ID (E)
+    REGION_COMMAND -> weight ID E
 
     REGION_COMMAND -> bin CONDITION
 
@@ -868,10 +860,6 @@ PNode Parser::parse_region_command_select(PNode parent) {
     REGION_COMMAND -> counts ID COUNTS
 
     REGION_COMMAND -> histo HISTOGRAM
-
-    REGION_COMMAND -> sort EXPRESSION ascend
-
-    REGION_COMMAND -> sort EXPRESSION descend
 
     REGION_COMMAND -> if EXPRESSION then REGION_COMMAND else REGION_COMMAND
 
@@ -903,37 +891,12 @@ PNode Parser::parse_region_command(PNode parent) {
             return node;
         }
 
-        // REGION_COMMAND -> weight ID number
-        // REGION_COMMAND -> weight ID ID
-        // REGION_COMMAND -> weight ID ID (E, E)
-        // REGION_COMMAND -> weight ID ID (E)
-        // REGION_COMMAND -> weight ID (E)
+        // REGION_COMMAND -> weight ID E
         case WEIGHT:
         {
             PNode node(new Node(WEIGHT_CMD, parent));
             node->add_child(parse_id(node));
-
-            auto next = lexer->peek(0);
-            if (next->get_token() == OPEN_PAREN) {
-                lexer->expect_and_consume(OPEN_PAREN);
-                node->add_child(parse_expression(node));
-                lexer->expect_and_consume(CLOSE_PAREN);
-            } else if (is_numerical(next->get_token())){
-                lexer->next();
-                node->add_child(make_terminal(node, next));
-            } else {
-                // REGION_COMMAND -> weight ID ID (E, E)
-                // REGION_COMMAND -> weight ID ID (E)
-                node->add_child(parse_id(node));
-                lexer->expect_and_consume(OPEN_PAREN);
-                node->add_child(parse_expression(node));
-                if (lexer->peek(0)->get_token() == COMMA) {
-                    // REGION_COMMAND -> weight ID ID (E, E)
-                    lexer->expect_and_consume(COMMA);
-                    node->add_child(parse_expression(node));
-                }
-                lexer->expect_and_consume(CLOSE_PAREN);
-            }
+            node->add_child(parse_expression(node));
             return node;
         }
 
@@ -1021,7 +984,7 @@ PNode Parser::parse_region_command(PNode parent) {
         // REGION_COMMAND -> sort EXPRESSION descend
         case SORT:
         {
-            PNode sort(make_terminal(parent, tok));
+            PNode sort(new Node(SORT_CMD, parent));
             sort->add_child(parse_expression(sort));
             
             auto next = lexer->next();
@@ -1329,7 +1292,7 @@ PNode Parser::parse_action(PNode parent){
             lexer->expect_and_consume(EQ);
 
             auto next = lexer->next();
-            if (next->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed for comparison in applying HM", tok);
+            if (next->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed for comparison in applying hit-or-miss", tok);
 
             lexer->expect_and_consume(CLOSE_PAREN);
  
@@ -1418,18 +1381,41 @@ void Parser::parse_count(PNode parent) {
 
 }
 
-/* PARTICLE_LIST productions:
+/* PARTICLE_SUM productions:
 ---
 
-    PARTICLE_LIST -> PARTICLE + PARTICLE_LIST
+    PARTICLE_SUM -> PARTICLE + PARTICLE_SUM
 
-    PARTICLE_LIST -> PARTICLE, PARTICLE_LIST
+    PARTICLE_SUM -> PARTICLE PARTICLE_SUM
 
-    PARTICLE_LIST -> PARTICLE PARTICLE_LIST
-
-    PARTICLE_LIST -> PARTICLE 
+    PARTICLE_SUM -> PARTICLE 
 
 */
+void Parser::parse_particle_sum(PNode parent) {
+
+    parent->add_child(parse_particle(parent));
+    auto tok = lexer->peek(0);
+
+    switch (tok->get_token()) {
+
+        // PARTICLE_SUM -> PARTICLE + PARTICLE_SUM
+        case PLUS:
+            lexer->expect_and_consume(PLUS);
+            parse_particle_sum(parent);
+            return;
+
+        // PARTICLE_SUM -> PARTICLE PARTICLE_SUM
+        case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case LEPTON: case PHOTON: 
+        case JET: case BJET: case FJET: case QGJET: case NUMET: case METLV: case STRING: case VARNAME: case MINUS:
+            parse_particle_sum(parent);
+            return;
+
+        default:
+        // PARTICLE_SUM -> PARTICLE
+            return;
+    }
+}
+
 void Parser::parse_particle_list(PNode parent) {
 
     parent->add_child(parse_particle(parent));
@@ -1437,21 +1423,9 @@ void Parser::parse_particle_list(PNode parent) {
 
     switch (tok->get_token()) {
 
-        // PARTICLE_LIST -> PARTICLE + PARTICLE_LIST
-        case PLUS:
-            lexer->expect_and_consume(PLUS);
-            parse_particle_list(parent);
-            return;
-
         // PARTICLE_LIST -> PARTICLE, PARTICLE_LIST
         case COMMA:
             lexer->expect_and_consume(COMMA);
-            parse_particle_list(parent);
-            return;
-
-        // PARTICLE_LIST -> PARTICLE PARTICLE_LIST
-        case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case LEPTON: case PHOTON: 
-        case JET: case BJET: case FJET: case QGJET: case NUMET: case METLV: case STRING: case VARNAME: case MINUS:
             parse_particle_list(parent);
             return;
 
@@ -1460,6 +1434,7 @@ void Parser::parse_particle_list(PNode parent) {
             return;
     }
 }
+
 
 /* PARTICLE productions:
 ---
@@ -1849,6 +1824,20 @@ PNode Parser::parse_expression_helper(PNode parent) {
             return interval;
         }
 
+        case SORT:
+        {
+            // E -> sort (E, ascend)
+            // E -> sort (E, descend)
+            lexer->expect_and_consume(OPEN_PAREN);
+            PNode lhs = parse_expression_helper(node);
+            node->add_child(precedence_climber(parent, lhs, 0));
+            lexer->expect_and_consume(COMMA);
+            node->add_child(make_terminal(node, lexer->next()));
+            lexer->expect_and_consume(CLOSE_PAREN);
+            
+            return node;
+        }
+
         case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: 
         {
             lexer->expect_and_consume(OPEN_PAREN);
@@ -1947,8 +1936,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
                 node->set_parent(func);
 
                 lexer->expect_and_consume(OPEN_PAREN);
-                PNode lhs = parse_expression_helper(node);
-                node->add_child(precedence_climber(node, lhs, 0));
+                parse_variable_list(node);
                 lexer->expect_and_consume(CLOSE_PAREN);
                 return func;
             }

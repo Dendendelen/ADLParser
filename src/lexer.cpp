@@ -5,9 +5,11 @@
 #include <memory>
 #include <ostream>
 #include <regex>
+#include <sstream>
 #include <vector>
 
 #include "exceptions.hpp"
+#include "tokens.hpp"
 
 Token::Token(Token_type in): type(in) {}
 
@@ -357,6 +359,267 @@ if (uppercase_token == "BIN") return BIN;
     return LEXER_ERROR;
 }
 
+std::string token_type_to_string(Token_type type) {
+    switch(type) {
+        case LEXER_ERROR: return "LEXER_ERROR";
+        case LEXER_COMMENT: return "LEXER_COMMENT";
+        case LEXER_SPACE: return "LEXER_SPACE";
+        case LEXER_NEWLINE: return "LEXER_NEWLINE";
+        case LEXER_END_OF_FILE: return "LEXER_END_OF_FILE";
+
+        case DECIMAL: return "DECIMAL";
+        case SCIENTIFIC: return "SCIENTIFIC";
+
+        case STRING: return "STRING";
+        case INTEGER: return "INTEGER";
+        case VARNAME: return "VARNAME";
+
+        case DEF: return "DEF";
+        case SELECT: return "SELECT";
+        case REJEC: return "REJEC";
+        case OBJ: return "OBJ";
+        case ALGO: return "ALGO";
+        case TRGE: return "TRGE";
+        case TRGM: return "TRGM";
+
+        case HISTOLIST: return "HISTOLIST";
+
+        case ADLINFO: return "ADLINFO";
+        case PAP_EXPERIMENT: return "PAP_EXPERIMENT";
+        case PAP_ID: return "PAP_ID";
+        case PAP_TITLE: return "PAP_TITLE";
+        case PAP_PUBLICATION: return "PAP_PUBLICATION";
+        case PAP_SQRTS: return "PAP_SQRTS";
+        case PAP_LUMI: return "PAP_LUMI";
+        case PAP_ARXIV: return "PAP_ARXIV";
+        case PAP_HEPDATA: return "PAP_HEPDATA";
+        case PAP_DOI: return "PAP_DOI";
+
+        case PARTICLE_KEYWORD: return "PARTICLE_KEYWORD";
+        case EXTERNAL: return "EXTERNAL";
+
+        case COUNTS: return "COUNTS";
+        case COUNTSFORMAT: return "COUNTSFORMAT";
+        case ERR_STAT: return "ERR_STAT";
+        case ERR_SYST: return "ERR_SYST";
+        case PROCESS: return "PROCESS";
+
+        case SYSTEMATIC: return "SYSTEMATIC";
+        case SYST_TTREE: return "SYST_TTREE";
+        case SYST_WEIGHT_MC: return "SYST_WEIGHT_MC";
+        case SYST_WEIGHT_PILEUP: return "SYST_WEIGHT_PILEUP";
+        case SYST_WEIGHT_JVT: return "SYST_WEIGHT_JVT";
+        case SYST_WEIGHT_LEPTON_SF: return "SYST_WEIGHT_LEPTON_SF";
+        case SYST_WEIGHT_BTAG_SF: return "SYST_WEIGHT_BTAG_SF";
+
+        case RUNYEAR: return "RUNYEAR";
+        case MC_CHANNEL_NUMBER: return "MC_CHANNEL_NUMBER";
+        case EVENT_NO: return "EVENT_NO";
+        case RUN_NO: return "RUN_NO";
+        case LB_NO: return "LB_NO";
+        case OME: return "OME";
+
+        case USE: return "USE";
+        case IF: return "IF";
+        case THEN: return "THEN";
+        case ELSE: return "ELSE";
+        case DO: return "DO";
+        case PRINT: return "PRINT";
+        case TRUE: return "TRUE";
+        case FALSE: return "FALSE";
+        case NVARS: return "NVARS";
+        case ERRORS: return "ERRORS";
+        case TABLETYPE: return "TABLETYPE";
+        case TAKE: return "TAKE";
+        case HISTO: return "HISTO";
+        case WEIGHT: return "WEIGHT";
+        case TABLE: return "TABLE";
+        case SKIP_HISTO: return "SKIP_HISTO";
+        case SKIP_EFFS: return "SKIP_EFFS";
+        case GEN: return "GEN";
+
+        case ELECTRON: return "ELECTRON";
+        case MUON: return "MUON";
+        case TAU: return "TAU";
+        case TRACK: return "TRACK";
+        case PHOTON: return "PHOTON";
+        case JET: return "JET";
+        case FJET: return "FJET";
+        case QGJET: return "QGJET";
+        case BIN: return "BIN";
+        case BINS: return "BINS";
+        case CONSTITUENTS: return "CONSTITUENTS";
+
+        case NUMET: return "NUMET";
+        case METLV: return "METLV";
+        case LEPTON: return "LEPTON";
+        case HLT: return "HLT";
+        case BJET: return "BJET";
+        case IDX: return "IDX";
+
+        case METSIGNIF: return "METSIGNIF";
+        case APPLY_HM: return "APPLY_HM";
+        case APPLY_PTF: return "APPLY_PTF";
+        case APPLY_EF: return "APPLY_EF";
+        case GENPART_IDX: return "GENPART_IDX";
+
+        case UNION: return "UNION";
+        case ALIAS: return "ALIAS";
+
+        case IS_BTAG: return "IS_BTAG";
+        case IS_CTAG: return "IS_CTAG";
+        case IS_TAUTAG: return "IS_TAUTAG";
+
+        case PDG_ID: return "PDG_ID";
+        case JET_ID: return "JET_ID";
+        case STATUS_FLAGS: return "STATUS_FLAGS";
+
+        case FLAVOR: return "FLAVOR";
+        case PTCONE: return "PTCONE";
+        case ETCONE: return "ETCONE";
+
+        case VERT: return "VERT";
+        case VERX: return "VERX";
+        case VERY: return "VERY";
+        case VERZ: return "VERZ";
+        case VERTR: return "VERTR";
+
+        case IS_TIGHT: return "IS_TIGHT";
+        case IS_MEDIUM: return "IS_MEDIUM";
+        case IS_LOOSE: return "IS_LOOSE";
+
+        case FMEGAJETS: return "FMEGAJETS";
+        case FHEMISPHERE: return "FHEMISPHERE";
+        case FMR: return "FMR";
+        case FMTR: return "FMTR";
+        case FMT2: return "FMT2";
+        case FMTAUTAU: return "FMTAUTAU";
+
+        case MINI_ISO: return "MINI_ISO";
+        case ABS_ISO: return "ABS_ISO";
+
+        case DXY: return "DXY";
+        case EDXY: return "EDXY";
+        case DZ: return "DZ";
+        case EDZ: return "EDZ";
+
+        case HF_CLASSIFICATION: return "HF_CLASSIFICATION";
+        case TTBAR_NNLOREC: return "TTBAR_NNLOREC";
+
+        case PHI: return "PHI";
+        case ETA: return "ETA";
+        case RAPIDITY: return "RAPIDITY";
+        case ABS_ETA: return "ABS_ETA";
+
+        case MSOFTDROP: return "MSOFTDROP";
+
+        case THETA: return "THETA";
+        case PT: return "PT";
+        case PZ: return "PZ";
+        case DR: return "DR";
+
+        case DPHI: return "DPHI";
+        case DETA: return "DETA";
+
+        case NUMOF: return "NUMOF";
+        case NBF: return "NBF";
+        case HT: return "HT";
+        case MET: return "MET";
+
+        case APLANARITY: return "APLANARITY";
+        case SPHERICITY: return "SPHERICITY";
+        case LEP_SF: return "LEP_SF";
+        case BTAGS_SF: return "BTAGS_SF";
+        case XSLUMICORR_SF: return "XSLUMICORR_SF";
+
+        case ANYOF: return "ANYOF";
+        case ALLOF: return "ALLOF";
+        case ALL: return "ALL";
+        case NONE: return "NONE";
+
+        case EQ: return "EQ";
+        case NE: return "NE";
+        case MAXIMIZE: return "MAXIMIZE";
+        case MINIMIZE: return "MINIMIZE";
+        case LE: return "LE";
+        case GE: return "GE";
+        case LT: return "LT";
+        case GT: return "GT";
+        case IRG: return "IRG";
+        case ERG: return "ERG";
+        case AND: return "AND";
+        case OR: return "OR";
+        case NOT: return "NOT";
+        case WITHIN: return "WITHIN";
+        case OUTSIDE: return "OUTSIDE";
+
+        case MINUS: return "MINUS";
+        case PLUS: return "PLUS";
+        case MULTIPLY: return "MULTIPLY";
+        case DIVIDE: return "DIVIDE";
+
+        case AMPERSAND: return "AMPERSAND";
+        case PIPE: return "PIPE";
+        case COLON: return "COLON";
+        case RAISED_TO_POWER: return "RAISED_TO_POWER";
+
+        case OPEN_PAREN: return "OPEN_PAREN";
+        case CLOSE_PAREN: return "CLOSE_PAREN";
+        case OPEN_SQUARE_BRACE: return "OPEN_SQUARE_BRACE";
+        case CLOSE_SQUARE_BRACE: return "CLOSE_SQUARE_BRACE";
+        case OPEN_CURLY_BRACE: return "OPEN_CURLY_BRACE";
+        case CLOSE_CURLY_BRACE: return "CLOSE_CURLY_BRACE";
+        case QUESTION: return "QUESTION";
+        case ASSIGN: return "ASSIGN";
+
+        case AVE: return "AVE";
+        case SUM: return "SUM";
+        case ADD: return "ADD";
+        case SAVE: return "SAVE";
+        case CSV: return "CSV";
+        case ASCEND: return "ASCEND";
+        case DESCEND: return "DESCEND";
+        case TAN: return "TAN";
+        case SIN: return "SIN";
+        case COS: return "COS";
+        case SINH: return "SINH";
+        case COSH: return "COSH";
+        case TANH: return "TANH";
+        case EXP: return "EXP";
+        case LOG: return "LOG";
+        case HSTEP: return "HSTEP";
+        case DELTA: return "DELTA";
+        case ABS: return "ABS";
+        case SQRT: return "SQRT";
+        case SORT: return "SORT";
+        case COMB: return "COMB";
+        case PERM: return "PERM";
+        case MIN: return "MIN";
+        case MAX: return "MAX";
+        case PM: return "PM";
+        case BWR: return "BWR";
+        case BWL: return "BWL";
+
+        case COMMA: return "COMMA";
+        case UNDERSCORE: return "UNDERSCORE";
+
+        case LETTER_M: return "LETTER_M";
+        case LETTER_Q: return "LETTER_Q";
+        case LETTER_P: return "LETTER_P";
+        case LETTER_E: return "LETTER_E";
+
+        case INT: return "INT";
+        case NB: return "NB";
+        case PNB: return "PNB";
+        case ID: return "ID";
+        case HID: return "HID";
+    }
+}
+
+std::string Token::get_token_type_as_string() {
+    return token_type_to_string(type);
+}
+
 void Lexer::lex_token(std::string &token, int &line_number, int &column_number) {
 
     // Do not lex an empty token
@@ -526,7 +789,9 @@ void Lexer::expect_and_consume(Token_type type, std::string error) {
 }
 
 void Lexer::expect_and_consume(Token_type type) {
-    expect_and_consume(type, "Unexpected token");
+    std::stringstream error_ss;
+    error_ss << "Unexpected token, expected a token of type " << token_type_to_string(type);
+    expect_and_consume(type, error_ss.str());
 }
 
 
