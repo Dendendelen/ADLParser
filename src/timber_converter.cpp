@@ -50,6 +50,14 @@ std::string TimberConverter::add_all_relevant_tags_for_union_merge(AnalysisComma
     return command_text.str();  
 }
 
+std::string TimberConverter::get_mapping_if_exists(std::string str) {
+    if (var_mappings.count(str) == 0) {
+        var_mappings[str] = str;
+    } 
+    return var_mappings[str];
+}
+
+
 std::string TimberConverter::existing_definitions_string() {
     std::stringstream defs;
     defs << "[";
@@ -66,18 +74,31 @@ std::string TimberConverter::existing_definitions_string() {
     Adds an index tag to a particle, as NanoAOD handles 4-vector indices in this way
 */
 std::string TimberConverter::index_particle(AnalysisCommand command, bool is_named, std::string part_text) {
+    std::stringstream idx_text;
     if (command.get_num_arguments() - is_named >= 4) {
-        std::stringstream idx_text;
-        idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << "," << command.get_argument(3+is_named) << ")";\
-        return idx_text.str();
-
+        idx_text << "index_get(" << part_text << '\x1d' << " ," << command.get_argument(2+is_named) << "," << command.get_argument(3+is_named) << ")";\
     } else if (command.get_num_arguments() - is_named >= 3) {
-        std::stringstream idx_text;
-        idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << ")";
-        return idx_text.str();
+        // idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << ")";
+        idx_text << part_text << '\x1d' << "[" << command.get_argument(2+is_named) << "]";   
     } else {
-        return part_text;
+        idx_text << part_text << '\x1d';
     }
+    return idx_text.str();
+}
+
+std::string TimberConverter::lorentzify(std::string name) {
+    if (is_lorentz_vector.count(name) != 0) {
+        return get_mapping_if_exists(name);
+    }
+    // this is not already a lorentz vector - we would like it to become so
+    std::stringstream command_text;
+    command_text << "(";
+    command_text << "TLV(" << generate_4vector_label(name, "_pt");
+    command_text << ", " << generate_4vector_label(name, "_eta");
+    command_text << ", " << generate_4vector_label(name, "_phi");
+    command_text << ", " << generate_4vector_label(name, "_mass");
+    command_text << "))";
+    return command_text.str();
 }
 
 void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
@@ -94,26 +115,29 @@ void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
         // we want to keep track of what is just NanoAOD and what is a 4-vector object (like literally which numbered values in ALIL correspond to what),
         // and then from there handle them differently for when we are running functions on them
         
-    }
 
-    if (source != "") {
-        command_text << "hardware::TLVector(" << generate_4vector_label(source, "pt");
-        command_text << ", " << generate_4vector_label(source, "eta");
-        command_text << ", " << generate_4vector_label(source, "phi");
-        command_text << ", " << generate_4vector_label(source, "m");
-        command_text << ")";
+        // implies that 1) the source is not empty and 2) that it is in a 4-vector state. We thus add to it and our result will also be a 4-vector
+
+        command_text << "(";
+
+        std::regex e ("\x1d"); 
+        command_text << std::regex_replace (source,e,"");
         command_text << " + ";
-        command_text << "hardware::TLVector(" << generate_4vector_label(indexed_if_needed, "pt");
-        command_text << ", " << generate_4vector_label(indexed_if_needed, "eta");
-        command_text << ", " << generate_4vector_label(indexed_if_needed, "phi");
-        command_text << ", " << generate_4vector_label(indexed_if_needed, "m");
-        command_text << ") ";
+        command_text << lorentzify(indexed_if_needed);
+        command_text << '\x1d';
+        is_lorentz_vector.insert(command_text.str());
 
+    } else if (source != "") {
+        // the source is not a 4-vector but is also non-empty. This implies that we need to create a 4-vector out of it, and proceed to add it to the new particle
+        command_text << lorentzify(source);
+        command_text << " + ";
+        command_text << lorentzify(indexed_if_needed);
+        command_text << '\x1d';
+        is_lorentz_vector.insert(command_text.str());
     } else {
+        // the source is empty, and so we simply add this as a particle without any special actions
         command_text << indexed_if_needed;
     }
-
-    command_text << '\x1d';
     
     var_mappings[command.get_argument(0)] = command_text.str();
 }  
@@ -138,20 +162,36 @@ std::string TimberConverter::generate_4vector_label(std::string input, std::stri
         delimited_by_space.push_back(buffer);
     }
 
-    for (auto it = delimited_by_space.begin(); it != delimited_by_space.end(); ++it) {
+    if (delimited_by_space.size() == 1) {
+        // if we have only one element, presume that we need to append to the end regardless of anything else
+        command_text << delimited_by_space[0] << suffix;
+        return command_text.str();
+    }
+
+    for (auto it = delimited_by_space.begin(); it != std::prev(delimited_by_space.end()); ++it) {
         command_text << *it;
         if (it->back() != '+' && it->back() != '-' && it->back() != ')') command_text << suffix;
     }
+    command_text << delimited_by_space.back();
     return command_text.str();
 
 }
 
-void TimberConverter::append_4vector_label(AnalysisCommand command, std::string suffix) {
+void TimberConverter::append_4vector_label(AnalysisCommand command, std::string suffix, std::string suffix_if_lv) {
 
     std::string output = command.get_argument(0);
-    std::string input = var_mappings[command.get_argument(1)];
-    var_mappings[output] = generate_4vector_label(input, suffix);
-
+    std::string input = get_mapping_if_exists(command.get_argument(1));
+    if (is_lorentz_vector.count(input) != 0) {
+        // in this case, this input is a lorentz vector object, and we want to get its pt via an object attribute
+        if (suffix_if_lv == "") {
+            raise_non_implemented_conversion_exception(AnalysisCommand::instruction_to_text(command.get_instruction()), "this function makes sense only when used on a 4-vector, but is being used on a raw NanoAOD value");
+        }
+        var_mappings[output] = generate_4vector_label(input, suffix_if_lv);
+    } else {
+        if (suffix == "") {
+            raise_non_implemented_conversion_exception(AnalysisCommand::instruction_to_text(command.get_instruction()), "this function makes sense only when used on raw NanoAOD values, but is being used on an added 4-vector");        }
+        var_mappings[output] = generate_4vector_label(input, suffix);
+    }
 }
 
 std::string TimberConverter::binary_command(AnalysisCommand command, std::string op) {
@@ -230,8 +270,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "RUN_REGION";
         case ADD_ALIAS:
         {
-            if (var_mappings.count(command.get_argument(1)) == 0) var_mappings[command.get_argument(1)] = command.get_argument(1);
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            var_mappings[command.get_argument(0)] = get_mapping_if_exists(command.get_argument(1));
             return "";
         }
         case ADD_EXTERNAL:
@@ -407,20 +446,20 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "";
         }
         case FUNC_PT:
-            append_4vector_label(command, "_pt");
+            append_4vector_label(command, "_pt", ".Pt()");
             return "";
         case FUNC_ETA:
-            append_4vector_label(command, "_eta");
+            append_4vector_label(command, "_eta", ".Eta()");
             return "";
         case FUNC_PHI:
-            append_4vector_label(command, "_phi");
+            append_4vector_label(command, "_phi", ".Phi()");
             return "";
         case FUNC_MASS:
-            append_4vector_label(command, "_mass");
+            append_4vector_label(command, "_mass", ".M()");
             return "";
         case FUNC_ENERGY:
-            raise_non_implemented_conversion_exception("FUNC_ENERGY");
-            return "FUNC_E"; 
+            append_4vector_label(command, "", ".E()");
+            return "";
         case FUNC_CHARGE:
             append_4vector_label(command, "_charge");
             return "";
@@ -482,8 +521,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             add_particle(command, "FatJet");
             return "";
         case ADD_PART_NAMED:
-            if (var_mappings.count(command.get_argument(1)) == 0) var_mappings[command.get_argument(1)] = command.get_argument(1);
-            add_particle(command, var_mappings[command.get_argument(1)]);
+            add_particle(command, get_mapping_if_exists(command.get_argument(1)));
             return "";
         case SUB_PART_ELECTRON:
             sub_particle(command, "Electron");
@@ -585,6 +623,14 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_SUM:
             raise_non_implemented_conversion_exception("FUNC_SUM");
             return "FUNC_SUM";
+        case FUNC_MIN:
+            command_text << "VecOps::Min(" << var_mappings[command.get_argument(1)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
+        case FUNC_MAX:
+            command_text << "VecOps::Max(" << var_mappings[command.get_argument(1)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
 
         case FUNC_SORT_ASCEND:
             command_text << "VecOps::Sort(" << command.get_argument(1) << ")";
@@ -592,7 +638,6 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_SORT_DESCEND:
             command_text << "VecOps::Reverse(VecOps::Sort(" << command.get_argument(1) << "))";
             var_mappings[command.get_argument(0)] = command_text.str(); return "";
-
         case FUNC_NAMED:
             raise_non_implemented_conversion_exception("FUNC_NAMED");
             return "FUNC_NAMED";
@@ -718,19 +763,17 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             raise_non_implemented_conversion_exception("FUNC_NBF");
             return "FUNC_NBF";
         case FUNC_DR:
-            command_text << "hardware::DeltaR(" << var_mappings[command.get_argument(1)] << ", " << var_mappings[command.get_argument(2)] << ")";
+            command_text << "LVDeltaR(" << lorentzify(get_mapping_if_exists(command.get_argument(1))) << ", " << lorentzify(get_mapping_if_exists(command.get_argument(2))) << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case FUNC_DPHI:
-            command_text << "hardware::DeltaPhi(" << var_mappings[command.get_argument(1)] << ", " << var_mappings[command.get_argument(2)] << ")";
+            command_text << "LVDeltaPhi(" << lorentzify(get_mapping_if_exists(command.get_argument(1))) << ", " << lorentzify(get_mapping_if_exists(command.get_argument(2))) << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case FUNC_DETA:
-            command_text << "hardware::DeltaEta(" << var_mappings[command.get_argument(1)] << ", " << var_mappings[command.get_argument(2)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            command_text << "LVDeltaEta(" << lorentzify(get_mapping_if_exists(command.get_argument(1))) << ", " << lorentzify(get_mapping_if_exists(command.get_argument(2))) << ")";
         case FUNC_SIZE: //TODO: check this does not conflict with a valid use case
-            command_text << "size(" << var_mappings[command.get_argument(1)] << "_pt)";
+            command_text << "size(" << generate_4vector_label(get_mapping_if_exists(command.get_argument(1)), "_pt");
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case CREATE_BIN:

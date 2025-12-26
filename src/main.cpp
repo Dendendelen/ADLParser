@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
     if (argc > 2) argument = std::string(argv[2]);
     else argument = "timber";
 
-    std::unique_ptr<Lexer> lexer(new Lexer());
+    std::unique_ptr<Lexer> lexer = std::make_unique<Lexer>();
 
     lexer->read_lines(filename);
     // lexer->read_lines("adl_test_2.adl");
@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     
-    std::unique_ptr<Parser> parser(new Parser(lexer.release()));
+    std::unique_ptr<Parser> parser = std::make_unique<Parser>(lexer.release());
     parser->parse();
 
     if (argument == "parse") {
@@ -46,13 +46,13 @@ int main(int argc, char** argv) {
     }
 
     if (argument == "timber") {
-        std::unique_ptr<TimberConverter> timber(new TimberConverter(alil.release()));
+        std::unique_ptr<TimberConverter> timber = std::make_unique<TimberConverter>(alil.release());
         timber->print_timber();
         return 0;
     }
     
     if (argument == "coffea") {
-        std::unique_ptr<CoffeaConverter> coffea(new CoffeaConverter(alil.release()));
+        std::unique_ptr<CoffeaConverter> coffea = std::make_unique<CoffeaConverter>(alil.release());
         coffea->print_coffea();
         return 0;
     }

@@ -29,8 +29,8 @@ void ASTVisitor::visit(PNode node) {
             return visit_histogram(node);
         case HISTO_USE:
             return visit_histo_use(node);
-        case PARTICLE_LIST:
-            return visit_particle_list(node);
+        case PARTICLE_SUM:
+            return visit_particle_sum(node);
         case EXPRESSION:
             return visit_expression(node);
         case TABLE_DEF:

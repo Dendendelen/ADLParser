@@ -56,6 +56,7 @@ std::string AST_type_to_string(AST_type type) {
         case HISTOLIST_HISTOGRAM: return "HISTOLIST_HISTOGRAM";
         case HISTO_USE: return "HISTO_USE";
         case PARTICLE_LIST: return "PARTICLE_LIST";
+        case PARTICLE_SUM: return "PARTICLE_LIST";
         case INDEX: return "INDEX";
         case BOXLIST: return "BOXLIST";
         case VALUES: return "VALUES";

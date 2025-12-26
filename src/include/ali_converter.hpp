@@ -172,6 +172,8 @@ enum AnalysisLevelInstruction {
     FUNC_LOG, 
     FUNC_AVE, 
     FUNC_SUM, 
+    FUNC_MIN,
+    FUNC_MAX,
     FUNC_SORT_ASCEND,
     FUNC_SORT_DESCEND,
 
@@ -269,7 +271,7 @@ class ALIConverter : ASTVisitor {
         void visit_histogram(PNode node) override;
         void visit_histo_list(PNode node) override;
         void visit_histo_use(PNode node) override;
-        void visit_particle_list(PNode node) override;
+        void visit_particle_sum(PNode node) override;
         void visit_expression(PNode node) override;
         void visit_bin(PNode node) override;
         void visit_bin_list(PNode node) override;

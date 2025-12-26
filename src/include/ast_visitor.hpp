@@ -28,7 +28,7 @@ class ASTVisitor {
         virtual void visit_histogram(PNode node) = 0;
         virtual void visit_histo_list(PNode node) = 0;
 
-        virtual void visit_particle_list(PNode node) = 0;
+        virtual void visit_particle_sum(PNode node) = 0;
 
         virtual void visit_table_def(PNode node) = 0;
 

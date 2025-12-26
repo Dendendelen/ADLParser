@@ -70,6 +70,7 @@ enum AST_type{
     HISTO_USE,
 
     PARTICLE_LIST,
+    PARTICLE_SUM,
     INDEX,
     BOXLIST,
 

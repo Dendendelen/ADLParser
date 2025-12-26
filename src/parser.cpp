@@ -616,7 +616,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
         {
             auto add_particles = make_terminal(parent, lexer->next());
             
-            PNode particle_list(new Node(PARTICLE_LIST, add_particles));
+            PNode particle_list(new Node(PARTICLE_SUM, add_particles));
             parse_particle_sum(particle_list);
             add_particles->add_child(particle_list);
 
@@ -1985,7 +1985,7 @@ void Parser::print_children_and_yourself(PNode node, int *top_number) {
 
         std::cout << "    " << reserved_number_for_me << " [label=\"" << lexeme << "\"]" << std::endl;
     } else {
-        std::cout << "    " << reserved_number_for_me << " [label=\"ID:" << node->get_ast_type() << "\"]" <<std::endl;
+        std::cout << "    " << reserved_number_for_me << " [label=\"ID:" << node->get_ast_type_as_string() << "\"]" <<std::endl;
     }
 
     auto children_vector = node->get_children();

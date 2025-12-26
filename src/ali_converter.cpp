@@ -237,6 +237,10 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "FUNC_AVE";
         case FUNC_SUM:
             return "FUNC_SUM";
+        case FUNC_MIN:
+            return "FUNC_MIN";
+        case FUNC_MAX:
+            return "FUNC_MAX";
         case FUNC_SORT_ASCEND:
             return "FUNC_SORT_ASCEND";
         case FUNC_SORT_DESCEND:
@@ -599,7 +603,7 @@ std::string ALIConverter::handle_particle_list(PNode node) {
     return last_part;
 }
 
-void ALIConverter::visit_particle_list(PNode node) {
+void ALIConverter::visit_particle_sum(PNode node) {
     handle_particle_list(node);
 }
 
@@ -714,6 +718,8 @@ std::string ALIConverter::particle_list_function(PNode node) {
 
     std::string dest = reserve_scoped_value_name();
     func.add_argument(dest);
+
+    visit_children(node);
 
     PNode particle_list_node = node->get_children()[0];
     for (auto it = particle_list_node->get_children().begin(); it != particle_list_node->get_children().end(); ++it) {
@@ -861,6 +867,10 @@ std::string ALIConverter::expression_function(PNode node) {
             inst = FUNC_AVE; break;
         case SUM: 
             inst = FUNC_SUM; break;
+        case MIN:
+            inst = FUNC_MIN; break;
+        case MAX:
+            inst = FUNC_MAX; break;
         case SORT:
             if (node->get_children()[1]->get_token()->get_token() == DESCEND) {
                 inst = FUNC_SORT_DESCEND; 
@@ -919,7 +929,7 @@ std::string ALIConverter::handle_expression(PNode node) {
         case  MSOFTDROP: case JET_ID:
         case PT: case PZ: case NBF: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY:
             return particle_list_function(node);
-        case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT:
+        case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX:
             return expression_function(node);
         default:
             return literal_value(node);
