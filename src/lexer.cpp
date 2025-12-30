@@ -332,6 +332,8 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "PERM") return PERM;
     if (uppercase_token == "MIN") return MIN;
     if (uppercase_token == "MAX") return MAX;
+    if (uppercase_token == "FIRST") return FIRST;
+    if (uppercase_token == "SECOND") return SECOND;
     if (token == "+-"|| token == "-+") return PM;
     if (token == ">>") return BWR;
     if (token == "<<") return BWL;
@@ -789,9 +791,13 @@ void Lexer::expect_and_consume(Token_type type, std::string error) {
 }
 
 void Lexer::expect_and_consume(Token_type type) {
-    std::stringstream error_ss;
-    error_ss << "Unexpected token, expected a token of type " << token_type_to_string(type);
-    expect_and_consume(type, error_ss.str());
+    auto tok = next();
+    if (tok->get_token() != type) {
+        std::stringstream error_ss;
+        error_ss << "Unexpected token, expected a token of type " << token_type_to_string(type) << ", got token of type " << token_type_to_string(tok->get_token());
+        raise_parsing_exception(error_ss.str(), tok);
+    }
+    
 }
 
 

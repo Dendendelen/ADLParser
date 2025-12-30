@@ -663,39 +663,40 @@ void Parser::parse_obj_rvalue(PNode parent) {
     switch(tok->get_token()) {
 
         // OBJ_RVALUE -> union ( PARTICLE_LIST )
-        case UNION:
+        case UNION: case COMB:
         {
-            PNode union_type = make_terminal(parent, lexer->next());
+            PNode union_or_comb_type = make_terminal(parent, lexer->next());
 
-            lexer->expect_and_consume(OPEN_PAREN);
-            auto next = lexer->peek(0);
-                
-            // OBJ_RVALUE -> union ( PARTICLE_LIST )
-            parse_particle_list(union_type);
-
-            lexer->expect_and_consume(CLOSE_PAREN);
-
-            parent->add_child(union_type);
-            return;
-        }
-
-        // OBJ_RVALUE -> comb ( PARTICLE_LIST )
-        case COMB:
-        {
-            PNode comb_type = make_terminal(parent, lexer->next());
-
-            parent->add_child(comb_type);
+            parent->add_child(union_or_comb_type);
 
             lexer->expect_and_consume(OPEN_PAREN);
 
-            PNode particle_list(new Node(PARTICLE_LIST, comb_type));
-            comb_type->add_child(particle_list);
+            PNode particle_list(new Node(PARTICLE_LIST, union_or_comb_type));
+            union_or_comb_type->add_child(particle_list);
 
             parse_particle_list(particle_list);
             lexer->expect_and_consume(CLOSE_PAREN);
 
             return;
         }
+
+        // OBJ_RVALUE -> comb ( PARTICLE_LIST )
+        // case COMB:
+        // {
+        //     PNode comb_type = make_terminal(parent, lexer->next());
+
+        //     parent->add_child(comb_type);
+
+        //     lexer->expect_and_consume(OPEN_PAREN);
+
+        //     PNode particle_list(new Node(PARTICLE_LIST, comb_type));
+        //     comb_type->add_child(particle_list);
+
+        //     parse_particle_list(particle_list);
+        //     lexer->expect_and_consume(CLOSE_PAREN);
+
+        //     return;
+        // }
 
         // OBJ_RVALUE -> PARTICLE CRITERIA
         default:
@@ -1439,6 +1440,10 @@ void Parser::parse_particle_list(PNode parent) {
 /* PARTICLE productions:
 ---
 
+    PARTICLE -> first(PARTICLE)
+    
+    PARTICLE -> second(PARTICLE)
+
     PARTICLE -> gen constituents
 
     PARTICLE -> jet constituents
@@ -1480,6 +1485,17 @@ PNode Parser::parse_particle(PNode parent) {
     auto tok = lexer->peek(0);
 
     switch (tok->get_token()) {
+
+        // PARTICLE -> first(PARTICLE)
+        // PARTICLE -> second(PARTICLE)
+        case FIRST: case SECOND:
+        {
+            PNode helper_func = make_terminal(parent, lexer->next());
+            lexer->expect_and_consume(OPEN_PAREN);
+            helper_func->add_child(parse_particle(helper_func));
+            lexer->expect_and_consume(CLOSE_PAREN);
+            return helper_func;
+        }
 
         // PARTICLE -> gen constituents
         // PARTICLE -> jet constituents

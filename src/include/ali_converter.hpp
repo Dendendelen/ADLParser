@@ -126,6 +126,22 @@ enum AnalysisLevelInstruction {
     ADD_JET_TO_UNION,
     ADD_FJET_TO_UNION,
 
+    MAKE_EMPTY_COMB,
+    ADD_NAMED_TO_COMB,
+    ADD_ELECTRON_TO_COMB,
+    ADD_MUON_TO_COMB,
+    ADD_TAU_TO_COMB,
+    ADD_TRACK_TO_COMB,
+    ADD_LEPTON_TO_COMB,
+    ADD_PHOTON_TO_COMB,
+    ADD_BJET_TO_COMB,
+    ADD_QGJET_TO_COMB,
+    ADD_NUMET_TO_COMB,
+    ADD_METLV_TO_COMB,
+    ADD_GEN_TO_COMB,
+    ADD_JET_TO_COMB,
+    ADD_FJET_TO_COMB,
+
     ADD_PART_ELECTRON,
     ADD_PART_MUON,
     ADD_PART_TAU,
@@ -174,6 +190,8 @@ enum AnalysisLevelInstruction {
     FUNC_SUM, 
     FUNC_MIN,
     FUNC_MAX,
+    FUNC_FIRST,
+    FUNC_SECOND,
     FUNC_SORT_ASCEND,
     FUNC_SORT_DESCEND,
 
@@ -228,7 +246,7 @@ class ALIConverter : ASTVisitor {
 
         std::string expression_function(PNode node);
         std::string union_list(PNode node, std::string prev);
-
+        std::string comb_list(PNode node, std::string prev);
 
         std::string unary_operator(PNode node);
         std::string binary_operator(PNode node);
@@ -242,6 +260,7 @@ class ALIConverter : ASTVisitor {
 
 
         void visit_union_type(PNode node); 
+        void visit_comb_type(PNode node); 
 
         std::string last_condition_name;
 

@@ -239,6 +239,10 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "FUNC_SUM";
         case FUNC_MIN:
             return "FUNC_MIN";
+        case FUNC_FIRST:
+            return "FUNC_FIRST";
+        case FUNC_SECOND:
+            return "FUNC_SECOND";
         case FUNC_MAX:
             return "FUNC_MAX";
         case FUNC_SORT_ASCEND:
@@ -277,6 +281,38 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "ADD_JET_TO_UNION"; 
         case ADD_FJET_TO_UNION:
             return "ADD_FJET_TO_UNION"; 
+
+        case MAKE_EMPTY_COMB:
+            return "MAKE_EMPTY_COMB";
+        case ADD_NAMED_TO_COMB:
+            return "ADD_NAMED_TO_COMB";
+        case ADD_ELECTRON_TO_COMB:
+            return "ADD_ELECTRON_TO_COMB";
+        case ADD_MUON_TO_COMB:
+            return "ADD_MUON_TO_COMB";
+        case ADD_TAU_TO_COMB:
+            return "ADD_TAU_TO_COMB";
+        case ADD_TRACK_TO_COMB:
+            return "ADD_TRACK_TO_COMB"; 
+        case ADD_LEPTON_TO_COMB:
+            return "ADD_LEPTON_TO_COMB"; 
+        case ADD_PHOTON_TO_COMB:
+            return "ADD_PHOTON_TO_COMB"; 
+        case ADD_BJET_TO_COMB:
+            return "ADD_BJET_TO_COMB"; 
+        case ADD_QGJET_TO_COMB:
+            return "ADD_QGJET_TO_COMB"; 
+        case ADD_NUMET_TO_COMB:
+            return "ADD_NUMET_TO_COMB"; 
+        case ADD_METLV_TO_COMB:
+            return "ADD_METLV_TO_COMB"; 
+        case ADD_GEN_TO_COMB:
+            return "ADD_GEN_TO_COMB"; 
+        case ADD_JET_TO_COMB:
+            return "ADD_JET_TO_COMB"; 
+        case ADD_FJET_TO_COMB:
+            return "ADD_FJET_TO_COMB"; 
+
         case FUNC_FLAVOR:
             return "FUNC_FLAVOR";
         case FUNC_CONSTITUENTS:
@@ -360,7 +396,7 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
 
 void AnalysisCommand::print_instruction() {
     
-    if (instruction == MAKE_EMPTY_PARTICLE || instruction == MAKE_EMPTY_UNION || instruction == CREATE_REGION || instruction == CREATE_MASK) std::cout << std::endl;
+    if (instruction == MAKE_EMPTY_PARTICLE || instruction == MAKE_EMPTY_UNION || instruction == MAKE_EMPTY_COMB || instruction == CREATE_REGION || instruction == CREATE_MASK) std::cout << std::endl;
 
     std::cout << instruction_to_text(instruction);
 
@@ -708,6 +744,7 @@ std::string ALIConverter::particle_list_function(PNode node) {
             inst = FUNC_SPHERICITY; break;
         case APLANARITY:
             inst = FUNC_APLANARITY; break;
+
         default:
             raise_analysis_conversion_exception("Undefined particle function", node->get_token());
             break;
@@ -723,7 +760,16 @@ std::string ALIConverter::particle_list_function(PNode node) {
 
     PNode particle_list_node = node->get_children()[0];
     for (auto it = particle_list_node->get_children().begin(); it != particle_list_node->get_children().end(); ++it) {
-        func.add_argument((*it)->get_token()->get_lexeme());
+        if ((*it)->get_token()->get_token() == FIRST || (*it)->get_token()->get_token() == SECOND) {
+            AnalysisCommand indexing((*it)->get_token()->get_token() == FIRST ? FUNC_FIRST : FUNC_SECOND);
+            std::string dest_for_index = reserve_scoped_value_name();
+            indexing.add_argument(dest_for_index);
+            indexing.add_argument((*it)->get_children()[0]->get_token()->get_lexeme());
+            command_list.push_back(indexing);
+            func.add_argument(dest_for_index);
+        } else {
+            func.add_argument((*it)->get_token()->get_lexeme());
+        }
     }
     // std::string particle_name = handle_particle_list(node->get_children()[0]);
     
@@ -927,7 +973,7 @@ std::string ALIConverter::handle_expression(PNode node) {
         case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case ABS_ETA: case THETA: 
         case PTCONE: case ETCONE: case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
         case  MSOFTDROP: case JET_ID:
-        case PT: case PZ: case NBF: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY:
+        case PT: case PZ: case NBF: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY: case FIRST: case SECOND:
             return particle_list_function(node);
         case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX:
             return expression_function(node);
@@ -1120,6 +1166,55 @@ void ALIConverter::visit_object_reject(PNode node) {
     
 }
 
+std::string ALIConverter::comb_list(PNode node, std::string prev) {
+    AnalysisLevelInstruction inst;
+
+    switch (node->get_token()->get_token()) {
+        case ELECTRON:
+            inst = ADD_ELECTRON_TO_COMB; break;
+        case MUON:
+            inst = ADD_MUON_TO_COMB; break;
+        case TAU:
+            inst = ADD_TAU_TO_COMB; break;
+        case TRACK:
+            inst = ADD_TRACK_TO_COMB; break;
+        case LEPTON:
+            inst = ADD_LEPTON_TO_COMB; break;
+        case PHOTON:
+            inst = ADD_PHOTON_TO_COMB; break;
+        case BJET:
+            inst = ADD_BJET_TO_COMB; break;
+        case QGJET:
+            inst = ADD_QGJET_TO_COMB; break;
+        case NUMET:
+            inst = ADD_NUMET_TO_COMB; break;
+        case METLV:
+            inst = ADD_METLV_TO_COMB; break;
+        case GEN:
+            inst = ADD_GEN_TO_COMB; break;
+        case JET:
+            inst = ADD_JET_TO_COMB; break;
+        case FJET:
+            inst = ADD_FJET_TO_COMB; break;
+        default:
+            inst = ADD_NAMED_TO_COMB; break;
+    }
+
+    AnalysisCommand combine(inst);
+    std::string dest = reserve_scoped_limit_name();
+
+    combine.add_argument(dest);
+    combine.add_argument(prev);
+
+    if (inst == ADD_NAMED_TO_COMB) {
+        combine.add_argument(node->get_token()->get_lexeme());
+    }
+
+    command_list.push_back(combine);
+
+    return dest;
+}
+
 std::string ALIConverter::union_list(PNode node, std::string prev) {
 
     AnalysisLevelInstruction inst;
@@ -1174,7 +1269,7 @@ void ALIConverter::visit_union_type(PNode node) {
 
     std::string prev_name = current_scope_name;
 
-    PNode union_node = node->get_children()[1];
+    PNode union_node = node->get_children()[1]->get_children()[0];
     std::string name = node->get_children()[0]->get_token()->get_lexeme();
 
     std::stringstream union_name;
@@ -1203,6 +1298,37 @@ void ALIConverter::visit_union_type(PNode node) {
 
 }
 
+void ALIConverter::visit_comb_type(PNode node) {
+    std::string prev_name = current_scope_name;
+
+    PNode comb_node = node->get_children()[1]->get_children()[0];
+    std::string name = node->get_children()[0]->get_token()->get_lexeme();
+
+    std::stringstream comb_name;
+    comb_name << "_COMB_" << name;
+
+    current_scope_name = comb_name.str();
+
+    std::string source = reserve_scoped_value_name();
+    AnalysisCommand make_comb(MAKE_EMPTY_COMB);
+    make_comb.add_argument(source);
+
+    command_list.push_back(make_comb);
+
+
+    for (auto it = comb_node->get_children().begin(); it != comb_node->get_children().end(); ++it) {
+        source = comb_list(*it, source);
+    }
+
+    AnalysisCommand finalize_comb(ADD_ALIAS);
+    finalize_comb.add_argument(name);
+    finalize_comb.add_argument(source);
+
+    command_list.push_back(finalize_comb);
+
+    current_scope_name = prev_name;
+}
+
 void ALIConverter::visit_object(PNode node) {
 
 
@@ -1215,6 +1341,9 @@ void ALIConverter::visit_object(PNode node) {
     if (source->get_token()->get_token() == UNION) {
 
         visit_union_type(node);
+        return;
+    } else if (source->get_token()->get_token() == COMB) {
+        visit_comb_type(node);
         return;
     }
 

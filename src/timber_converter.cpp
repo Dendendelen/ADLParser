@@ -13,7 +13,7 @@
 std::string TimberConverter::add_all_relevant_tags_for_object(AnalysisCommand command) {
     std::stringstream command_text;
 
-    std::string add_target = var_mappings[command.get_argument(1)];
+    std::string add_target = get_mapping_if_exists(command.get_argument(1));
     std::string dest_vec = command.get_argument(0);
     std::string mask = command.get_argument(1);
     std::string src_vec = command.get_argument(2);
@@ -45,6 +45,45 @@ std::string TimberConverter::add_all_relevant_tags_for_union_merge(AnalysisComma
         command_text << "a.MergeCollections('" << dest_vec << "', ['"  << adding_name << "'])\n";
     } else {
         command_text << "a.MergeCollections('" << dest_vec << "', ['" << old_union << "', '" << adding_name << "'])\n";
+    }
+
+    return command_text.str();  
+}
+
+std::string TimberConverter::add_structure_for_comb_empty(AnalysisCommand command) {
+    std::stringstream command_text;
+
+    std::string dest_vec = command.get_argument(0);
+
+    empty_union_names.insert(dest_vec);
+    return command_text.str();  
+}
+
+std::string TimberConverter::add_structure_for_comb_merge(AnalysisCommand command, std::string adding_name) {
+    std::stringstream command_text;
+
+    std::string dest_vec = command.get_argument(0);
+    std::string old_comb = command.get_argument(1);
+
+    if (empty_union_names.find(old_comb) != empty_union_names.end()) {
+        empty_union_names.erase(empty_union_names.find(old_comb));
+        var_mappings[dest_vec] = adding_name;
+        command_text << "";
+
+    } else {
+        command_text << "a.SubCollection('" << dest_vec << "_first', '" << get_mapping_if_exists(old_comb) << "', 'VecOps::Combinations(";
+
+        command_text << generate_4vector_label(get_mapping_if_exists(get_mapping_if_exists(old_comb)), "_pt") << ", ";
+        command_text << generate_4vector_label(get_mapping_if_exists(adding_name), "_pt") << ")[0]";
+
+        command_text << "', useTake=True)\n"; 
+
+        command_text << "a.SubCollection('" << dest_vec << "_second', '" << get_mapping_if_exists(adding_name) << "', 'VecOps::Combinations(";
+
+        command_text << generate_4vector_label(get_mapping_if_exists(get_mapping_if_exists(old_comb)), "_pt") << ", ";
+        command_text << generate_4vector_label(get_mapping_if_exists(adding_name), "_pt") << ")[1]";
+
+        command_text << "', useTake=True)\n"; 
     }
 
     return command_text.str();  
@@ -108,7 +147,7 @@ void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
 
     std::string indexed_if_needed = index_particle(command, is_named, name);
 
-    std::string source = var_mappings[command.get_argument(1+is_named)];
+    std::string source = get_mapping_if_exists(command.get_argument(1+is_named));
 
     if (is_lorentz_vector.count(source) != 0) {
         //TODO: finish the logic here
@@ -232,8 +271,8 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return command_text.str();      
         case USE_HIST:
             command_text << "\n_old_node = a.GetActiveNode()";
-            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(" << var_mappings[command.get_argument(1)] << "[0])";
-            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.AddCorrections(" << var_mappings[command.get_argument(1)] << "[1])";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(" << get_mapping_if_exists(command.get_argument(1)) << "[0])";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.AddCorrections(" << get_mapping_if_exists(command.get_argument(1)) << "[1])";
             command_text << "\nuse_histo(_histogram" << command.get_argument(0) << ", _histogram_node_" << command.get_argument(1) << ")";
             command_text << "\na.SetActiveNode(_old_node)";
             return command_text.str();
@@ -242,13 +281,13 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = command.get_argument(0);
             return command_text.str();
         case ADD_HIST_TO_LIST:
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            var_mappings[command.get_argument(0)] = get_mapping_if_exists(command.get_argument(1));
             command_text << "\n_histogram_list" << var_mappings[command.get_argument(1)] << ".append(_histogram" << command.get_argument(2) << ")";
             return command_text.str();
         case USE_HIST_LIST:
             command_text << "\n_old_node = a.GetActiveNode()";
-            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(" << var_mappings[command.get_argument(1)] << ")";
-            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.AddCorrections(" << var_mappings[command.get_argument(1)] << "[1])";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.Apply(" << get_mapping_if_exists(command.get_argument(1)) << "[0])";
+            command_text << "\n_histogram_node_" << command.get_argument(1) << " = a.AddCorrections(" << get_mapping_if_exists(command.get_argument(1)) << "[1])";
             command_text << "\nuse_histo_list(_histogram_list" << var_mappings[command.get_argument(0)] << ", _histogram_node_" << command.get_argument(1) << ")";
             command_text << "\na.SetActiveNode(_old_node)";
             return command_text.str();
@@ -260,11 +299,11 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case MERGE_REGIONS:
             command_text << var_mappings[command.get_argument(2)] << "[0] = " << var_mappings[command.get_argument(2)] << "[0] + " << var_mappings[command.get_argument(1)] << "[0]\n";
             command_text << var_mappings[command.get_argument(2)] << "[1] = " << var_mappings[command.get_argument(2)] << "[1] + " << var_mappings[command.get_argument(1)] << "[1]\n";
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(2)];
+            var_mappings[command.get_argument(0)] = get_mapping_if_exists(command.get_argument(2));
             return command_text.str();
         case CUT_REGION:
             command_text << var_mappings[command.get_argument(1)] << "[0].Add('" << command.get_argument(0) << "', '" << var_mappings[command.get_argument(2)] << "')"; 
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            var_mappings[command.get_argument(0)] = get_mapping_if_exists(command.get_argument(1));
             return command_text.str();
         case RUN_REGION:
             return "RUN_REGION";
@@ -301,7 +340,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case LIMIT_MASK:
         {   
             command_text << var_mappings[command.get_argument(1)] << ".Add('" << command.get_argument(0) << "', 'limit_mask(" << command.get_argument(1) << ", " << var_mappings[command.get_argument(2)] << ")')";
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            var_mappings[command.get_argument(0)] = get_mapping_if_exists(command.get_argument(1));
             return command_text.str();
         }
         case APPLY_MASK:
@@ -343,7 +382,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "";
         case APPEND_TO_TABLE:
         {
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            var_mappings[command.get_argument(0)] = get_mapping_if_exists(command.get_argument(1));
             command_text << var_mappings[command.get_argument(1)] << "_values.append(" << var_mappings[command.get_argument(2)] << "\n";
             command_text << var_mappings[command.get_argument(1)] << "_lower_bounds.append(" << var_mappings[command.get_argument(3)] << "\n";
             command_text << var_mappings[command.get_argument(1)] << "_upper_bounds.append(" << var_mappings[command.get_argument(4)] << "\n";
@@ -351,7 +390,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         }
         case FINISH_TABLE:
         {
-            std::string old_name = var_mappings[command.get_argument(1)];
+            std::string old_name = get_mapping_if_exists(command.get_argument(1));
             command_text << old_name << "_values_array = ROOT.VecOps.AsRVec(np.array(" << old_name << "_values, dtype=np.float32))\n";
             command_text << old_name << "_lower_bounds_array = ROOT.VecOps.AsRVec(np.array(" << old_name << "_lower_bounds, dtype=np.float32))\n";
             command_text << old_name << "_upper_bounds_array = ROOT.VecOps.AsRVec(np.array(" << old_name << "_upper_bounds, dtype=np.float32))\n"; 
@@ -361,13 +400,13 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         }
         case WEIGHT_APPLY:
             command_text << var_mappings[command.get_argument(1)] << "[1].append(Correction('" << command.get_argument(2) << "', '', '" << var_mappings[command.get_argument(2)] << "')"; 
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            var_mappings[command.get_argument(0)] = get_mapping_if_exists(command.get_argument(1));
             return command_text.str();
         case BEGIN_EXPRESSION:
             return "";
         case END_EXPRESSION:
         {
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            var_mappings[command.get_argument(0)] = get_mapping_if_exists(command.get_argument(1));
             return "";
         }
             return "END_EXPRESSION";
@@ -623,6 +662,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_SUM:
             raise_non_implemented_conversion_exception("FUNC_SUM");
             return "FUNC_SUM";
+            
         case FUNC_MIN:
             command_text << "VecOps::Min(" << var_mappings[command.get_argument(1)] << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
@@ -632,6 +672,12 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
 
+        case FUNC_FIRST:
+            append_4vector_label(command, "_first\x1d");
+            return "";
+        case FUNC_SECOND:
+            append_4vector_label(command, "_second\x1d");
+            return "";
         case FUNC_SORT_ASCEND:
             command_text << "VecOps::Sort(" << command.get_argument(1) << ")";
             var_mappings[command.get_argument(0)] = command_text.str(); return "";
@@ -649,60 +695,96 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             existing_definitions.push_back(command.get_argument(0));
             return command_text.str();        
         case ADD_NAMED_TO_UNION:
-            command_text << add_all_relevant_tags_for_union_merge(command, var_mappings[command.get_argument(2)]);
-            var_mappings[command.get_argument(0)] = command.get_argument(0);
+            command_text << add_all_relevant_tags_for_union_merge(command, get_mapping_if_exists(command.get_argument(2)));
             return command_text.str();        
         case ADD_ELECTRON_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "Electron");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_MUON_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "Muon");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_TAU_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "Tau");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_TRACK_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "IsoTrack");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_LEPTON_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "Lepton");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_PHOTON_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "Photon");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_BJET_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "BJet");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_QGJET_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "QGJet");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_NUMET_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "MET");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_METLV_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "METLV");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_GEN_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "GenPart");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_JET_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "Jet");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_FJET_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "FatJet");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
+            return command_text.str();
+
+        case MAKE_EMPTY_COMB:
+            // command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
+            var_mappings[command.get_argument(0)] = command.get_argument(0);
+            command_text << add_structure_for_comb_empty(command);
+
+            existing_definitions.push_back(command.get_argument(0));
+            return command_text.str();        
+        case ADD_NAMED_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, get_mapping_if_exists(command.get_argument(2)));
+            return command_text.str();        
+        case ADD_ELECTRON_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "Electron");
+            return command_text.str();
+        case ADD_MUON_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "Muon");
+            return command_text.str();
+        case ADD_TAU_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "Tau");
+            return command_text.str();
+        case ADD_TRACK_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "IsoTrack");
+            return command_text.str();
+        case ADD_LEPTON_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "Lepton");
+            return command_text.str();
+        case ADD_PHOTON_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "Photon");
+            return command_text.str();
+        case ADD_BJET_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "BJet");
+            return command_text.str();
+        case ADD_QGJET_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "QGJet");
+            return command_text.str();
+        case ADD_NUMET_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "MET");
+            return command_text.str();
+        case ADD_METLV_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "METLV");
+            return command_text.str();
+        case ADD_GEN_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "GenPart");
+            return command_text.str();
+        case ADD_JET_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "Jet");
+            return command_text.str();
+        case ADD_FJET_TO_COMB:
+            command_text << add_structure_for_comb_merge(command, "FatJet");
             return command_text.str();
 
         case FUNC_FLAVOR:

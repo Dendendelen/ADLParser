@@ -35,8 +35,13 @@ class TimberConverter {
         std::string index_particle(AnalysisCommand command, bool is_named, std::string part_text);
         std::string existing_definitions_string();
         std::string add_all_relevant_tags_for_object(AnalysisCommand command);
+
         std::string add_all_relevant_tags_for_union_merge(AnalysisCommand command, std::string adding_name);
         std::string add_all_relevant_tags_for_union_empty(AnalysisCommand command);
+
+        std::string add_structure_for_comb_empty(AnalysisCommand command);
+        std::string add_structure_for_comb_merge(AnalysisCommand command, std::string adding_name);
+
         std::string get_mapping_if_exists(std::string str);
 
 

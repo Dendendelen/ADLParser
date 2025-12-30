@@ -240,6 +240,8 @@ enum Token_type {
     PERM,
     MIN,
     MAX,
+    FIRST,
+    SECOND,
     PM,
     BWR,
     BWL,
