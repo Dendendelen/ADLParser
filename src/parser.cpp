@@ -534,7 +534,7 @@ PNode Parser::parse_histo_entry(PNode parent) {
 
         DEF_RVALUE -> extern string
 
-        DEF_RVALUE -> correctionlib string
+        DEF_RVALUE -> correctionlib string string
 
         DEF_RVALUE -> particle_keyword PARTICLE_LIST
 
@@ -608,6 +608,21 @@ PNode Parser::parse_def_rvalue(PNode parent) {
             external_func->add_child(parse_id(external_func));
 
             return external_func;
+        }
+
+        // DEF_RVALUE -> correctionlib string string
+
+        case CORRECTIONLIB:
+        {
+            auto corrlib_func = make_terminal(parent, lexer->next());
+
+            if (lexer->peek(0)->get_token() != STRING) raise_parsing_exception("Correctionlib correction sets must be given an exact string for a file name", corrlib_func->get_token());
+            corrlib_func->add_child(parse_id(corrlib_func));
+
+            if (lexer->peek(0)->get_token() != STRING) raise_parsing_exception("Correctionlib correction set includes must be given an exact string for a key", corrlib_func->get_token());
+            corrlib_func->add_child(parse_id(corrlib_func));
+
+            return corrlib_func;
         }
 
         // DEF_RVALUE -> add PARTICLE_SUM

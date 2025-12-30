@@ -116,6 +116,7 @@ Token_type Lexer::identify_token(std::string &token) {
     
     if (uppercase_token == "PARTICLE") return PARTICLE_KEYWORD; // keyword that allows definitions to be of particles and not functions
     if (uppercase_token == "EXTERN" || uppercase_token  == "EXTERNAL") return EXTERNAL; // keyword that allows arbitrary external functions to be included
+    if (uppercase_token == "CORRECTIONLIB") return CORRECTIONLIB;
 
     if (token == "systematic") return SYSTEMATIC;
     if (token == "ttree") return SYST_TTREE;
@@ -399,6 +400,7 @@ std::string token_type_to_string(Token_type type) {
 
         case PARTICLE_KEYWORD: return "PARTICLE_KEYWORD";
         case EXTERNAL: return "EXTERNAL";
+        case CORRECTIONLIB: return "CORRECTIONLIB";
 
         case COUNTS: return "COUNTS";
         case COUNTSFORMAT: return "COUNTSFORMAT";

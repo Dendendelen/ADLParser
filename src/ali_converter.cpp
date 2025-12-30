@@ -42,6 +42,8 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "ADD_ALIAS";
         case ADD_EXTERNAL:
             return "ADD_EXTERNAL";
+        case ADD_CORRECTIONLIB:
+            return "ADD_CORRECTIONLIB";
         case ADD_OBJECT:
             return "ADD_OBJECT";
         case CREATE_MASK:
@@ -1489,6 +1491,19 @@ void ALIConverter::visit_definition(PNode node) {
         add_extern_name.add_argument(func_name);
 
         command_list.push_back(add_extern_name);
+    } else if (node->get_children()[1]->get_ast_type() == TERMINAL && node->get_children()[1]->get_token()->get_token() == CORRECTIONLIB) {
+        PNode filename_node = node->get_children()[1]->get_children()[0];
+        std::string filename = filename_node->get_token()->get_lexeme();
+
+        PNode keyname_node = node->get_children()[1]->get_children()[1];
+        std::string keyname = keyname_node->get_token()->get_lexeme();
+
+        AnalysisCommand add_correction(ADD_CORRECTIONLIB);
+        add_correction.add_argument(name_lexeme);
+        add_correction.add_argument(filename);
+        add_correction.add_argument(keyname);
+
+        command_list.push_back(add_correction);
     } else {
         visit_children_after_index(node, 0);
 

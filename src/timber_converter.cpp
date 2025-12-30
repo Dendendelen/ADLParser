@@ -319,6 +319,19 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = fn_name_wo_quotes;
             return "";
         }
+        case ADD_CORRECTIONLIB:
+        {
+            std::string filename_with_quotes = command.get_argument(1);
+
+            std::string keyname_with_quotes = command.get_argument(2);
+            
+            std::stringstream correctionlib_func_name;
+            correctionlib_func_name << command.get_argument(0) << "->evaluate";
+            var_mappings[command.get_argument(0)] = correctionlib_func_name.str();
+
+            command_text << "ROOT.gInterpreter.Declare('auto " << command.get_argument(0) << " = correction::CorrectionSet::from_file(" << filename_with_quotes << ")->at(" << keyname_with_quotes << ")')\n";
+            return command_text.str();
+        }
         //TODO: check that this is consistant with the overall syntax
         case SORT_ASCEND:
             command_text << "VecOps::Sort(" << command.get_argument(1) << ")";

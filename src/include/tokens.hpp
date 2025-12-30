@@ -41,6 +41,7 @@ enum Token_type {
 
     PARTICLE_KEYWORD,
     EXTERNAL,
+    CORRECTIONLIB,
 
     COUNTS,
     COUNTSFORMAT,

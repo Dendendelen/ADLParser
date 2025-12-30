@@ -15,6 +15,7 @@ enum AnalysisLevelInstruction {
 
     ADD_ALIAS,
     ADD_EXTERNAL,
+    ADD_CORRECTIONLIB,
 
     ADD_OBJECT,
     CREATE_MASK,
