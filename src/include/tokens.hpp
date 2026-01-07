@@ -242,6 +242,7 @@ enum Token_type {
     ABS,
     SQRT,
     SORT,
+    ANYOCCURRENCES,
     COMB,
     PERM,
     MIN,

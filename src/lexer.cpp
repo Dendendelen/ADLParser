@@ -333,6 +333,8 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "ALLOF") return ALLOF;
 
     if (uppercase_token == "ASCEND") return ASCEND;
+
+    if (uppercase_token == "ANYOCCURRENCES") return ANYOCCURRENCES;
     
     if (uppercase_token == "SORT") return SORT;
     if (uppercase_token == "COMB") return COMB;

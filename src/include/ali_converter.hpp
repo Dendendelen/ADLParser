@@ -192,6 +192,11 @@ enum AnalysisLevelInstruction {
     FUNC_SUM, 
     FUNC_MIN,
     FUNC_MAX,
+
+    FUNC_MAX_LIST,
+    FUNC_MIN_LIST,
+
+    FUNC_ANYOCCURRENCES,
     FUNC_FIRST,
     FUNC_SECOND,
     FUNC_SORT_ASCEND,
@@ -260,7 +265,7 @@ class ALIConverter : ASTVisitor {
         std::string reserve_scoped_limit_name();
         std::string reserve_scoped_region_name();
 
-
+        void visit_object_first_second(PNode node);
         void visit_union_type(PNode node); 
         void visit_comb_type(PNode node); 
 

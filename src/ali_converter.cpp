@@ -242,12 +242,18 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "FUNC_SUM";
         case FUNC_MIN:
             return "FUNC_MIN";
+        case FUNC_ANYOCCURRENCES:
+            return "FUNC_ANYOCCURANCES";
         case FUNC_FIRST:
             return "FUNC_FIRST";
         case FUNC_SECOND:
             return "FUNC_SECOND";
         case FUNC_MAX:
             return "FUNC_MAX";
+        case FUNC_MAX_LIST:
+            return "FUNC_MAX";
+        case FUNC_MIN_LIST:
+            return "FUNC_MIN_LIST";
         case FUNC_SORT_ASCEND:
             return "FUNC_SORT_ASCEND";
         case FUNC_SORT_DESCEND:
@@ -781,7 +787,11 @@ std::string ALIConverter::particle_list_function(PNode node) {
             AnalysisCommand indexing((*it)->get_token()->get_token_type() == FIRST ? FUNC_FIRST : FUNC_SECOND);
             std::string dest_for_index = reserve_scoped_value_name();
             indexing.add_argument(dest_for_index);
-            indexing.add_argument((*it)->get_children()[0]->get_token()->get_lexeme());
+
+            std::string lexeme_for_child = (*it)->get_children()[0]->get_token()->get_lexeme();
+            if ((*it)->get_children()[0]->get_token()->get_token_type() == THIS) lexeme_for_child = current_object_particle_if_named;
+
+            indexing.add_argument(lexeme_for_child);
             command_list.push_back(indexing);
             func.add_argument(dest_for_index);
         } else if ((*it)->get_token()->get_token_type() == THIS) {
@@ -936,6 +946,8 @@ std::string ALIConverter::expression_function(PNode node) {
             inst = FUNC_MIN; break;
         case MAX:
             inst = FUNC_MAX; break;
+        case ANYOCCURRENCES:
+            inst = FUNC_ANYOCCURRENCES; break;
         case SORT:
             if (node->get_children()[1]->get_token()->get_token_type() == DESCEND) {
                 inst = FUNC_SORT_DESCEND; 
@@ -949,9 +961,21 @@ std::string ALIConverter::expression_function(PNode node) {
             break;
     }
 
+    if (inst == FUNC_MAX) {
+        if (node->get_children().size() > 1) inst = FUNC_MAX_LIST;
+    } else if (inst == FUNC_MIN) {
+        if (node->get_children().size() > 1) inst = FUNC_MIN_LIST;
+    }
+
     AnalysisCommand func(inst);
     func.add_argument(dest);
     func.add_argument(source);
+
+    if (inst == FUNC_ANYOCCURRENCES || inst == FUNC_MAX_LIST || inst == FUNC_MIN_LIST) {
+        std::string second_source = handle_expression(node->get_children()[1]);   
+        func.add_argument(second_source);
+    } 
+
 
     command_list.push_back(func);
     return dest;
@@ -994,7 +1018,7 @@ std::string ALIConverter::handle_expression(PNode node) {
         case  MSOFTDROP: case JET_ID:
         case PT: case PZ: case NBF: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY: case FIRST: case SECOND:
             return particle_list_function(node);
-        case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX:
+        case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX: case ANYOCCURRENCES:
             return expression_function(node);
         default:
             return literal_value(node);
@@ -1181,7 +1205,31 @@ void ALIConverter::visit_object_select(PNode node) {
 }
 
 void ALIConverter::visit_object_reject(PNode node) {
+    std::string prev_name = current_limit;
+    current_limit = reserve_scoped_limit_name();
+
+    visit_children(node);
+
+    AnalysisCommand invert_mask(EXPR_LOGICAL_NOT);
+    std::string newly_inverted = reserve_scoped_value_name();
+    invert_mask.add_argument(newly_inverted);
+    invert_mask.add_argument(last_condition_name);
+    
+    command_list.push_back(invert_mask);
+
+    AnalysisCommand end_this_expression(END_EXPRESSION);
+    std::string final_limit = reserve_scoped_value_name();
+    end_this_expression.add_argument(final_limit);
+    end_this_expression.add_argument(newly_inverted);
+
+    command_list.push_back(end_this_expression);
+
     AnalysisCommand limit_mask(LIMIT_MASK);
+    limit_mask.add_argument(current_limit);
+    limit_mask.add_argument(prev_name);
+    limit_mask.add_argument(final_limit);
+
+    command_list.push_back(limit_mask);
     
 }
 
@@ -1348,6 +1396,28 @@ void ALIConverter::visit_comb_type(PNode node) {
     current_scope_name = prev_name;
 }
 
+void ALIConverter::visit_object_first_second(PNode node) {
+
+    std::string name = node->get_children()[0]->get_token()->get_lexeme();
+    PNode index = node->get_children()[1];
+    PNode source = index->get_children()[0];
+
+    AnalysisCommand indexing(index->get_token()->get_token_type() == FIRST ? FUNC_FIRST : FUNC_SECOND);
+    std::string dest_for_index = reserve_scoped_value_name();
+    indexing.add_argument(dest_for_index);
+
+    std::string lexeme_for_child = source->get_children()[0]->get_token()->get_lexeme();
+
+    indexing.add_argument(lexeme_for_child);
+    command_list.push_back(indexing);
+
+    AnalysisCommand finalize_indexing(ADD_ALIAS);
+    finalize_indexing.add_argument(name);
+    finalize_indexing.add_argument(dest_for_index);
+
+    command_list.push_back(finalize_indexing);
+}
+
 void ALIConverter::visit_object(PNode node) {
 
 
@@ -1363,6 +1433,9 @@ void ALIConverter::visit_object(PNode node) {
         return;
     } else if (source->get_token()->get_token_type() == COMB) {
         visit_comb_type(node);
+        return;
+    } else if (source->get_token()->get_token_type() == FIRST || source->get_token()->get_token_type() == SECOND) {
+        visit_object_first_second(node);
         return;
     }
 

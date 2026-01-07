@@ -671,6 +671,10 @@ PNode Parser::parse_def_rvalue(PNode parent) {
 
     OBJ_RVALUE -> comb ( PARTICLE_LIST )
 
+    OBJ_RVALUE -> first ( PARTICLE_LIST )
+
+    OBJ_RVALUE -> second (PARTICLE_LIST)
+
     OBJ_RVALUE -> PARTICLE CRITERIA
 
  */
@@ -681,7 +685,7 @@ void Parser::parse_obj_rvalue(PNode parent) {
     switch(tok->get_token_type()) {
 
         // OBJ_RVALUE -> union ( PARTICLE_LIST )
-        case UNION: case COMB:
+        case UNION: case COMB: case FIRST: case SECOND:
         {
             PNode union_or_comb_type = make_terminal(parent, lexer->next());
 
@@ -919,11 +923,11 @@ PNode Parser::parse_region_command(PNode parent) {
             return node;
         }
 
-        // REGION_COMMAND -> rejec CONDITION
+        // REGION_COMMAND -> rejec REGION_COMMAND_SELECT
         case REJEC:
         {
             PNode node(new Node(REGION_REJECT, parent));
-            node->add_child(parse_condition(node));
+            node->add_child(parse_region_command_select(parent));
             return node;
         }
 
@@ -1878,6 +1882,19 @@ PNode Parser::parse_expression_helper(PNode parent) {
             
             return node;
         }
+
+        case ANYOCCURRENCES:
+        {
+            // E -> anyoccurances (E in E)
+            lexer->expect_and_consume(OPEN_PAREN);
+            PNode lhs = parse_expression_helper(node);
+            node->add_child(precedence_climber(parent, lhs, 5));
+            lexer->expect_and_consume(WITHIN);
+            PNode rhs = parse_expression_helper(node);
+            node->add_child(precedence_climber(parent, rhs, 5));
+            lexer->expect_and_consume(CLOSE_PAREN);
+            return node;
+        }   
 
         case HSTEP: case DELTA: case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: 
         {

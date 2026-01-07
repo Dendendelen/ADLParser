@@ -19,7 +19,7 @@ std::string TimberConverter::add_all_relevant_tags_for_object(AnalysisCommand co
     std::string src_vec = command.get_argument(2);
 
     command_text << "a.Apply(" <<add_target << ")\n";
-    command_text << "a.SubCollection('" << dest_vec << "', '" << src_vec << "', '" << mask << "', useTake=False)\n";
+    command_text << "a.SubCollection('" << dest_vec << "', '" << generate_4vector_label(get_mapping_if_exists(src_vec), "") << "', '" << mask << "', useTake=False)\n";
     return command_text.str();
 
 }
@@ -344,7 +344,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case CREATE_MASK:
         {
             command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
-            command_text << command.get_argument(0) << ".Add('" << command.get_argument(0) << "', 'create_mask(" << command.get_argument(1) << "_pt)')";            
+            command_text << command.get_argument(0) << ".Add('" << command.get_argument(0) << "', 'create_mask(" << generate_4vector_label(get_mapping_if_exists(command.get_argument(1)), "_pt") << ")')";            
             var_mappings[command.get_argument(0)] = command.get_argument(0);
 
             existing_definitions.push_back(command.get_argument(0));
@@ -677,6 +677,11 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << "VecOps::Sum(" << var_mappings[command.get_argument(1)] << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
+
+        case FUNC_ANYOCCURRENCES:
+            command_text << "AnyOccurrences(" << var_mappings[command.get_argument(1)] << "," << var_mappings[command.get_argument(2)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
             
         case FUNC_MIN:
             command_text << "VecOps::Min(" << var_mappings[command.get_argument(1)] << ")";
@@ -684,6 +689,15 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "";
         case FUNC_MAX:
             command_text << "VecOps::Max(" << var_mappings[command.get_argument(1)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
+
+        case FUNC_MAX_LIST:
+            command_text << "std::max(" << var_mappings[command.get_argument(1)] << "," << var_mappings[command.get_argument(2)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
+        case FUNC_MIN_LIST:
+            command_text << "std::min(" << var_mappings[command.get_argument(1)] << "," << var_mappings[command.get_argument(2)] << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
 
