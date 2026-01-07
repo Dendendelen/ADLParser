@@ -156,6 +156,9 @@ enum Token_type {
     RAPIDITY,
     ABS_ETA,
 
+    CHARGE,
+    MASS,
+
     MSOFTDROP,
 
     THETA,
@@ -181,6 +184,8 @@ enum Token_type {
     ALLOF,
     ALL,
     NONE,
+
+    THIS,
 
     EQ,
     NE,

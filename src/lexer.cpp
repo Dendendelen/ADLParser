@@ -25,7 +25,7 @@ int Token::get_line() {
 int Token::get_column() {
     return column_number;
 }
-Token_type Token::get_token() {
+Token_type Token::get_token_type() {
     return type;
 }
 std::string Token::get_lexeme() {
@@ -167,6 +167,9 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == "BJET") return BJET;
     if (token == "MET") return MET;
 
+    // Within-object block helper
+    if (uppercase_token == "THIS") return THIS;
+
     
     // Particle extra keywords
     if (token == "daughters" || token == "constituents") return CONSTITUENTS;
@@ -236,6 +239,9 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "ETA") return ETA;
     if (uppercase_token == "RAP") return RAPIDITY;
     if (uppercase_token == "ABSETA") return ABS_ETA;
+
+    if (uppercase_token == "CHARGE") return CHARGE;
+    if (uppercase_token == "MASS") return MASS;
 
     if (uppercase_token == "MSOFTDROP") return MSOFTDROP;
 
@@ -515,6 +521,9 @@ std::string token_type_to_string(Token_type type) {
         case RAPIDITY: return "RAPIDITY";
         case ABS_ETA: return "ABS_ETA";
 
+        case CHARGE: return "CHARGE";
+        case MASS: return "MASS";
+
         case MSOFTDROP: return "MSOFTDROP";
 
         case THETA: return "THETA";
@@ -540,6 +549,10 @@ std::string token_type_to_string(Token_type type) {
         case ALLOF: return "ALLOF";
         case ALL: return "ALL";
         case NONE: return "NONE";
+        case THIS: return "THIS";
+
+        case FIRST: return "FIRST";
+        case SECOND: return "SECOND";
 
         case EQ: return "EQ";
         case NE: return "NE";
@@ -632,7 +645,7 @@ void Lexer::lex_token(std::string &token, int &line_number, int &column_number) 
     auto tok = std::shared_ptr<Token>(new Token(identify_token(token)));
     tok->set_data(line_number, column_number, token);
 
-    if (tok->get_token() == LEXER_ERROR) {
+    if (tok->get_token_type() == LEXER_ERROR) {
         raise_lexing_exception(tok);
     }
 
@@ -744,11 +757,11 @@ void Lexer::print() {
 
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         std::shared_ptr tok = *it;
-        if (tok->get_token() == LEXER_NEWLINE) {
+        if (tok->get_token_type() == LEXER_NEWLINE) {
             std::cout << std::endl;
             continue;
         }
-        std::cout << tok->get_token() << ": " << tok->get_lexeme() << "," << " ";
+        std::cout << tok->get_token_type() << ": " << tok->get_lexeme() << "," << " ";
     }
 }
 
@@ -759,7 +772,7 @@ void Lexer::erase_whitespace() {
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
 
         auto tok = *it;
-        switch (tok->get_token()) {
+        switch (tok->get_token_type()) {
             // If this is a whitespace or comment, don't even consider it in parsing
             case LEXER_ERROR: case LEXER_NEWLINE: case LEXER_COMMENT: case LEXER_SPACE:
                 break;
@@ -787,16 +800,16 @@ std::shared_ptr<Token> Lexer::next() {
 
 void Lexer::expect_and_consume(Token_type type, std::string error) {
     auto tok = next();
-    if (tok->get_token() != type) {
+    if (tok->get_token_type() != type) {
         raise_parsing_exception(error, tok);
     }
 }
 
 void Lexer::expect_and_consume(Token_type type) {
     auto tok = next();
-    if (tok->get_token() != type) {
+    if (tok->get_token_type() != type) {
         std::stringstream error_ss;
-        error_ss << "Unexpected token, expected a token of type " << token_type_to_string(type) << ", got token of type " << token_type_to_string(tok->get_token());
+        error_ss << "Unexpected token, expected a token of type " << token_type_to_string(type) << ", got token of type " << token_type_to_string(tok->get_token_type());
         raise_parsing_exception(error_ss.str(), tok);
     }
     

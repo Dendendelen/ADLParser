@@ -670,11 +670,13 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case FUNC_AVE:
-            raise_non_implemented_conversion_exception("FUNC_AVE");
-            return "FUNC_AVE";
+            command_text << "VecOps::Mean(" << var_mappings[command.get_argument(1)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
         case FUNC_SUM:
-            raise_non_implemented_conversion_exception("FUNC_SUM");
-            return "FUNC_SUM";
+            command_text << "VecOps::Sum(" << var_mappings[command.get_argument(1)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
             
         case FUNC_MIN:
             command_text << "VecOps::Min(" << var_mappings[command.get_argument(1)] << ")";

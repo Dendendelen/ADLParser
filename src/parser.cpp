@@ -83,7 +83,7 @@ BLOCKS productions:
 void Parser::parse_blocks(PNode parent) {
 
         auto tok = lexer->peek(0); 
-        switch(tok->get_token()) {
+        switch(tok->get_token_type()) {
             // BLOCKS -> INFO BLOCKS
             case ADLINFO:
                 parent->add_child(parse_info(parent));
@@ -190,7 +190,7 @@ PNode Parser::parse_definition(PNode parent) {
 
     // DEFINITION -> def ID = DEF_RVALUE
     // DEFINITION -> def ID : DEF_RVALUE
-    if (eq_tok->get_token() != ASSIGN && eq_tok->get_token() != COLON) raise_parsing_exception("Unknown token for definition assignment, expected '=' or ':'", eq_tok);
+    if (eq_tok->get_token_type() != ASSIGN && eq_tok->get_token_type() != COLON) raise_parsing_exception("Unknown token for definition assignment, expected '=' or ':'", eq_tok);
     definition->add_child(parse_def_rvalue(definition));
 
     return definition;
@@ -202,6 +202,8 @@ PNode Parser::parse_definition(PNode parent) {
     OBJECT -> obj ID take OBJ_RVALUE 
 
     OBJECT -> obj ID : OBJ_RVALUE
+
+    OBJECT -> obj ID = OBJ_RVALUE
  */
 PNode Parser::parse_object(PNode parent) {
 
@@ -212,8 +214,9 @@ PNode Parser::parse_object(PNode parent) {
     auto tok = lexer->next();
 
     // OBJECT -> obj ID take OBJ_RVALUE 
-    // OBJECT -> obj ID : OBJ_RVALUE    
-    if (tok->get_token() != COLON && tok->get_token() != TAKE) raise_parsing_exception("Expected symbol for object definition, either ':' or TAKE", tok);
+    // OBJECT -> obj ID : OBJ_RVALUE  
+    // OBJECT -> obj ID : OBJ_RVALUE  
+    if (tok->get_token_type() != COLON && tok->get_token_type() != TAKE && tok->get_token_type() != ASSIGN) raise_parsing_exception("Expected symbol for object definition, either ':' or '=' or TAKE", tok);
     parse_obj_rvalue(object);
 
     return object;
@@ -236,7 +239,7 @@ PNode Parser::parse_table(PNode parent) {
 
     auto tok = lexer->next();
 
-    if (tok->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to specify NVars", tok);
+    if (tok->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to specify NVars", tok);
     table->add_child(make_terminal(table, tok));
 
     lexer->expect_and_consume(ERRORS);
@@ -276,7 +279,7 @@ INITIALIZATIONS productions:
 void Parser::parse_initializations(PNode parent) {
     PToken next = lexer->peek(0);
     
-    switch (next->get_token()) {
+    switch (next->get_token_type()) {
 
         // INITIALIZATIONS -> INITIALIZATION INITIALIZATIONS
         case SKIP_HISTO: case SKIP_EFFS: case ADLINFO: case PAP_TITLE: case PAP_EXPERIMENT: case PAP_ID: case PAP_PUBLICATION: case PAP_SQRTS: case PAP_LUMI: case PAP_ARXIV: case PAP_DOI: case PAP_HEPDATA: case SYSTEMATIC: case TRGE: case TRGM: 
@@ -300,7 +303,7 @@ void Parser::parse_initializations(PNode parent) {
 void Parser::parse_count_processes(PNode parent) {
     PToken next = lexer->peek(0);
     
-    switch (next->get_token()) {
+    switch (next->get_token_type()) {
 
         // COUNT_PROCESSES -> COUNT_PROCESS COUNT_PROCESSES
         case PROCESS: 
@@ -341,7 +344,7 @@ PNode Parser::parse_histo_list(PNode parent) {
 void Parser::parse_histo_entries(PNode parent) {
 PToken next = lexer->peek(0);
     
-    switch (next->get_token()) {
+    switch (next->get_token_type()) {
 
         // HISTO_ENTRIES ->  HISTO_ENTRY HISTO_ENTRIES
         case HISTO: 
@@ -392,7 +395,7 @@ PToken next = lexer->peek(0);
 PNode Parser::parse_initialization(PNode parent) {
     PToken tok = lexer->next();
 
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
 
         // INITIALIZATION -> trge = integer
         // INITIALIZATION -> trgm = integer
@@ -403,7 +406,7 @@ PNode Parser::parse_initialization(PNode parent) {
             lexer->expect_and_consume(ASSIGN);
             
             PToken next = lexer->next();
-            if (next->get_token() != INTEGER) raise_parsing_exception("Invalid non-integer assignment", next);
+            if (next->get_token_type() != INTEGER) raise_parsing_exception("Invalid non-integer assignment", next);
 
             PNode integer_target(new Node(TERMINAL, parent, tok));
             integer_target->add_child(make_terminal(integer_target, next));
@@ -415,7 +418,7 @@ PNode Parser::parse_initialization(PNode parent) {
         case PAP_LUMI: case PAP_SQRTS:
         {
             PToken next = lexer->next();
-            if (!is_numerical(next->get_token())) raise_parsing_exception("Non-numerical value given for numerical field", next); 
+            if (!is_numerical(next->get_token_type())) raise_parsing_exception("Non-numerical value given for numerical field", next); 
 
             PNode number_target(new Node(TERMINAL, parent, tok));
             number_target->add_child(make_terminal(number_target, next));
@@ -439,8 +442,8 @@ PNode Parser::parse_initialization(PNode parent) {
             PToken next = lexer->next();
             PToken next2 = lexer->next();
 
-            if (next->get_token() != STRING) raise_parsing_exception("Invalid systematic up identifier, expected string", next);
-            if (next->get_token() != STRING) raise_parsing_exception("Invalid systematic down identifier, expected string", next2);
+            if (next->get_token_type() != STRING) raise_parsing_exception("Invalid systematic up identifier, expected string", next);
+            if (next->get_token_type() != STRING) raise_parsing_exception("Invalid systematic down identifier, expected string", next2);
 
             add_two_terminal_children(systematic, next, next2);
 
@@ -492,12 +495,12 @@ PNode Parser::parse_count_process(PNode parent) {
     // consume comma
     lexer->expect_and_consume(COMMA, "Invalid end of argument. Needs at least 2 arguments separated by commas");
     count_process->add_child(parse_description(count_process));
-    if (lexer->peek(0)->get_token() != COMMA) return count_process;
+    if (lexer->peek(0)->get_token_type() != COMMA) return count_process;
 
     // COUNT_PROCESS -> PROCESS ID , DESCRIPTION, ERR_TYPE
     lexer->expect_and_consume(COMMA);
     count_process->add_child(parse_err_type(count_process));
-    if (lexer->peek(0)->get_token() != COMMA) return count_process;
+    if (lexer->peek(0)->get_token_type() != COMMA) return count_process;
 
     // COUNT_PROCESS -> PROCESS ID , DESCRIPTION, ERR_TYPE, ERR_TYPE
     lexer->expect_and_consume(COMMA);
@@ -545,7 +548,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
 
     auto tok = lexer->peek(0);
     
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
 
         // DEF_RVALUE -> { VARIABLE_LIST }
         case OPEN_CURLY_BRACE:
@@ -578,7 +581,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
             lexer->expect_and_consume(COMMA);
 
             auto index = lexer->next();
-            if (index->get_token() != INTEGER) raise_parsing_exception("Integer required for indexing", index);
+            if (index->get_token_type() != INTEGER) raise_parsing_exception("Integer required for indexing", index);
 
             ome->add_child(make_terminal(ome, index));
 
@@ -603,7 +606,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
         {
             auto external_func = make_terminal(parent, lexer->next());
 
-            if (lexer->peek(0)->get_token() != STRING) raise_parsing_exception("External functions must be given an explicit code string to run", external_func->get_token());
+            if (lexer->peek(0)->get_token_type() != STRING) raise_parsing_exception("External functions must be given an explicit code string to run", external_func->get_token());
 
             external_func->add_child(parse_id(external_func));
 
@@ -616,10 +619,10 @@ PNode Parser::parse_def_rvalue(PNode parent) {
         {
             auto corrlib_func = make_terminal(parent, lexer->next());
 
-            if (lexer->peek(0)->get_token() != STRING) raise_parsing_exception("Correctionlib correction sets must be given an exact string for a file name", corrlib_func->get_token());
+            if (lexer->peek(0)->get_token_type() != STRING) raise_parsing_exception("Correctionlib correction sets must be given an exact string for a file name", corrlib_func->get_token());
             corrlib_func->add_child(parse_id(corrlib_func));
 
-            if (lexer->peek(0)->get_token() != STRING) raise_parsing_exception("Correctionlib correction set includes must be given an exact string for a key", corrlib_func->get_token());
+            if (lexer->peek(0)->get_token_type() != STRING) raise_parsing_exception("Correctionlib correction set includes must be given an exact string for a key", corrlib_func->get_token());
             corrlib_func->add_child(parse_id(corrlib_func));
 
             return corrlib_func;
@@ -645,7 +648,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
             return PNode(new Node(AST_ERROR, parent));
         
         case STRING: case VARNAME:
-            if (lexer->peek(1)->get_token() == OPEN_SQUARE_BRACE || lexer->peek(1)->get_token() == UNDERSCORE)
+            if (lexer->peek(1)->get_token_type() == OPEN_SQUARE_BRACE || lexer->peek(1)->get_token_type() == UNDERSCORE)
             {
                 raise_parsing_exception("Cannot use a particle in a definition without specifying the \"particle\" keyword", tok);
                 return PNode(new Node(AST_ERROR, parent));
@@ -675,7 +678,7 @@ void Parser::parse_obj_rvalue(PNode parent) {
     
     auto tok = lexer->peek(0);
 
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
 
         // OBJ_RVALUE -> union ( PARTICLE_LIST )
         case UNION: case COMB:
@@ -734,7 +737,7 @@ void Parser::parse_obj_rvalue(PNode parent) {
  */
 PNode Parser::parse_bool(PNode parent) {
     auto tok = lexer->next();
-    if (!(tok->get_token() == TRUE) && !(tok->get_token() == FALSE)) raise_parsing_exception("Excepted boolean, but token is not interpretable as a boolean", tok);
+    if (!(tok->get_token_type() == TRUE) && !(tok->get_token_type() == FALSE)) raise_parsing_exception("Excepted boolean, but token is not interpretable as a boolean", tok);
 
     PNode boolean(new Node(TERMINAL, parent));
     boolean->set_token(tok);
@@ -751,9 +754,9 @@ PNode Parser::parse_bool(PNode parent) {
  */
 PNode Parser::parse_id(PNode parent) {
     PToken next = lexer->next();
-    if (next->get_token() != INTEGER && next->get_token() != STRING && next->get_token() != VARNAME) { 
+    if (next->get_token_type() != INTEGER && next->get_token_type() != STRING && next->get_token_type() != VARNAME) { 
         raise_parsing_exception("Invalid ID, allowed types are variable-type names and strings", next);
-    } else if (next->get_token() == INTEGER) raise_parsing_exception("Invalid ID, integers for ID must be put in quotes.", next);
+    } else if (next->get_token_type() == INTEGER) raise_parsing_exception("Invalid ID, integers for ID must be put in quotes.", next);
     return make_terminal(parent, next);
 }
 
@@ -769,11 +772,11 @@ PNode Parser::parse_description(PNode parent) {
 
     auto tok = lexer->next();
     PNode description_str(new Node(TERMINAL, parent, tok));
-    if (tok->get_token() != STRING) {
+    if (tok->get_token_type() != STRING) {
         raise_parsing_exception("Excepted string for description", tok);
     }
     // DESCRIPTION -> STRING DESCRIPTION
-    if (lexer->peek(0)->get_token() == STRING) {
+    if (lexer->peek(0)->get_token_type() == STRING) {
         parent->add_child(description_str);
         return parse_description(parent);
     }
@@ -789,7 +792,7 @@ PNode Parser::parse_description(PNode parent) {
  */
 PNode Parser::parse_err_type(PNode parent) {
     auto tok = lexer->next();
-    if (tok->get_token() == ERR_SYST || tok->get_token() == ERR_STAT) {
+    if (tok->get_token_type() == ERR_SYST || tok->get_token_type() == ERR_STAT) {
         return make_terminal(parent, tok);
     }
     raise_parsing_exception("Excepted error type 'syst' or 'stat'", tok);
@@ -807,8 +810,8 @@ void Parser::parse_region_commands(PNode parent) {
 
     auto tok = lexer->peek(0);
 
-    switch(tok->get_token()) {
-        case SELECT: case REJEC: case BINS: case BIN: case SAVE: case PRINT: case WEIGHT: case COUNTS: case HISTO: case SORT: case USE:
+    switch(tok->get_token_type()) {
+        case SELECT: case REJEC: case BINS: case BIN: case SAVE: case PRINT: case WEIGHT: case COUNTS: case HISTO: case SORT: case USE: case TAKE:
             parent->add_child(parse_region_command(parent));
             parse_region_commands(parent);
             return;
@@ -831,7 +834,7 @@ void Parser::parse_region_commands(PNode parent) {
 PNode Parser::parse_region_command_select(PNode parent) {
 
     auto next = lexer->peek(0);
-    switch(next->get_token()) {
+    switch(next->get_token_type()) {
 
         // REGION_COMMAND_SELECT -> none
         // REGION_COMMAND_SELECT -> all
@@ -897,7 +900,7 @@ PNode Parser::parse_region_command_select(PNode parent) {
 PNode Parser::parse_region_command(PNode parent) {
     
     auto tok = lexer->next();
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
         
         // REGION_COMMAND -> select REGION_COMMAND_SELECT
         case SELECT:
@@ -957,7 +960,7 @@ PNode Parser::parse_region_command(PNode parent) {
             PNode save(make_terminal(parent, tok));
             save->add_child(parse_id(save));
             auto next = lexer->peek(0);
-            if (next->get_token() == CSV) {
+            if (next->get_token_type() == CSV) {
                 lexer->expect_and_consume(CSV);
                 parse_variable_list(save);
             }  
@@ -985,7 +988,7 @@ PNode Parser::parse_region_command(PNode parent) {
         // REGION_COMMAND -> histo use ID
         case HISTO:
         {
-            if (lexer->peek(0)->get_token() == USE) {
+            if (lexer->peek(0)->get_token_type() == USE) {
                 lexer->expect_and_consume(USE);
                 PNode histo_use(new Node(HISTO_USE, parent));
                 histo_use->add_child(parse_id(histo_use));
@@ -1004,7 +1007,7 @@ PNode Parser::parse_region_command(PNode parent) {
             sort->add_child(parse_expression(sort));
             
             auto next = lexer->next();
-            if (next->get_token() != ASCEND && next->get_token() != DESCEND) raise_parsing_exception("Token after a sort expression must specify ascending or descending", next);
+            if (next->get_token_type() != ASCEND && next->get_token_type() != DESCEND) raise_parsing_exception("Token after a sort expression must specify ascending or descending", next);
             sort->add_child(make_terminal(sort, next));
             return sort;
         }
@@ -1029,7 +1032,7 @@ PNode Parser::parse_region_command(PNode parent) {
             lexer->expect_and_consume(OPEN_PAREN);
             node->add_child(parse_expression(node));
 
-            if (lexer->peek(0)->get_token() == COMMA) {
+            if (lexer->peek(0)->get_token_type() == COMMA) {
                 lexer->expect_and_consume(COMMA);
                 node->add_child(parse_expression(node));
             }
@@ -1038,7 +1041,7 @@ PNode Parser::parse_region_command(PNode parent) {
             lexer->expect_and_consume(EQ);
             auto integer = lexer->next();
 
-            if (integer->get_token() != INTEGER) raise_parsing_exception("Needs integer type", integer);
+            if (integer->get_token_type() != INTEGER) raise_parsing_exception("Needs integer type", integer);
             node->add_child(make_terminal(node, integer));
 
             return node;
@@ -1080,19 +1083,19 @@ void Parser::parse_histogram(PNode parent) {
 
     // integer,
     auto integer_tok_1 = lexer->next();
-    if (integer_tok_1->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to specify binning quantity on histograms", integer_tok_1);
+    if (integer_tok_1->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to specify binning quantity on histograms", integer_tok_1);
     parent->add_child(make_terminal(parent, integer_tok_1));
     lexer->expect_and_consume(COMMA);
 
     // number,
     auto lower_value_tok_1 = lexer->next();
-    if (!is_numerical(lower_value_tok_1->get_token())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a histogram", lower_value_tok_1);
+    if (!is_numerical(lower_value_tok_1->get_token_type())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a histogram", lower_value_tok_1);
     parent->add_child(make_terminal(parent, lower_value_tok_1));
     lexer->expect_and_consume(COMMA);
 
     // number,
     auto upper_value_tok_1 = lexer->next();
-    if (!is_numerical(upper_value_tok_1->get_token())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a histogram", upper_value_tok_1);
+    if (!is_numerical(upper_value_tok_1->get_token_type())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a histogram", upper_value_tok_1);
     parent->add_child(make_terminal(parent, upper_value_tok_1));
     lexer->expect_and_consume(COMMA);
 
@@ -1100,26 +1103,26 @@ void Parser::parse_histogram(PNode parent) {
     bool is_2d = false;
     auto discriminant = lexer->peek(1);
 
-    if (discriminant->get_token() == COMMA) {
+    if (discriminant->get_token_type() == COMMA) {
 
         // REGION_COMMANDS -> parent ID, DESCRIPTION, integer, number, number, integer, number, number, EXPRESSION, EXPRESSION
         is_2d = true;
 
         // integer,
         auto integer_tok_2 = lexer->next();
-        if (integer_tok_2->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to specify binning quantity on histograms", integer_tok_2);
+        if (integer_tok_2->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to specify binning quantity on histograms", integer_tok_2);
         parent->add_child(make_terminal(parent, integer_tok_2));
         lexer->expect_and_consume(COMMA);
 
         // number,
         auto lower_value_tok_2 = lexer->next();
-        if (!is_numerical(lower_value_tok_2->get_token())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a histogram", lower_value_tok_2);
+        if (!is_numerical(lower_value_tok_2->get_token_type())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a histogram", lower_value_tok_2);
         parent->add_child(make_terminal(parent, lower_value_tok_2));
         lexer->expect_and_consume(COMMA);
 
         // number,
         auto upper_value_tok_2 = lexer->next();
-        if (!is_numerical(upper_value_tok_2->get_token())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a histogram", upper_value_tok_1);
+        if (!is_numerical(upper_value_tok_2->get_token_type())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a histogram", upper_value_tok_1);
         parent->add_child(make_terminal(parent, upper_value_tok_2));
         lexer->expect_and_consume(COMMA);
     }
@@ -1144,7 +1147,7 @@ void Parser::parse_histogram(PNode parent) {
 void Parser::parse_variable_list(PNode parent) {
 
     auto tok = lexer->peek(0);
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
 
         // VARIABLE_LIST -> epsilon 
         // this is the follow set for VARIABLE_LIST, and none of them are in the first set of EXPRESSION
@@ -1156,7 +1159,7 @@ void Parser::parse_variable_list(PNode parent) {
         default:
             parent->add_child(parse_expression(parent));
             auto next = lexer->peek(0);
-            if (next->get_token() == COMMA) {
+            if (next->get_token_type() == COMMA) {
                 lexer->expect_and_consume(COMMA);
             }
             parse_variable_list(parent);
@@ -1199,7 +1202,7 @@ PNode Parser::parse_if_or_condition(PNode parent) {
     node->add_child(parse_condition(node));
 
     auto tok = lexer->peek(0);
-    if (tok->get_token() == QUESTION) {
+    if (tok->get_token_type() == QUESTION) {
         lexer->expect_and_consume(QUESTION);
         node->add_child(parse_action(node));
         lexer->expect_and_consume(COLON);
@@ -1236,7 +1239,7 @@ PNode Parser::parse_if_or_condition(PNode parent) {
  */
 PNode Parser::parse_action(PNode parent){
     auto tok = lexer->peek(0);
-    switch (tok->get_token()) {
+    switch (tok->get_token_type()) {
 
         // ACTION -> print VARIABLE_LIST
         case PRINT:
@@ -1266,15 +1269,15 @@ PNode Parser::parse_action(PNode parent){
             lexer->next();
             PNode apply_ptf(make_terminal(parent, tok));
             lexer->expect_and_consume(OPEN_PAREN);
-            if (lexer->peek(1)->get_token() == OPEN_SQUARE_BRACE) {
+            if (lexer->peek(1)->get_token_type() == OPEN_SQUARE_BRACE) {
                 lexer->expect_and_consume(OPEN_SQUARE_BRACE);
                 apply_ptf->add_child(parse_expression(apply_ptf));
 
-                if (lexer->peek(0)->get_token() == COMMA) {
+                if (lexer->peek(0)->get_token_type() == COMMA) {
                     lexer->expect_and_consume(COMMA);
                     apply_ptf->add_child(parse_expression(apply_ptf));
 
-                    if (lexer->peek(0)->get_token() == COMMA) {
+                    if (lexer->peek(0)->get_token_type() == COMMA) {
                         lexer->expect_and_consume(COMMA);
                         apply_ptf->add_child(parse_expression(apply_ptf));
                         lexer->expect_and_consume(COMMA);
@@ -1300,7 +1303,7 @@ PNode Parser::parse_action(PNode parent){
             apply_hm->add_child(parse_id(apply_hm));
             lexer->expect_and_consume(OPEN_PAREN);
             apply_hm->add_child(parse_expression(apply_hm));
-            if (lexer->peek(0)->get_token() == COMMA) {
+            if (lexer->peek(0)->get_token_type() == COMMA) {
                 lexer->expect_and_consume(COMMA);
                 apply_hm->add_child(parse_expression(apply_hm));
             }
@@ -1308,7 +1311,7 @@ PNode Parser::parse_action(PNode parent){
             lexer->expect_and_consume(EQ);
 
             auto next = lexer->next();
-            if (next->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed for comparison in applying hit-or-miss", tok);
+            if (next->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed for comparison in applying hit-or-miss", tok);
 
             lexer->expect_and_consume(CLOSE_PAREN);
  
@@ -1335,12 +1338,12 @@ void Parser::parse_bin_or_box_values(PNode parent) {
     // BIN_OR_BOX_VALUES -> number
 
     auto tok = lexer->next();
-    if (!is_numerical(tok->get_token())) raise_parsing_exception("Needs a numerical value for box argument", tok);
+    if (!is_numerical(tok->get_token_type())) raise_parsing_exception("Needs a numerical value for box argument", tok);
 
     parent->add_child(make_terminal(parent, tok));
 
     auto next = lexer->peek(0);
-    if (is_numerical(next->get_token())) parse_bin_or_box_values(parent);
+    if (is_numerical(next->get_token_type())) parse_bin_or_box_values(parent);
 }
 
 /* COUNTS productions:
@@ -1358,7 +1361,7 @@ void Parser::parse_counts(PNode parent) {
     parse_count(count);
     parent->add_child(count);
 
-    if (lexer->peek(0)->get_token() == COMMA) {
+    if (lexer->peek(0)->get_token_type() == COMMA) {
         parse_counts(parent);
     }
 
@@ -1379,12 +1382,12 @@ void Parser::parse_counts(PNode parent) {
 void Parser::parse_count(PNode parent) {
 
     auto tok = lexer->next();
-    if (!is_numerical(tok->get_token())) raise_parsing_exception("A numerical type is needed for counts", tok);
+    if (!is_numerical(tok->get_token_type())) raise_parsing_exception("A numerical type is needed for counts", tok);
 
     parent->add_child(make_terminal(parent, tok));
 
     auto next = lexer->peek(0);
-    switch (next->get_token()) {
+    switch (next->get_token_type()) {
         case PLUS: case MINUS: case PM:
         {
             parent->add_child(make_terminal(parent, lexer->next()));
@@ -1412,7 +1415,7 @@ void Parser::parse_particle_sum(PNode parent) {
     parent->add_child(parse_particle(parent));
     auto tok = lexer->peek(0);
 
-    switch (tok->get_token()) {
+    switch (tok->get_token_type()) {
 
         // PARTICLE_SUM -> PARTICLE + PARTICLE_SUM
         case PLUS:
@@ -1437,7 +1440,7 @@ void Parser::parse_particle_list(PNode parent) {
     parent->add_child(parse_particle(parent));
     auto tok = lexer->peek(0);
 
-    switch (tok->get_token()) {
+    switch (tok->get_token_type()) {
 
         // PARTICLE_LIST -> PARTICLE, PARTICLE_LIST
         case COMMA:
@@ -1499,7 +1502,7 @@ PNode Parser::parse_particle(PNode parent) {
 
     auto tok = lexer->peek(0);
 
-    switch (tok->get_token()) {
+    switch (tok->get_token_type()) {
 
         // PARTICLE -> first(PARTICLE)
         // PARTICLE -> second(PARTICLE)
@@ -1511,13 +1514,20 @@ PNode Parser::parse_particle(PNode parent) {
             lexer->expect_and_consume(CLOSE_PAREN);
             return helper_func;
         }
+        
+        // PARTICLE -> this
+        case THIS:
+        {
+            PNode this_part = make_terminal(parent, lexer->next());
+            return this_part;
+        }
 
         // PARTICLE -> gen constituents
         // PARTICLE -> jet constituents
         // PARTICLE -> fjet constituents
         case GEN: case JET: case FJET:
         {
-            if (lexer->peek(1)->get_token()==CONSTITUENTS) {
+            if (lexer->peek(1)->get_token_type()==CONSTITUENTS) {
                 PNode particle = make_terminal(parent, lexer->next());
                 PNode constituents = make_terminal(parent, lexer->next());
                 constituents->add_child(particle);
@@ -1584,7 +1594,7 @@ PNode Parser::parse_index(PNode parent) {
 
     auto tok = lexer->peek(0);
 
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
 
         // INDEX -> _integer
         // INDEX -> [integer]
@@ -1595,20 +1605,20 @@ PNode Parser::parse_index(PNode parent) {
             lexer->next();
             PNode index(new Node(INDEX, parent));
             auto next = lexer->next();
-            if (next->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
+            if (next->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
             index->add_child(make_terminal(index, next));
             
             // INDEX -> [integer:integer]
             // INDEX -> _integer:integer 
-            if (lexer->peek(0)->get_token() == COLON) {
+            if (lexer->peek(0)->get_token_type() == COLON) {
                 lexer->expect_and_consume(COLON);
 
                 auto next2 = lexer->next();
-                if (next->get_token() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
+                if (next->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
 
                 index->add_child(make_terminal(index, next2));
             }
-            if (tok->get_token() == OPEN_SQUARE_BRACE) {
+            if (tok->get_token_type() == OPEN_SQUARE_BRACE) {
                 lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
             }
             return index;
@@ -1633,7 +1643,7 @@ PNode Parser::parse_index(PNode parent) {
 PNode Parser::parse_lepton(PNode parent) {
     auto tok = lexer->next();
     
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
         case ELECTRON: case MUON: case TAU:
             return make_terminal(parent, tok);
         default:
@@ -1661,7 +1671,7 @@ PNode Parser::parse_lepton(PNode parent) {
  */
 PNode Parser::parse_syst_vtype(PNode parent) {
     auto tok = lexer->next();
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
         case SYST_WEIGHT_MC: case SYST_WEIGHT_JVT: case SYST_WEIGHT_PILEUP: case SYST_WEIGHT_LEPTON_SF: case SYST_WEIGHT_BTAG_SF: case SYST_TTREE:
             return make_terminal(parent, tok);
         default:
@@ -1681,7 +1691,7 @@ PNode Parser::parse_syst_vtype(PNode parent) {
 void Parser::parse_criteria(PNode parent) {
 
     auto tok = lexer->peek(0);
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
         case SELECT: case PRINT: case HISTO: case REJEC:
             parent->add_child(parse_criterion(parent));
             parse_criteria(parent);
@@ -1704,7 +1714,7 @@ PNode Parser::parse_criterion(PNode parent) {
 
     auto tok = lexer->next();
 
-    switch (tok->get_token()) {
+    switch (tok->get_token_type()) {
 
         // CRITERION -> cmd ACTION
         case SELECT: case HISTO:
@@ -1756,7 +1766,7 @@ PNode Parser::parse_condition(PNode parent) {
 }
 
 int get_precedence(PToken tok) {
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
 
         case RAISED_TO_POWER:
         return 9;
@@ -1811,7 +1821,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
     auto tok = lexer->next();
     PNode node(make_terminal(parent, tok));
 
-    switch(tok->get_token()) {
+    switch(tok->get_token_type()) {
         case MINUS: 
         {
             PNode negate_node(new Node(NEGATE, parent));
@@ -1849,7 +1859,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
         {
             PNode interval(new Node(INTERVAL, parent)); 
             interval->add_child(parse_expression_helper(interval));
-            if (lexer->peek(0)->get_token() == COMMA) lexer->expect_and_consume(COMMA);
+            if (lexer->peek(0)->get_token_type() == COMMA) lexer->expect_and_consume(COMMA);
             interval->add_child(parse_expression_helper(interval));
             lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
             return interval;
@@ -1877,7 +1887,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
             lexer->expect_and_consume(CLOSE_PAREN);
             return node;
         }
-        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: 
+        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: case CHARGE: case MASS:
         case FLAVOR: case CONSTITUENTS: case PDG_ID: case JET_ID: case IDX: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
         case DXY: case EDXY: case EDZ: case DZ: case VERTR: case VERZ: case VERY: case VERX: case VERT: 
         case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case ABS_ETA: case MSOFTDROP: case THETA: 
@@ -1901,13 +1911,13 @@ PNode Parser::parse_expression_helper(PNode parent) {
             lexer->expect_and_consume(COMMA);
 
             auto int1 = lexer->next();
-            if  (int1->get_token() != INTEGER) raise_parsing_exception("FHemisphere requires integer argument in position 2", int1);
+            if  (int1->get_token_type() != INTEGER) raise_parsing_exception("FHemisphere requires integer argument in position 2", int1);
             node->add_child(make_terminal(node, int1));
 
             lexer->expect_and_consume(COMMA);
 
             auto int2 = lexer->next();
-            if  (int2->get_token() != INTEGER) raise_parsing_exception("FHemisphere requires integer argument in position 3", int2);
+            if  (int2->get_token_type() != INTEGER) raise_parsing_exception("FHemisphere requires integer argument in position 3", int2);
             node->add_child(make_terminal(node, int2));
 
             lexer->expect_and_consume(CLOSE_PAREN);
@@ -1927,7 +1937,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
             lexer->expect_and_consume(OPEN_PAREN);
             node->add_child(parse_id(node));
             lexer->expect_and_consume(COMMA);
-            if (lexer->peek(0)->get_token() == MET) {
+            if (lexer->peek(0)->get_token_type() == MET) {
                 node->add_child(make_terminal(node, lexer->next()));
             } else {
                 node->add_child(parse_id(node));
@@ -1940,16 +1950,16 @@ PNode Parser::parse_expression_helper(PNode parent) {
             lexer->expect_and_consume(OPEN_PAREN);
 
             auto int1 = lexer->next();
-            if (!is_numerical(int1->get_token())) raise_parsing_exception("Only numerical arguments are allowed in position 1 of NNLO rec", int1);
+            if (!is_numerical(int1->get_token_type())) raise_parsing_exception("Only numerical arguments are allowed in position 1 of NNLO rec", int1);
 
             auto int2 = lexer->next();
-            if (!is_numerical(int2->get_token())) raise_parsing_exception("Only numerical arguments are allowed in position 2 of NNLO rec", int2);            
+            if (!is_numerical(int2->get_token_type())) raise_parsing_exception("Only numerical arguments are allowed in position 2 of NNLO rec", int2);            
             
             auto int3 = lexer->next();
-            if (!is_numerical(int3->get_token())) raise_parsing_exception("Only numerical arguments are allowed in position 3 of NNLO rec", int3);            
+            if (!is_numerical(int3->get_token_type())) raise_parsing_exception("Only numerical arguments are allowed in position 3 of NNLO rec", int3);            
             
             auto int4 = lexer->next();
-            if (!is_numerical(int4->get_token())) raise_parsing_exception("Only numerical arguments are allowed in position 4 of NNLO rec", int4);
+            if (!is_numerical(int4->get_token_type())) raise_parsing_exception("Only numerical arguments are allowed in position 4 of NNLO rec", int4);
 
             lexer->expect_and_consume(CLOSE_PAREN);
             return node;
@@ -1962,7 +1972,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
 
         case STRING: case VARNAME:
         {
-            if (lexer->peek(1)->get_token() == OPEN_PAREN) {
+            if (lexer->peek(1)->get_token_type() == OPEN_PAREN) {
                 PNode func(new Node(USER_FUNCTION, parent));
                 node->set_parent(func);
 
@@ -1982,7 +1992,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
             return node;
         }
         default:
-            if(!is_numerical(tok->get_token())) raise_parsing_exception("Invalid token used in expression", tok);
+            if(!is_numerical(tok->get_token_type())) raise_parsing_exception("Invalid token used in expression", tok);
             // return precedence_climber(parent, node, 0);
             return node;
     }

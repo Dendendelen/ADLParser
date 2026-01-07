@@ -2,6 +2,7 @@
 #define ALI_CONVERTER_H
 
 #include "ast_visitor.hpp"
+#include "tokens.hpp"
 #include <string>
 #include <vector>
 
@@ -270,6 +271,9 @@ class ALIConverter : ASTVisitor {
         std::string current_limit;
 
         std::string current_scope_name;
+
+        Token_type current_object_token;
+        std::string current_object_particle_if_named;
 
         std::string current_region;
         int highest_var_val;

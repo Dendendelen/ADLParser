@@ -6,6 +6,7 @@
 #include <cassert>
 #include <sstream>
 #include <iostream>
+#include <string>
 
 
 AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst): instruction(inst)  {
@@ -444,7 +445,7 @@ std::string ALIConverter::interval_operator(PNode node) {
 
     AnalysisLevelInstruction inst;
 
-    if (node->get_token()->get_token() == OUTSIDE) {
+    if (node->get_token()->get_token_type() == OUTSIDE) {
         inst = EXPR_OUTSIDE;
     } else {
         inst = EXPR_WITHIN;
@@ -477,11 +478,20 @@ std::string ALIConverter::handle_particle(PNode node, std::string last_part) {
     AnalysisLevelInstruction inst;
 
     PToken tok = node->get_token();
+    std::string lexeme = tok->get_lexeme();
 
-    if (tok->get_token() == MINUS) {
+    if (tok->get_token_type() == MINUS) {
         node = node->get_children()[0];
         tok = node->get_token();
-        switch(tok->get_token()) {
+        std::string lexeme = tok->get_lexeme();
+
+        Token_type tok_type = tok->get_token_type();
+        if (tok_type == THIS) {
+            tok_type = current_object_token;
+            lexeme = current_object_particle_if_named;
+        }
+
+        switch(tok_type) {
             case ELECTRON: 
                 inst = SUB_PART_ELECTRON; break;
             case MUON: 
@@ -512,7 +522,14 @@ std::string ALIConverter::handle_particle(PNode node, std::string last_part) {
                 inst = SUB_PART_NAMED; break;
         }
     } else {
-        switch(tok->get_token()) {
+
+        Token_type tok_type = tok->get_token_type();
+        if (tok_type == THIS) {
+            tok_type = current_object_token;
+            lexeme = current_object_particle_if_named;
+        }
+
+        switch(tok_type) {
             case ELECTRON: 
                 inst = ADD_PART_ELECTRON; break;
             case MUON: 
@@ -551,7 +568,7 @@ std::string ALIConverter::handle_particle(PNode node, std::string last_part) {
     next_part.add_argument(part_name);
 
     if (inst == ADD_PART_NAMED || inst == SUB_PART_NAMED) {
-        next_part.add_argument(tok->get_lexeme());
+        next_part.add_argument(lexeme);
     }
 
     next_part.add_argument(last_part);
@@ -651,16 +668,16 @@ std::string ALIConverter::particle_list_function(PNode node) {
 
     AnalysisLevelInstruction inst;
 
-    switch (node->get_token()->get_token()) {
+    switch (node->get_token()->get_token_type()) {
         case LETTER_E: 
             inst = FUNC_ENERGY; break;
-        case LETTER_P: 
+        case LETTER_P: case PT:
             inst = FUNC_PT; break;
-        case LETTER_M: 
+        case LETTER_M: case MASS:
             inst = FUNC_MASS; break;
         case MSOFTDROP:
             inst = FUNC_MSOFTDROP; break;
-        case LETTER_Q: 
+        case LETTER_Q: case CHARGE:
             inst = FUNC_CHARGE; break;
         case FLAVOR: 
             inst = FUNC_FLAVOR; break;
@@ -722,8 +739,6 @@ std::string ALIConverter::particle_list_function(PNode node) {
             inst = FUNC_IS_MEDIUM; break;
         case IS_LOOSE: 
             inst = FUNC_IS_LOOSE; break;
-        case PT: 
-            inst = FUNC_PT; break;
         case PZ: 
             inst = FUNC_PZ; break;
         case NBF: 
@@ -762,13 +777,15 @@ std::string ALIConverter::particle_list_function(PNode node) {
 
     PNode particle_list_node = node->get_children()[0];
     for (auto it = particle_list_node->get_children().begin(); it != particle_list_node->get_children().end(); ++it) {
-        if ((*it)->get_token()->get_token() == FIRST || (*it)->get_token()->get_token() == SECOND) {
-            AnalysisCommand indexing((*it)->get_token()->get_token() == FIRST ? FUNC_FIRST : FUNC_SECOND);
+        if ((*it)->get_token()->get_token_type() == FIRST || (*it)->get_token()->get_token_type() == SECOND) {
+            AnalysisCommand indexing((*it)->get_token()->get_token_type() == FIRST ? FUNC_FIRST : FUNC_SECOND);
             std::string dest_for_index = reserve_scoped_value_name();
             indexing.add_argument(dest_for_index);
             indexing.add_argument((*it)->get_children()[0]->get_token()->get_lexeme());
             command_list.push_back(indexing);
             func.add_argument(dest_for_index);
+        } else if ((*it)->get_token()->get_token_type() == THIS) {
+            func.add_argument(current_object_particle_if_named);
         } else {
             func.add_argument((*it)->get_token()->get_lexeme());
         }
@@ -791,7 +808,7 @@ std::string ALIConverter::unary_operator(PNode node) {
 
     if (node->get_ast_type() == NEGATE) {
         inst = EXPR_NEGATE;
-    } else if (node->get_token()->get_token() == NOT) {
+    } else if (node->get_token()->get_token_type() == NOT) {
         inst = EXPR_LOGICAL_NOT;
     }
 
@@ -814,7 +831,7 @@ std::string ALIConverter::binary_operator(PNode node) {
 
     AnalysisLevelInstruction inst;
 
-    switch(node->get_token()->get_token()) {
+    switch(node->get_token()->get_token_type()) {
         case RAISED_TO_POWER:
             inst = EXPR_RAISE; break;
         case MULTIPLY:
@@ -882,7 +899,7 @@ std::string ALIConverter::expression_function(PNode node) {
 
     AnalysisLevelInstruction inst;
 
-    switch (node->get_token()->get_token()) {
+    switch (node->get_token()->get_token_type()) {
         case HSTEP:
             inst = FUNC_HSTEP; break;
         case DELTA: 
@@ -920,7 +937,7 @@ std::string ALIConverter::expression_function(PNode node) {
         case MAX:
             inst = FUNC_MAX; break;
         case SORT:
-            if (node->get_children()[1]->get_token()->get_token() == DESCEND) {
+            if (node->get_children()[1]->get_token()->get_token_type() == DESCEND) {
                 inst = FUNC_SORT_DESCEND; 
             } else {
                 inst = FUNC_SORT_ASCEND;
@@ -962,7 +979,7 @@ std::string ALIConverter::handle_expression(PNode node) {
         return handle_expression(node->get_children()[0]);
     }
 
-    switch(node->get_token()->get_token()) {
+    switch(node->get_token()->get_token_type()) {
         case BWL: case BWR: case RAISED_TO_POWER: case MULTIPLY: case DIVIDE: case PLUS: case MINUS: case IRG: case ERG: case MAXIMIZE: case MINIMIZE: case LT: case GT: case LE: case GE: case EQ: case NE: case AMPERSAND: case PIPE: case AND: case OR:
             return binary_operator(node);
         case WITHIN: case OUTSIDE:
@@ -1024,7 +1041,7 @@ void ALIConverter::visit_if(PNode node) {
 void ALIConverter::visit_sort(PNode node) {
     std::string to_be_sorted = handle_expression(node->get_children()[0]);
     AnalysisLevelInstruction which_way;
-    if (node->get_children()[1]->get_token()->get_token() == ASCEND) {
+    if (node->get_children()[1]->get_token()->get_token_type() == ASCEND) {
         which_way = SORT_ASCEND;
     } else {
         which_way = SORT_DESCEND;
@@ -1171,7 +1188,7 @@ void ALIConverter::visit_object_reject(PNode node) {
 std::string ALIConverter::comb_list(PNode node, std::string prev) {
     AnalysisLevelInstruction inst;
 
-    switch (node->get_token()->get_token()) {
+    switch (node->get_token()->get_token_type()) {
         case ELECTRON:
             inst = ADD_ELECTRON_TO_COMB; break;
         case MUON:
@@ -1221,7 +1238,7 @@ std::string ALIConverter::union_list(PNode node, std::string prev) {
 
     AnalysisLevelInstruction inst;
 
-    switch (node->get_token()->get_token()) {
+    switch (node->get_token()->get_token_type()) {
         case ELECTRON:
             inst = ADD_ELECTRON_TO_UNION; break;
         case MUON:
@@ -1340,11 +1357,11 @@ void ALIConverter::visit_object(PNode node) {
     PNode name = node->get_children()[0];
     PNode source = node->get_children()[1];
 
-    if (source->get_token()->get_token() == UNION) {
+    if (source->get_token()->get_token_type() == UNION) {
 
         visit_union_type(node);
         return;
-    } else if (source->get_token()->get_token() == COMB) {
+    } else if (source->get_token()->get_token_type() == COMB) {
         visit_comb_type(node);
         return;
     }
@@ -1352,7 +1369,10 @@ void ALIConverter::visit_object(PNode node) {
     std::string name_lexeme = name->get_token()->get_lexeme();
     std::string source_lexeme = source->get_token()->get_lexeme();
 
-    switch (source->get_token()->get_token()) {
+    current_object_token = source->get_token()->get_token_type();
+    current_object_particle_if_named = source_lexeme;
+
+    switch (current_object_token) {
         case ELECTRON: 
             source_lexeme = "Electron"; break;
         case MUON: 
@@ -1482,7 +1502,7 @@ void ALIConverter::visit_definition(PNode node) {
     current_scope_name = def_name.str();
 
 
-    if (node->get_children()[1]->get_ast_type() == TERMINAL && node->get_children()[1]->get_token()->get_token() == EXTERNAL) {
+    if (node->get_children()[1]->get_ast_type() == TERMINAL && node->get_children()[1]->get_token()->get_token_type() == EXTERNAL) {
         PNode func = node->get_children()[1]->get_children()[0];
         std::string func_name = func->get_token()->get_lexeme();
 
@@ -1491,7 +1511,7 @@ void ALIConverter::visit_definition(PNode node) {
         add_extern_name.add_argument(func_name);
 
         command_list.push_back(add_extern_name);
-    } else if (node->get_children()[1]->get_ast_type() == TERMINAL && node->get_children()[1]->get_token()->get_token() == CORRECTIONLIB) {
+    } else if (node->get_children()[1]->get_ast_type() == TERMINAL && node->get_children()[1]->get_token()->get_token_type() == CORRECTIONLIB) {
         PNode filename_node = node->get_children()[1]->get_children()[0];
         std::string filename = filename_node->get_token()->get_lexeme();
 
@@ -1526,7 +1546,7 @@ void ALIConverter::visit_table_def(PNode node) {
     PNode do_errors_node = node->get_children()[3];
     
     bool do_errors = false;
-    if (do_errors_node->get_token()->get_token() == TRUE) do_errors = true;
+    if (do_errors_node->get_token()->get_token_type() == TRUE) do_errors = true;
 
     // size of the actual table
     int table_size = node->get_children().size() - 4;

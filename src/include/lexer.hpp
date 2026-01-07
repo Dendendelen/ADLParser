@@ -20,7 +20,7 @@ class Token {
         void set_data(int line, int column, std::string actual_lexeme);
         int get_line();
         int get_column();
-        Token_type get_token();
+        Token_type get_token_type();
         std::string get_token_type_as_string();
         std::string get_lexeme();
 };
