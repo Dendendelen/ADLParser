@@ -493,7 +493,6 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_BTAG:
         {
             append_4vector_label(command, "_btagDeepFlavB");
-            command_text << "(" << var_mappings[command.get_argument(0)] << " > 0.3040)";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         }

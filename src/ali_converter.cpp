@@ -387,7 +387,7 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
         case FUNC_GEN_PART_IDX:
             return "FUNC_GEN_PART_IDX";
         case FUNC_CHARGE:
-            return "FUNC_Q";
+            return "FUNC_CHARGE";
         case FUNC_RAPIDITY:
             return "FUNC_RAPIDITY";
         case FUNC_FMT2:
@@ -1010,7 +1010,7 @@ std::string ALIConverter::handle_expression(PNode node) {
             return interval_operator(node);
         case NOT:
             return unary_operator(node);
-        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: 
+        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: case CHARGE:
         case FLAVOR: case CONSTITUENTS: case PDG_ID: case IDX: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
         case DXY: case EDXY: case EDZ: case DZ: case VERTR: case VERZ: case VERY: case VERX: case VERT: 
         case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case ABS_ETA: case THETA: 
