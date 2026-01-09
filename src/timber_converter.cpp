@@ -19,7 +19,7 @@ std::string TimberConverter::add_all_relevant_tags_for_object(AnalysisCommand co
     std::string src_vec = command.get_argument(2);
 
     command_text << "a.Apply(" <<add_target << ")\n";
-    command_text << "a.SubCollection('" << dest_vec << "', '" << generate_4vector_label(get_mapping_if_exists(src_vec), "") << "', '" << mask << "', useTake=False)\n";
+    command_text << "a.SubCollection('" << dest_vec << "', '" << generate_4vector_label(get_mapping_if_exists(src_vec), "") << "', '" << mask << "', useTake=False, skip=[\"idx\"])\n";
     return command_text.str();
 
 }
@@ -71,14 +71,14 @@ std::string TimberConverter::add_structure_for_comb_merge(AnalysisCommand comman
         command_text << "";
 
     } else {
-        command_text << "a.SubCollection('" << dest_vec << "_first', '" << get_mapping_if_exists(old_comb) << "', 'VecOps::Combinations(";
+        command_text << "a.SubCollection('" << dest_vec << "xfirst', '" << get_mapping_if_exists(old_comb) << "', 'ROOT::VecOps::Combinations(";
 
         command_text << generate_4vector_label(get_mapping_if_exists(get_mapping_if_exists(old_comb)), "_pt") << ", ";
         command_text << generate_4vector_label(get_mapping_if_exists(adding_name), "_pt") << ")[0]";
 
         command_text << "', useTake=True)\n"; 
 
-        command_text << "a.SubCollection('" << dest_vec << "_second', '" << get_mapping_if_exists(adding_name) << "', 'VecOps::Combinations(";
+        command_text << "a.SubCollection('" << dest_vec << "xsecond', '" << get_mapping_if_exists(adding_name) << "', 'ROOT::VecOps::Combinations(";
 
         command_text << generate_4vector_label(get_mapping_if_exists(get_mapping_if_exists(old_comb)), "_pt") << ", ";
         command_text << generate_4vector_label(get_mapping_if_exists(adding_name), "_pt") << ")[1]";
@@ -334,10 +334,10 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         }
         //TODO: check that this is consistant with the overall syntax
         case SORT_ASCEND:
-            command_text << "VecOps::Sort(" << command.get_argument(1) << ")";
+            command_text << "ROOT::VecOps::Sort(" << command.get_argument(1) << ")";
             var_mappings[command.get_argument(0)] = command_text.str(); return "";
         case SORT_DESCEND:
-            command_text << "VecOps::Reverse(VecOps::Sort(" << command.get_argument(1) << "))";
+            command_text << "ROOT::VecOps::Reverse(ROOT::VecOps::Sort(" << command.get_argument(1) << "))";
             var_mappings[command.get_argument(0)] = command_text.str(); return "";
         case ADD_OBJECT:
             return "ADD_OBJECT";
@@ -404,9 +404,9 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FINISH_TABLE:
         {
             std::string old_name = get_mapping_if_exists(command.get_argument(1));
-            command_text << old_name << "_values_array = ROOT.VecOps.AsRVec(np.array(" << old_name << "_values, dtype=np.float32))\n";
-            command_text << old_name << "_lower_bounds_array = ROOT.VecOps.AsRVec(np.array(" << old_name << "_lower_bounds, dtype=np.float32))\n";
-            command_text << old_name << "_upper_bounds_array = ROOT.VecOps.AsRVec(np.array(" << old_name << "_upper_bounds, dtype=np.float32))\n"; 
+            command_text << old_name << "_values_array = ROOT.ROOT::VecOps.AsRVec(np.array(" << old_name << "_values, dtype=np.float32))\n";
+            command_text << old_name << "_lower_bounds_array = ROOT.ROOT::VecOps.AsRVec(np.array(" << old_name << "_lower_bounds, dtype=np.float32))\n";
+            command_text << old_name << "_upper_bounds_array = ROOT.ROOT::VecOps.AsRVec(np.array(" << old_name << "_upper_bounds, dtype=np.float32))\n"; 
 
             command_text << "ROOT.gInterpreter.Declare('" << command.get_argument(0);
             command_text << " = create_table_function(' + str(" << old_name << "_nvars) + '," << old_name << "_lower_bound_array," << old_name << "_upper_bound_array," << old_name << "_values_array);')";
@@ -669,11 +669,11 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case FUNC_AVE:
-            command_text << "VecOps::Mean(" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "ROOT::VecOps::Mean(" << var_mappings[command.get_argument(1)] << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case FUNC_SUM:
-            command_text << "VecOps::Sum(" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "ROOT::VecOps::Sum(" << var_mappings[command.get_argument(1)] << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
 
@@ -683,11 +683,11 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "";
             
         case FUNC_MIN:
-            command_text << "VecOps::Min(" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "ROOT::VecOps::Min(" << var_mappings[command.get_argument(1)] << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case FUNC_MAX:
-            command_text << "VecOps::Max(" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "ROOT::VecOps::Max(" << var_mappings[command.get_argument(1)] << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
 
@@ -701,16 +701,16 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "";
 
         case FUNC_FIRST:
-            append_4vector_label(command, "_first\x1d");
+            append_4vector_label(command, "xfirst\x1d");
             return "";
         case FUNC_SECOND:
-            append_4vector_label(command, "_second\x1d");
+            append_4vector_label(command, "xsecond\x1d");
             return "";
         case FUNC_SORT_ASCEND:
-            command_text << "VecOps::Sort(" << command.get_argument(1) << ")";
+            command_text << "ROOT::VecOps::Sort(" << command.get_argument(1) << ")";
             var_mappings[command.get_argument(0)] = command_text.str(); return "";
         case FUNC_SORT_DESCEND:
-            command_text << "VecOps::Reverse(VecOps::Sort(" << command.get_argument(1) << "))";
+            command_text << "ROOT::VecOps::Reverse(ROOT::VecOps::Sort(" << command.get_argument(1) << "))";
             var_mappings[command.get_argument(0)] = command_text.str(); return "";
         case FUNC_NAMED:
             raise_non_implemented_conversion_exception("FUNC_NAMED");

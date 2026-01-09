@@ -426,20 +426,20 @@ void visit_if(PNode node) {
 
 std::string ALIConverter::reserve_scoped_value_name() {
     std::stringstream new_var_name;
-    new_var_name << "_V" << highest_var_val++ << "_" << current_scope_name;
+    new_var_name << "xVx" << highest_var_val++ << "" << current_scope_name;
     last_value_name = new_var_name.str();
     return last_value_name;
 }
 
 std::string ALIConverter::reserve_scoped_limit_name() {
     std::stringstream new_var_name;
-    new_var_name << "_L" << highest_var_val++ << "_" << current_scope_name;
+    new_var_name << "xLx" << highest_var_val++ << "x" << current_scope_name;
     return new_var_name.str();
 }
 
 std::string ALIConverter::reserve_scoped_region_name() {
     std::stringstream new_var_name;
-    new_var_name << "_R" << highest_var_val++ << "_" << current_scope_name;
+    new_var_name << "xRx" << highest_var_val++ << "x" << current_scope_name;
     return new_var_name.str();
 }
 
@@ -1028,7 +1028,7 @@ std::string ALIConverter::handle_expression(PNode node) {
 void ALIConverter::visit_condition(PNode node) {
 
     std::stringstream cond_name;
-    cond_name << reserve_scoped_value_name() << "_COND_" << current_scope_name;
+    cond_name << reserve_scoped_value_name() << "xCONDx" << current_scope_name;
 
     std::string final = handle_expression(node->get_children()[0]);
 
@@ -1094,7 +1094,7 @@ void ALIConverter::visit_histo_list(PNode node) {
     std::string histo_list_name = node->get_children()[0]->get_token()->get_lexeme();
 
     std::stringstream histo_list_scope_name;
-    histo_list_scope_name << "_HL_" << node->get_children()[0]->get_token()->get_lexeme();
+    histo_list_scope_name << "xHLx" << node->get_children()[0]->get_token()->get_lexeme();
     current_scope_name = histo_list_scope_name.str();
 
     AnalysisCommand hist_list_create(CREATE_HIST_LIST);
@@ -1119,7 +1119,7 @@ void ALIConverter::visit_histogram(PNode node) {
 
     std::string histo_name = node->get_children()[0]->get_token()->get_lexeme();
     std::stringstream histo_scope_name;
-    histo_scope_name << "_H_" << node->get_children()[0]->get_token()->get_lexeme();
+    histo_scope_name << "xHx" << node->get_children()[0]->get_token()->get_lexeme();
     current_scope_name = histo_scope_name.str();
 
     bool is_2d = false;
@@ -1340,7 +1340,7 @@ void ALIConverter::visit_union_type(PNode node) {
     std::string name = node->get_children()[0]->get_token()->get_lexeme();
 
     std::stringstream union_name;
-    union_name << "_UNION_" << name;
+    union_name << "xUNIONx" << name;
 
     current_scope_name = union_name.str();
 
@@ -1372,7 +1372,7 @@ void ALIConverter::visit_comb_type(PNode node) {
     std::string name = node->get_children()[0]->get_token()->get_lexeme();
 
     std::stringstream comb_name;
-    comb_name << "_COMB_" << name;
+    comb_name << "xCOMBx" << name;
 
     current_scope_name = comb_name.str();
 
@@ -1471,7 +1471,7 @@ void ALIConverter::visit_object(PNode node) {
     AnalysisCommand create_mask(CREATE_MASK);
     
     std::stringstream mask_name;
-    mask_name << "_MASK_" << name_lexeme;
+    mask_name << "xMASKx" << name_lexeme;
 
     // move us into the "scope" of this object
     current_scope_name = mask_name.str();
@@ -1538,7 +1538,7 @@ void ALIConverter::visit_region(PNode node) {
     AnalysisCommand create_region(CREATE_REGION);
     
     std::stringstream reg_name;
-    reg_name << "_REG_" << name_lexeme;
+    reg_name << "xREGx" << name_lexeme;
 
     // move us into the "scope" of this region
     current_scope_name = reg_name.str();
@@ -1570,7 +1570,7 @@ void ALIConverter::visit_definition(PNode node) {
     std::string name_lexeme = name->get_token()->get_lexeme();
 
     std::stringstream def_name;
-    def_name << "_DEF_" << name_lexeme;
+    def_name << "xDEFx" << name_lexeme;
 
     current_scope_name = def_name.str();
 
