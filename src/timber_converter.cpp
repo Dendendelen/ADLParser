@@ -5,6 +5,7 @@
 #include "tokens.hpp"
 #include "exceptions.hpp"
 #include <ostream>
+#include <regex>
 #include <sstream>
 #include <iostream>
 #include <string>
@@ -262,9 +263,18 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << "\n_old_node = a.GetActiveNode()";
             command_text << "\n_cutflow_node_" << command.get_argument(0) << " = a.Apply(" << get_mapping_if_exists(command.get_argument(0)) << "[0])";
             command_text << "\n_cutflow_node_" << command.get_argument(0) << " = a.AddCorrections(" << get_mapping_if_exists(command.get_argument(0)) << "[1])";
-            command_text << "\nprint('\\nBeginning cutflow report for region " << command.get_argument(0) << "')";
+            
+            command_text << "\nprint('\\n---\\nBeginning cutflow report for region ";
+            {
+                std::regex e(".*REGx");
+                std::string clean_name = std::regex_replace(command.get_argument(0), e, "");
+                command_text << clean_name;
+            }
+            command_text << "')";
+
             command_text << "\nfor _cutflow_k, _cutflow_v in CutflowDict(_cutflow_node_" << command.get_argument(0) << ").items():\n    print('After cut ' + _cutflow_k + ', ' + str(_cutflow_v) + ' remain')";
-            command_text << "\na.SetActiveNode(_old_node)";
+            command_text << "\nprint('\\n---\\n')";
+            command_text << "\na.SetActiveNode(_old_node)\n";
             return command_text.str();
 
         case HIST_1D:
