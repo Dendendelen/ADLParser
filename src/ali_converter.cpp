@@ -21,6 +21,7 @@ AnalysisLevelInstruction AnalysisCommand::get_instruction() {
     return instruction;
 }
 std::string AnalysisCommand::get_argument(int pos) {
+    assert(pos < arguments.size());
     return arguments[pos];
 }
 
@@ -68,6 +69,9 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "HIST_2D";
         case CREATE_BIN:
             return "CREATE_BIN";
+
+        case DO_CUTFLOW_ON_REGION:
+            return "DO_CUTFLOW_ON_REGION";
 
         case CREATE_TABLE:
             return "CREATE_TABLE";
@@ -783,6 +787,19 @@ std::string ALIConverter::particle_list_function(PNode node) {
 
     PNode particle_list_node = node->get_children()[0];
     for (auto it = particle_list_node->get_children().begin(); it != particle_list_node->get_children().end(); ++it) {
+
+        bool needs_numeric_index = ((*it)->get_children().size() > 0) && ((*it)->get_children()[0]->get_ast_type() == INDEX);
+        std::string indexed_name_if_relevant;
+
+        if (needs_numeric_index) {
+            AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
+            std::string empty_name = reserve_scoped_value_name();
+            make_empty.add_argument(empty_name);
+            command_list.push_back(make_empty);
+
+            indexed_name_if_relevant = handle_particle(*it, empty_name);
+        }
+
         if ((*it)->get_token()->get_token_type() == FIRST || (*it)->get_token()->get_token_type() == SECOND) {
             AnalysisCommand indexing((*it)->get_token()->get_token_type() == FIRST ? FUNC_FIRST : FUNC_SECOND);
             std::string dest_for_index = reserve_scoped_value_name();
@@ -795,9 +812,11 @@ std::string ALIConverter::particle_list_function(PNode node) {
             command_list.push_back(indexing);
             func.add_argument(dest_for_index);
         } else if ((*it)->get_token()->get_token_type() == THIS) {
-            func.add_argument(current_object_particle_if_named);
+            if (needs_numeric_index) {func.add_argument(indexed_name_if_relevant);}
+            else {func.add_argument(current_object_particle_if_named);}
         } else {
-            func.add_argument((*it)->get_token()->get_lexeme());
+            if (needs_numeric_index) {func.add_argument(indexed_name_if_relevant);}
+            else {func.add_argument((*it)->get_token()->get_lexeme());}
         }
     }
     // std::string particle_name = handle_particle_list(node->get_children()[0]);
@@ -1010,7 +1029,7 @@ std::string ALIConverter::handle_expression(PNode node) {
             return interval_operator(node);
         case NOT:
             return unary_operator(node);
-        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: case CHARGE:
+        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: case CHARGE: case MASS:
         case FLAVOR: case CONSTITUENTS: case PDG_ID: case IDX: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
         case DXY: case EDXY: case EDZ: case DZ: case VERTR: case VERZ: case VERY: case VERX: case VERT: 
         case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case ABS_ETA: case THETA: 
@@ -1187,6 +1206,12 @@ void ALIConverter::visit_histogram(PNode node) {
 
         current_scope_name = prev_scope;
     }
+}
+
+void ALIConverter::visit_cutflow_use(PNode node) {
+    AnalysisCommand cutflow(DO_CUTFLOW_ON_REGION);
+    cutflow.add_argument(current_region);
+    command_list.push_back(cutflow);
 }
 
 void ALIConverter::visit_object_select(PNode node) {
@@ -1554,7 +1579,7 @@ void ALIConverter::visit_region(PNode node) {
     AnalysisCommand add_reg_name(ADD_ALIAS);
 
     add_reg_name.add_argument(name_lexeme);
-    add_reg_name.add_argument(current_scope_name);
+    add_reg_name.add_argument(current_region);
 
     command_list.push_back(add_reg_name);
     current_scope_name = prev_name;

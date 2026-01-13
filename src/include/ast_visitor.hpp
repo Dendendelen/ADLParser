@@ -37,6 +37,8 @@ class ASTVisitor {
 
         virtual void visit_weight(PNode node) = 0;
 
+        virtual void visit_cutflow_use(PNode node) = 0;
+
     public:
         void visit(PNode node);
         

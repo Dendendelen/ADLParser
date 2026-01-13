@@ -28,8 +28,13 @@ class TimberConverter {
 
         std::string lorentzify(std::string name);
         std::string binary_command(AnalysisCommand command, std::string op);
+
+        std::string generate_4vector_label(std::string input, std::string prefix, std::string suffix);
         std::string generate_4vector_label(std::string input, std::string suffix);
+
         void append_4vector_label(AnalysisCommand command, std::string suffix, std::string suffix_if_lv = "");
+        void append_4vector_label(AnalysisCommand command, std::string prefix, std::string suffix, std::string prefix_if_lv, std::string suffix_if_lv);
+
         void sub_particle(AnalysisCommand command, std::string name);
         void add_particle(AnalysisCommand command, std::string name);
         std::string index_particle(AnalysisCommand command, bool is_named, std::string part_text);

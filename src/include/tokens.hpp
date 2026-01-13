@@ -82,6 +82,8 @@ enum Token_type {
     SKIP_HISTO,
     SKIP_EFFS,
     GEN,
+
+    CUTFLOW,
     
     ELECTRON,
     MUON,

@@ -33,6 +33,8 @@ enum AnalysisLevelInstruction {
 
     WEIGHT_APPLY,
 
+    DO_CUTFLOW_ON_REGION,
+
     CREATE_BIN,
 
     CREATE_TABLE,
@@ -306,6 +308,7 @@ class ALIConverter : ASTVisitor {
         void visit_bin_list(PNode node) override;
         void visit_table_def(PNode node) override;
         void visit_weight(PNode node) override;
+        void visit_cutflow_use(PNode node) override;
 
 
     public:

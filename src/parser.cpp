@@ -815,7 +815,7 @@ void Parser::parse_region_commands(PNode parent) {
     auto tok = lexer->peek(0);
 
     switch(tok->get_token_type()) {
-        case SELECT: case REJEC: case BINS: case BIN: case SAVE: case PRINT: case WEIGHT: case COUNTS: case HISTO: case SORT: case USE: case TAKE:
+        case SELECT: case REJEC: case BINS: case BIN: case SAVE: case PRINT: case WEIGHT: case COUNTS: case HISTO: case SORT: case USE: case TAKE: case CUTFLOW:
             parent->add_child(parse_region_command(parent));
             parse_region_commands(parent);
             return;
@@ -883,6 +883,8 @@ PNode Parser::parse_region_command_select(PNode parent) {
     REGION_COMMAND -> counts ID COUNTS
 
     REGION_COMMAND -> histo HISTOGRAM
+
+    REGION_COMMAND -> cutflow
 
     REGION_COMMAND -> if EXPRESSION then REGION_COMMAND else REGION_COMMAND
 
@@ -986,6 +988,13 @@ PNode Parser::parse_region_command(PNode parent) {
             counts->add_child(parse_id(counts));
             parse_counts(counts);
             return counts;
+        }
+
+        // REGION_COMMAND -> cutflow
+        case CUTFLOW:
+        {
+            PNode cutflow(new Node(CUTFLOW_USE, parent));
+            return cutflow;
         }
 
         // REGION_COMMAND -> histo HISTOGRAM

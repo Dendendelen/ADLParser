@@ -163,14 +163,18 @@ void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
         command_text << std::regex_replace (source,e,"");
         command_text << " + ";
         command_text << lorentzify(indexed_if_needed);
+        command_text << ")";
         command_text << '\x1d';
         is_lorentz_vector.insert(command_text.str());
 
+
     } else if (source != "") {
         // the source is not a 4-vector but is also non-empty. This implies that we need to create a 4-vector out of it, and proceed to add it to the new particle
+        command_text << "(";
         command_text << lorentzify(source);
         command_text << " + ";
         command_text << lorentzify(indexed_if_needed);
+        command_text << ")";
         command_text << '\x1d';
         is_lorentz_vector.insert(command_text.str());
     } else {
@@ -190,7 +194,7 @@ void TimberConverter::sub_particle(AnalysisCommand command, std::string name) {
     command_text << var_mappings[command.get_argument(1+is_named)] << " - " << indexed_if_needed;
 }
 
-std::string TimberConverter::generate_4vector_label(std::string input, std::string suffix) {
+std::string TimberConverter::generate_4vector_label(std::string input, std::string prefix, std::string suffix) {
     std::stringstream delimit;
     std::stringstream command_text;
 
@@ -203,11 +207,12 @@ std::string TimberConverter::generate_4vector_label(std::string input, std::stri
 
     if (delimited_by_space.size() == 1) {
         // if we have only one element, presume that we need to append to the end regardless of anything else
-        command_text << delimited_by_space[0] << suffix;
+        command_text << prefix << delimited_by_space[0] << suffix;
         return command_text.str();
     }
 
     for (auto it = delimited_by_space.begin(); it != std::prev(delimited_by_space.end()); ++it) {
+        if (it->back() != '+' && it->back() != '-' && it->back() != ')') command_text << prefix;
         command_text << *it;
         if (it->back() != '+' && it->back() != '-' && it->back() != ')') command_text << suffix;
     }
@@ -216,21 +221,29 @@ std::string TimberConverter::generate_4vector_label(std::string input, std::stri
 
 }
 
-void TimberConverter::append_4vector_label(AnalysisCommand command, std::string suffix, std::string suffix_if_lv) {
+std::string TimberConverter::generate_4vector_label(std::string input, std::string suffix) {
+    return generate_4vector_label(input, "", suffix);
+}
 
+void TimberConverter::append_4vector_label(AnalysisCommand command, std::string prefix, std::string suffix, std::string prefix_if_lv, std::string suffix_if_lv) {
     std::string output = command.get_argument(0);
     std::string input = get_mapping_if_exists(command.get_argument(1));
     if (is_lorentz_vector.count(input) != 0) {
         // in this case, this input is a lorentz vector object, and we want to get its pt via an object attribute
-        if (suffix_if_lv == "") {
+        if (suffix_if_lv == "" && prefix_if_lv == "") {
             raise_non_implemented_conversion_exception(AnalysisCommand::instruction_to_text(command.get_instruction()), "this function makes sense only when used on a 4-vector, but is being used on a raw NanoAOD value");
         }
-        var_mappings[output] = generate_4vector_label(input, suffix_if_lv);
+        var_mappings[output] = generate_4vector_label(input, prefix_if_lv, suffix_if_lv);
     } else {
-        if (suffix == "") {
+        if (suffix == "" && prefix == "") {
             raise_non_implemented_conversion_exception(AnalysisCommand::instruction_to_text(command.get_instruction()), "this function makes sense only when used on raw NanoAOD values, but is being used on an added 4-vector");        }
-        var_mappings[output] = generate_4vector_label(input, suffix);
+        var_mappings[output] = generate_4vector_label(input, prefix, suffix);
     }
+}
+
+
+void TimberConverter::append_4vector_label(AnalysisCommand command, std::string suffix, std::string suffix_if_lv) {
+    append_4vector_label(command, "", suffix, "", suffix_if_lv);
 }
 
 std::string TimberConverter::binary_command(AnalysisCommand command, std::string op) {
@@ -245,6 +258,14 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
     std::stringstream command_text;
 
     switch (inst) {
+        case DO_CUTFLOW_ON_REGION:
+            command_text << "\n_old_node = a.GetActiveNode()";
+            command_text << "\n_cutflow_node_" << command.get_argument(0) << " = a.Apply(" << get_mapping_if_exists(command.get_argument(0)) << "[0])";
+            command_text << "\n_cutflow_node_" << command.get_argument(0) << " = a.AddCorrections(" << get_mapping_if_exists(command.get_argument(0)) << "[1])";
+            command_text << "\nprint('\\nBeginning cutflow report for region " << command.get_argument(0) << "')";
+            command_text << "\nfor _cutflow_k, _cutflow_v in CutflowDict(_cutflow_node_" << command.get_argument(0) << ").items():\n    print('After cut ' + _cutflow_k + ', ' + str(_cutflow_v) + ' remain')";
+            command_text << "\na.SetActiveNode(_old_node)";
+            return command_text.str();
 
         case HIST_1D:
             command_text << "\n_histogram" << command.get_argument(0) << " = []";
@@ -497,16 +518,16 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "";
         }
         case FUNC_PT:
-            append_4vector_label(command, "_pt", ".Pt()");
+            append_4vector_label(command, "", "_pt", "Pt(", ")");
             return "";
         case FUNC_ETA:
-            append_4vector_label(command, "_eta", ".Eta()");
+            append_4vector_label(command, "", "_eta", "Eta(", ")");
             return "";
         case FUNC_PHI:
-            append_4vector_label(command, "_phi", ".Phi()");
+            append_4vector_label(command, "", "_phi", "Phi(", ")");
             return "";
         case FUNC_MASS:
-            append_4vector_label(command, "_mass", ".M()");
+            append_4vector_label(command, "", "_mass", "M(", ")");
             return "";
         case FUNC_ENERGY:
             append_4vector_label(command, "", ".E()");
@@ -883,7 +904,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_DETA:
             command_text << "LVDeltaEta(" << lorentzify(get_mapping_if_exists(command.get_argument(1))) << ", " << lorentzify(get_mapping_if_exists(command.get_argument(2))) << ")";
         case FUNC_SIZE: //TODO: check this does not conflict with a valid use case
-            command_text << "size(" << generate_4vector_label(get_mapping_if_exists(command.get_argument(1)), "_pt");
+            command_text << "size(" << generate_4vector_label(get_mapping_if_exists(command.get_argument(1)), "_pt") << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case CREATE_BIN:

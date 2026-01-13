@@ -144,7 +144,8 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "ERRORS") return ERRORS;
     if (uppercase_token == "TABLETYPE") return TABLETYPE;
     if (uppercase_token == "TAKE"  || uppercase_token == "USING") return TAKE;
-    if (uppercase_token == "HISTO") return HISTO;
+    if (uppercase_token == "HISTO" || uppercase_token == "HIST") return HISTO;
+    if (uppercase_token == "CUTFLOW") return CUTFLOW;
     if (uppercase_token == "WEIGHT") return WEIGHT;
     if (uppercase_token == "TABLE") return TABLE;
     if (uppercase_token == "SKIPHISTOS") return SKIP_HISTO;
@@ -449,6 +450,8 @@ std::string token_type_to_string(Token_type type) {
         case SKIP_HISTO: return "SKIP_HISTO";
         case SKIP_EFFS: return "SKIP_EFFS";
         case GEN: return "GEN";
+
+        case CUTFLOW: return "CUTFLOW";
 
         case ELECTRON: return "ELECTRON";
         case MUON: return "MUON";

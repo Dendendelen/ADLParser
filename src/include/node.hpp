@@ -69,6 +69,8 @@ enum AST_type{
     HISTOLIST_HISTOGRAM,
     HISTO_USE,
 
+    CUTFLOW_USE,
+
     PARTICLE_LIST,
     PARTICLE_SUM,
     INDEX,
