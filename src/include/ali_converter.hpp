@@ -227,16 +227,25 @@ enum AnalysisLevelInstruction {
 class AnalysisCommand {
     private:
         AnalysisLevelInstruction instruction;
-        std::vector<std::string> arguments;
+        std::string dest_argument;
+        std::vector<std::string> source_arguments;
+        bool has_dest_argument_yet;
     public:
         AnalysisCommand(AnalysisLevelInstruction inst);
-        void add_argument(std::string arg);
+
+        void add_dest_argument(std::string arg);
+        void add_source_argument(std::string arg);
 
         AnalysisLevelInstruction get_instruction();
         std::string get_argument(int pos);
         int get_num_arguments();
+
+        bool has_dest_argument();
+        std::string get_dest_argument();
+        std::string get_source_argument(int pos);
     
         void print_instruction();
+        void print_instruction(int width_of_dest, int width_of_inst);
         std::string static instruction_to_text(AnalysisLevelInstruction inst);
 };
 

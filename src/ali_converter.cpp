@@ -4,30 +4,65 @@
 #include "tokens.hpp"
 #include "exceptions.hpp"
 #include <cassert>
+#include <iomanip>
 #include <sstream>
 #include <iostream>
 #include <string>
 
 
-AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst): instruction(inst)  {
+AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst): instruction(inst), has_dest_argument_yet(false)  {
 
 }
 
-void AnalysisCommand::add_argument(std::string arg) {
-    arguments.push_back(arg);
+void AnalysisCommand::add_dest_argument(std::string arg) {
+    assert(!has_dest_argument_yet);
+    has_dest_argument_yet = true;
+    dest_argument = arg;
+}
+
+void AnalysisCommand::add_source_argument(std::string arg) {
+    source_arguments.push_back(arg);
 }
 
 AnalysisLevelInstruction AnalysisCommand::get_instruction() {
     return instruction;
 }
 std::string AnalysisCommand::get_argument(int pos) {
-    assert(pos < arguments.size());
-    return arguments[pos];
+    assert(pos >= 0);
+    
+    if (pos == 0) {
+        if (has_dest_argument_yet) return dest_argument;
+        assert(source_arguments.size() >= 1);
+        return source_arguments[0];
+    } else if (has_dest_argument_yet) {
+        int pos_in_vec = pos - 1;
+        assert(pos_in_vec < source_arguments.size());
+        return source_arguments[pos_in_vec];
+    } else {
+        assert(pos < source_arguments.size());
+        return source_arguments[pos];
+    }
+
+}
+
+bool AnalysisCommand::has_dest_argument() {
+    return has_dest_argument_yet;
+}
+
+std::string AnalysisCommand::get_dest_argument() {
+    assert(has_dest_argument_yet);
+    return dest_argument;
+}
+
+std::string AnalysisCommand::get_source_argument(int pos) {
+    assert(pos < source_arguments.size()); 
+    return source_arguments[pos];
 }
 
 int AnalysisCommand::get_num_arguments() {
-    return arguments.size();
+    return static_cast<int>(has_dest_argument_yet) + source_arguments.size();
 }
+
 
 std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) {
 
@@ -407,21 +442,32 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
         }
 }
 
-void AnalysisCommand::print_instruction() {
+void AnalysisCommand::print_instruction(int width_of_dest, int width_of_inst) {
     
     if (instruction == MAKE_EMPTY_PARTICLE || instruction == MAKE_EMPTY_UNION || instruction == MAKE_EMPTY_COMB || instruction == CREATE_REGION || instruction == CREATE_MASK) std::cout << std::endl;
 
-    std::cout << instruction_to_text(instruction);
 
-    for (auto it = arguments.begin(); it != arguments.end(); ++it) {
-        std::cout << " (";
-        std::cout << *it;
-        std::cout << ")";
+    std::cout << std::left << std::setw(width_of_dest) << (std::stringstream() << "(" << (has_dest_argument_yet ? dest_argument : "") << ") ").str() << std::left << std::setw(2) << " <- ";
+
+    std::cout << std::left << std::setw(width_of_inst) << instruction_to_text(instruction);
+
+    std::stringstream args;
+
+    for (auto it = source_arguments.begin(); it != source_arguments.end(); ++it) {
+        args << " (";
+        args << *it;
+        args << ")";
     }
+
+    std::cout << std::left << args.str();
     std::cout << std::endl;
 
     if (instruction == END_EXPRESSION || instruction == ADD_HIST_TO_LIST) std::cout << std::endl;
 
+}
+
+void AnalysisCommand::print_instruction() {
+    print_instruction(0,0);
 }
 
 void visit_if(PNode node) {
@@ -472,10 +518,10 @@ std::string ALIConverter::interval_operator(PNode node) {
 
     std::string dest = reserve_scoped_value_name();
 
-    interval_exp.add_argument(dest);
-    interval_exp.add_argument(lhs);
-    interval_exp.add_argument(interval_lhs);
-    interval_exp.add_argument(interval_rhs);
+    interval_exp.add_dest_argument(dest);
+    interval_exp.add_source_argument(lhs);
+    interval_exp.add_source_argument(interval_lhs);
+    interval_exp.add_source_argument(interval_rhs);
 
     command_list.push_back(interval_exp);
 
@@ -575,18 +621,18 @@ std::string ALIConverter::handle_particle(PNode node, std::string last_part) {
     AnalysisCommand next_part(inst);
 
     std::string part_name = reserve_scoped_value_name();
-    next_part.add_argument(part_name);
+    next_part.add_dest_argument(part_name);
 
     if (inst == ADD_PART_NAMED || inst == SUB_PART_NAMED) {
-        next_part.add_argument(lexeme);
+        next_part.add_source_argument(lexeme);
     }
 
-    next_part.add_argument(last_part);
+    next_part.add_source_argument(last_part);
 
     if (node->get_children().size() > 0 && node->get_children()[0]->get_ast_type() == INDEX) {
-        next_part.add_argument(node->get_children()[0]->get_children()[0]->get_token()->get_lexeme());
+        next_part.add_source_argument(node->get_children()[0]->get_children()[0]->get_token()->get_lexeme());
         if (node->get_children()[0]->get_children().size() > 1) {
-            next_part.add_argument(node->get_children()[0]->get_children()[1]->get_token()->get_lexeme());
+            next_part.add_source_argument(node->get_children()[0]->get_children()[1]->get_token()->get_lexeme());
         }
     }
 
@@ -601,10 +647,10 @@ void ALIConverter::visit_bin(PNode node) {
     visit_children(node);
 
     // add condition result as input
-    bin.add_argument(current_scope_name);
+    bin.add_source_argument(current_scope_name);
 
     // add region within which we are binning
-    bin.add_argument(current_region);
+    bin.add_source_argument(current_region);
 
     command_list.push_back(bin);
 
@@ -621,15 +667,15 @@ void ALIConverter::visit_bin_list(PNode node) {
         AnalysisCommand within(EXPR_WITHIN);
 
         std::string condition_result = reserve_scoped_value_name();
-        within.add_argument(condition_result);
-        within.add_argument(node->get_children()[i-1]->get_token()->get_lexeme());
-        within.add_argument(node->get_children()[i]->get_token()->get_lexeme());
+        within.add_dest_argument(condition_result);
+        within.add_source_argument(node->get_children()[i-1]->get_token()->get_lexeme());
+        within.add_source_argument(node->get_children()[i]->get_token()->get_lexeme());
 
         command_list.push_back(within);
 
         AnalysisCommand bin(CREATE_BIN);
-        bin.add_argument(condition_result);
-        bin.add_argument(current_region);
+        bin.add_source_argument(condition_result);
+        bin.add_source_argument(current_region);
 
         command_list.push_back(bin);
     }
@@ -643,10 +689,10 @@ void ALIConverter::visit_weight(PNode node) {
     visit_children(node);
 
     AnalysisCommand weight_apply(WEIGHT_APPLY);
-    weight_apply.add_argument(current_region);
-    weight_apply.add_argument(prev_name);
-    weight_apply.add_argument(node->get_children()[0]->get_token()->get_lexeme());
-    weight_apply.add_argument(last_condition_name);
+    weight_apply.add_dest_argument(current_region);
+    weight_apply.add_source_argument(prev_name);
+    weight_apply.add_source_argument(node->get_children()[0]->get_token()->get_lexeme());
+    weight_apply.add_source_argument(last_condition_name);
 
     command_list.push_back(weight_apply);
 }
@@ -656,7 +702,7 @@ std::string ALIConverter::handle_particle_list(PNode node) {
     AnalysisCommand start(MAKE_EMPTY_PARTICLE);
 
     std::string last_part = reserve_scoped_value_name();
-    start.add_argument(last_part);
+    start.add_dest_argument(last_part);
     command_list.push_back(start);
 
     for (auto it = node->get_children().begin(); it != node->get_children().end(); ++it) {
@@ -781,7 +827,7 @@ std::string ALIConverter::particle_list_function(PNode node) {
     AnalysisCommand func(inst);
 
     std::string dest = reserve_scoped_value_name();
-    func.add_argument(dest);
+    func.add_dest_argument(dest);
 
     visit_children(node);
 
@@ -794,7 +840,7 @@ std::string ALIConverter::particle_list_function(PNode node) {
         if (needs_numeric_index) {
             AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
             std::string empty_name = reserve_scoped_value_name();
-            make_empty.add_argument(empty_name);
+            make_empty.add_dest_argument(empty_name);
             command_list.push_back(make_empty);
 
             indexed_name_if_relevant = handle_particle(*it, empty_name);
@@ -803,20 +849,20 @@ std::string ALIConverter::particle_list_function(PNode node) {
         if ((*it)->get_token()->get_token_type() == FIRST || (*it)->get_token()->get_token_type() == SECOND) {
             AnalysisCommand indexing((*it)->get_token()->get_token_type() == FIRST ? FUNC_FIRST : FUNC_SECOND);
             std::string dest_for_index = reserve_scoped_value_name();
-            indexing.add_argument(dest_for_index);
+            indexing.add_dest_argument(dest_for_index);
 
             std::string lexeme_for_child = (*it)->get_children()[0]->get_token()->get_lexeme();
             if ((*it)->get_children()[0]->get_token()->get_token_type() == THIS) lexeme_for_child = current_object_particle_if_named;
 
-            indexing.add_argument(lexeme_for_child);
+            indexing.add_source_argument(lexeme_for_child);
             command_list.push_back(indexing);
-            func.add_argument(dest_for_index);
+            func.add_source_argument(dest_for_index);
         } else if ((*it)->get_token()->get_token_type() == THIS) {
-            if (needs_numeric_index) {func.add_argument(indexed_name_if_relevant);}
-            else {func.add_argument(current_object_particle_if_named);}
+            if (needs_numeric_index) {func.add_source_argument(indexed_name_if_relevant);}
+            else {func.add_source_argument(current_object_particle_if_named);}
         } else {
-            if (needs_numeric_index) {func.add_argument(indexed_name_if_relevant);}
-            else {func.add_argument((*it)->get_token()->get_lexeme());}
+            if (needs_numeric_index) {func.add_source_argument(indexed_name_if_relevant);}
+            else {func.add_source_argument((*it)->get_token()->get_lexeme());}
         }
     }
     // std::string particle_name = handle_particle_list(node->get_children()[0]);
@@ -845,8 +891,8 @@ std::string ALIConverter::unary_operator(PNode node) {
 
     std::string dest = reserve_scoped_value_name();
 
-    unary_exp.add_argument(dest);
-    unary_exp.add_argument(source);
+    unary_exp.add_dest_argument(dest);
+    unary_exp.add_source_argument(source);
 
     command_list.push_back(unary_exp);
     return dest;
@@ -902,9 +948,9 @@ std::string ALIConverter::binary_operator(PNode node) {
 
     std::string dest = reserve_scoped_value_name();
 
-    binary_exp.add_argument(dest);
-    binary_exp.add_argument(lhs);
-    binary_exp.add_argument(rhs);
+    binary_exp.add_dest_argument(dest);
+    binary_exp.add_source_argument(lhs);
+    binary_exp.add_source_argument(rhs);
 
     command_list.push_back(binary_exp);
     return dest;
@@ -914,8 +960,8 @@ std::string ALIConverter::literal_value(PNode node) {
     AnalysisCommand assign(ADD_ALIAS);
 
     std::string dest = reserve_scoped_value_name();
-    assign.add_argument(dest);
-    assign.add_argument(node->get_token()->get_lexeme());
+    assign.add_dest_argument(dest);
+    assign.add_source_argument(node->get_token()->get_lexeme());
 
     command_list.push_back(assign);
 
@@ -987,12 +1033,12 @@ std::string ALIConverter::expression_function(PNode node) {
     }
 
     AnalysisCommand func(inst);
-    func.add_argument(dest);
-    func.add_argument(source);
+    func.add_dest_argument(dest);
+    func.add_source_argument(source);
 
     if (inst == FUNC_ANYOCCURRENCES || inst == FUNC_MAX_LIST || inst == FUNC_MIN_LIST) {
         std::string second_source = handle_expression(node->get_children()[1]);   
-        func.add_argument(second_source);
+        func.add_source_argument(second_source);
     } 
 
 
@@ -1011,9 +1057,9 @@ std::string ALIConverter::handle_expression(PNode node) {
         std::string source = handle_expression(node->get_children()[0]);
         std::string dest = reserve_scoped_limit_name();
         AnalysisCommand func(FUNC_NAMED);
-        func.add_argument(dest);
-        func.add_argument(source);
-        func.add_argument(node->get_children()[1]->get_token()->get_lexeme());
+        func.add_dest_argument(dest);
+        func.add_source_argument(source);
+        func.add_source_argument(node->get_children()[1]->get_token()->get_lexeme());
 
     command_list.push_back(func);
     } else if (node->get_ast_type() == NEGATE) {
@@ -1047,13 +1093,13 @@ std::string ALIConverter::handle_expression(PNode node) {
 void ALIConverter::visit_condition(PNode node) {
 
     std::stringstream cond_name;
-    cond_name << reserve_scoped_value_name() << "xCONDx" << current_scope_name;
+    cond_name << reserve_scoped_value_name() << "xCONDx";
 
     std::string final = handle_expression(node->get_children()[0]);
 
     AnalysisCommand end_condition(END_EXPRESSION);
-    end_condition.add_argument(cond_name.str());
-    end_condition.add_argument(final);
+    end_condition.add_dest_argument(cond_name.str());
+    end_condition.add_source_argument(final);
 
     command_list.push_back(end_condition);
     last_condition_name = cond_name.str();
@@ -1091,18 +1137,18 @@ void ALIConverter::visit_sort(PNode node) {
     }
 
     AnalysisCommand sort(which_way);
-    sort.add_argument(reserve_scoped_value_name());
-    sort.add_argument(to_be_sorted);
+    sort.add_dest_argument(reserve_scoped_value_name());
+    sort.add_source_argument(to_be_sorted);
 
     command_list.push_back(sort);
 }
 
 void ALIConverter::visit_histo_use(PNode node) {
     AnalysisCommand hist_use(USE_HIST_LIST);
-    hist_use.add_argument(node->get_children()[0]->get_token()->get_lexeme());
+    hist_use.add_source_argument(node->get_children()[0]->get_token()->get_lexeme());
 
     // add the name of the most recent cut, since we are using that for our histogram's working region
-    hist_use.add_argument(current_region);
+    hist_use.add_source_argument(current_region);
     command_list.push_back(hist_use);
 }
 
@@ -1117,15 +1163,15 @@ void ALIConverter::visit_histo_list(PNode node) {
     current_scope_name = histo_list_scope_name.str();
 
     AnalysisCommand hist_list_create(CREATE_HIST_LIST);
-    hist_list_create.add_argument(current_scope_name);
+    hist_list_create.add_dest_argument(current_scope_name);
 
     command_list.push_back(hist_list_create);
 
     visit_children_after_index(node, 0);
 
     AnalysisCommand hist_list_finalize(ADD_ALIAS);
-    hist_list_finalize.add_argument(histo_list_name);
-    hist_list_finalize.add_argument(current_scope_name);
+    hist_list_finalize.add_dest_argument(histo_list_name);
+    hist_list_finalize.add_source_argument(current_scope_name);
 
     command_list.push_back(hist_list_finalize);
 
@@ -1150,9 +1196,9 @@ void ALIConverter::visit_histogram(PNode node) {
 
     AnalysisCommand hist(inst);
 
-    hist.add_argument(node->get_children()[0]->get_token()->get_lexeme());
+    hist.add_source_argument(node->get_children()[0]->get_token()->get_lexeme());
     
-    hist.add_argument(node->get_children()[1]->get_token()->get_lexeme());
+    hist.add_source_argument(node->get_children()[1]->get_token()->get_lexeme());
 
     std::string binning_1d = handle_expression(node->get_children()[2]);
     std::string lower_1d = handle_expression(node->get_children()[3]);
@@ -1166,10 +1212,10 @@ void ALIConverter::visit_histogram(PNode node) {
         input_1d = handle_expression(node->get_children()[8]);
     }
 
-    hist.add_argument(binning_1d);
-    hist.add_argument(lower_1d);
-    hist.add_argument(upper_1d);
-    hist.add_argument(input_1d);
+    hist.add_source_argument(binning_1d);
+    hist.add_source_argument(lower_1d);
+    hist.add_source_argument(upper_1d);
+    hist.add_source_argument(input_1d);
 
     if (is_2d) {
         std::string binning_2d = handle_expression(node->get_children()[5]);
@@ -1178,10 +1224,10 @@ void ALIConverter::visit_histogram(PNode node) {
 
         std::string input_2d = handle_expression(node->get_children()[9]);
 
-        hist.add_argument(binning_2d);
-        hist.add_argument(lower_2d);
-        hist.add_argument(upper_2d);
-        hist.add_argument(input_2d);
+        hist.add_source_argument(binning_2d);
+        hist.add_source_argument(lower_2d);
+        hist.add_source_argument(upper_2d);
+        hist.add_source_argument(input_2d);
     }
 
     command_list.push_back(hist);
@@ -1189,9 +1235,9 @@ void ALIConverter::visit_histogram(PNode node) {
     if (node->get_ast_type() == HISTOLIST_HISTOGRAM) {
         AnalysisCommand add_to_list(ADD_HIST_TO_LIST);
 
-        add_to_list.add_argument(current_scope_name);
-        add_to_list.add_argument(prev_scope);
-        add_to_list.add_argument(histo_name);
+        add_to_list.add_dest_argument(current_scope_name);
+        add_to_list.add_source_argument(prev_scope);
+        add_to_list.add_source_argument(histo_name);
 
         command_list.push_back(add_to_list);
 
@@ -1199,8 +1245,8 @@ void ALIConverter::visit_histogram(PNode node) {
 
         AnalysisCommand use_hist(USE_HIST);
 
-        use_hist.add_argument(histo_name);
-        use_hist.add_argument(current_region);
+        use_hist.add_source_argument(histo_name);
+        use_hist.add_source_argument(current_region);
 
         command_list.push_back(use_hist);
 
@@ -1210,7 +1256,7 @@ void ALIConverter::visit_histogram(PNode node) {
 
 void ALIConverter::visit_cutflow_use(PNode node) {
     AnalysisCommand cutflow(DO_CUTFLOW_ON_REGION);
-    cutflow.add_argument(current_region);
+    cutflow.add_source_argument(current_region);
     command_list.push_back(cutflow);
 }
 
@@ -1222,9 +1268,9 @@ void ALIConverter::visit_object_select(PNode node) {
     visit_children(node);
 
     AnalysisCommand limit_mask(LIMIT_MASK);
-    limit_mask.add_argument(current_limit);
-    limit_mask.add_argument(prev_name);
-    limit_mask.add_argument(last_condition_name);
+    limit_mask.add_dest_argument(current_limit);
+    limit_mask.add_source_argument(prev_name);
+    limit_mask.add_source_argument(last_condition_name);
 
     command_list.push_back(limit_mask);
 }
@@ -1237,22 +1283,22 @@ void ALIConverter::visit_object_reject(PNode node) {
 
     AnalysisCommand invert_mask(EXPR_LOGICAL_NOT);
     std::string newly_inverted = reserve_scoped_value_name();
-    invert_mask.add_argument(newly_inverted);
-    invert_mask.add_argument(last_condition_name);
+    invert_mask.add_dest_argument(newly_inverted);
+    invert_mask.add_source_argument(last_condition_name);
     
     command_list.push_back(invert_mask);
 
     AnalysisCommand end_this_expression(END_EXPRESSION);
     std::string final_limit = reserve_scoped_value_name();
-    end_this_expression.add_argument(final_limit);
-    end_this_expression.add_argument(newly_inverted);
+    end_this_expression.add_dest_argument(final_limit);
+    end_this_expression.add_source_argument(newly_inverted);
 
     command_list.push_back(end_this_expression);
 
     AnalysisCommand limit_mask(LIMIT_MASK);
-    limit_mask.add_argument(current_limit);
-    limit_mask.add_argument(prev_name);
-    limit_mask.add_argument(final_limit);
+    limit_mask.add_dest_argument(current_limit);
+    limit_mask.add_source_argument(prev_name);
+    limit_mask.add_source_argument(final_limit);
 
     command_list.push_back(limit_mask);
     
@@ -1295,11 +1341,11 @@ std::string ALIConverter::comb_list(PNode node, std::string prev) {
     AnalysisCommand combine(inst);
     std::string dest = reserve_scoped_limit_name();
 
-    combine.add_argument(dest);
-    combine.add_argument(prev);
+    combine.add_dest_argument(dest);
+    combine.add_source_argument(prev);
 
     if (inst == ADD_NAMED_TO_COMB) {
-        combine.add_argument(node->get_token()->get_lexeme());
+        combine.add_source_argument(node->get_token()->get_lexeme());
     }
 
     command_list.push_back(combine);
@@ -1345,11 +1391,11 @@ std::string ALIConverter::union_list(PNode node, std::string prev) {
     AnalysisCommand unite(inst);
     std::string dest = reserve_scoped_limit_name();
 
-    unite.add_argument(dest);
-    unite.add_argument(prev);
+    unite.add_dest_argument(dest);
+    unite.add_source_argument(prev);
 
     if (inst == ADD_NAMED_TO_UNION) {
-        unite.add_argument(node->get_token()->get_lexeme());
+        unite.add_source_argument(node->get_token()->get_lexeme());
     }
 
     command_list.push_back(unite);
@@ -1371,7 +1417,7 @@ void ALIConverter::visit_union_type(PNode node) {
 
     std::string source = reserve_scoped_value_name();
     AnalysisCommand make_union(MAKE_EMPTY_UNION);
-    make_union.add_argument(source);
+    make_union.add_dest_argument(source);
 
     command_list.push_back(make_union);
 
@@ -1381,8 +1427,8 @@ void ALIConverter::visit_union_type(PNode node) {
     }
 
     AnalysisCommand finalize_union(ADD_ALIAS);
-    finalize_union.add_argument(name);
-    finalize_union.add_argument(source);
+    finalize_union.add_dest_argument(name);
+    finalize_union.add_source_argument(source);
 
     command_list.push_back(finalize_union);
 
@@ -1403,7 +1449,7 @@ void ALIConverter::visit_comb_type(PNode node) {
 
     std::string source = reserve_scoped_value_name();
     AnalysisCommand make_comb(MAKE_EMPTY_COMB);
-    make_comb.add_argument(source);
+    make_comb.add_dest_argument(source);
 
     command_list.push_back(make_comb);
 
@@ -1413,8 +1459,8 @@ void ALIConverter::visit_comb_type(PNode node) {
     }
 
     AnalysisCommand finalize_comb(ADD_ALIAS);
-    finalize_comb.add_argument(name);
-    finalize_comb.add_argument(source);
+    finalize_comb.add_dest_argument(name);
+    finalize_comb.add_source_argument(source);
 
     command_list.push_back(finalize_comb);
 
@@ -1429,16 +1475,16 @@ void ALIConverter::visit_object_first_second(PNode node) {
 
     AnalysisCommand indexing(index->get_token()->get_token_type() == FIRST ? FUNC_FIRST : FUNC_SECOND);
     std::string dest_for_index = reserve_scoped_value_name();
-    indexing.add_argument(dest_for_index);
+    indexing.add_dest_argument(dest_for_index);
 
     std::string lexeme_for_child = source->get_children()[0]->get_token()->get_lexeme();
 
-    indexing.add_argument(lexeme_for_child);
+    indexing.add_source_argument(lexeme_for_child);
     command_list.push_back(indexing);
 
     AnalysisCommand finalize_indexing(ADD_ALIAS);
-    finalize_indexing.add_argument(name);
-    finalize_indexing.add_argument(dest_for_index);
+    finalize_indexing.add_dest_argument(name);
+    finalize_indexing.add_source_argument(dest_for_index);
 
     command_list.push_back(finalize_indexing);
 }
@@ -1502,8 +1548,8 @@ void ALIConverter::visit_object(PNode node) {
     current_scope_name = mask_name.str();
     current_limit = current_scope_name;
 
-    create_mask.add_argument(current_scope_name);
-    create_mask.add_argument(source_lexeme);
+    create_mask.add_dest_argument(current_scope_name);
+    create_mask.add_source_argument(source_lexeme);
     command_list.push_back(create_mask);
 
 
@@ -1513,9 +1559,9 @@ void ALIConverter::visit_object(PNode node) {
 
     AnalysisCommand apply_mask(APPLY_MASK);
 
-    apply_mask.add_argument(name_lexeme);
-    apply_mask.add_argument(current_limit);
-    apply_mask.add_argument(source_lexeme);
+    apply_mask.add_dest_argument(name_lexeme);
+    apply_mask.add_source_argument(current_limit);
+    apply_mask.add_source_argument(source_lexeme);
 
     command_list.push_back(apply_mask);
     current_scope_name = prev_name;
@@ -1528,9 +1574,9 @@ void ALIConverter::visit_region_select (PNode node) {
     visit_children(node);
 
     AnalysisCommand cut_region(CUT_REGION);
-    cut_region.add_argument(current_region);
-    cut_region.add_argument(prev_name);
-    cut_region.add_argument(last_condition_name);
+    cut_region.add_dest_argument(current_region);
+    cut_region.add_source_argument(prev_name);
+    cut_region.add_source_argument(last_condition_name);
 
     command_list.push_back(cut_region);
 }
@@ -1544,9 +1590,9 @@ void ALIConverter::visit_use(PNode node) {
     
     AnalysisCommand merge_regions(MERGE_REGIONS);
 
-    merge_regions.add_argument(current_region);
-    merge_regions.add_argument(name);
-    merge_regions.add_argument(prev_name);
+    merge_regions.add_dest_argument(current_region);
+    merge_regions.add_source_argument(name);
+    merge_regions.add_source_argument(prev_name);
 
     command_list.push_back(merge_regions);
 
@@ -1569,7 +1615,7 @@ void ALIConverter::visit_region(PNode node) {
     current_scope_name = reg_name.str();
     current_region = reg_name.str();
 
-    create_region.add_argument(current_scope_name);
+    create_region.add_dest_argument(current_scope_name);
     command_list.push_back(create_region);
 
     visit_children_after_index(node, 0);
@@ -1578,8 +1624,8 @@ void ALIConverter::visit_region(PNode node) {
 
     AnalysisCommand add_reg_name(ADD_ALIAS);
 
-    add_reg_name.add_argument(name_lexeme);
-    add_reg_name.add_argument(current_region);
+    add_reg_name.add_dest_argument(name_lexeme);
+    add_reg_name.add_source_argument(current_region);
 
     command_list.push_back(add_reg_name);
     current_scope_name = prev_name;
@@ -1605,8 +1651,8 @@ void ALIConverter::visit_definition(PNode node) {
         std::string func_name = func->get_token()->get_lexeme();
 
         AnalysisCommand add_extern_name(ADD_EXTERNAL);
-        add_extern_name.add_argument(name_lexeme);
-        add_extern_name.add_argument(func_name);
+        add_extern_name.add_dest_argument(name_lexeme);
+        add_extern_name.add_source_argument(func_name);
 
         command_list.push_back(add_extern_name);
     } else if (node->get_children()[1]->get_ast_type() == TERMINAL && node->get_children()[1]->get_token()->get_token_type() == CORRECTIONLIB) {
@@ -1617,9 +1663,9 @@ void ALIConverter::visit_definition(PNode node) {
         std::string keyname = keyname_node->get_token()->get_lexeme();
 
         AnalysisCommand add_correction(ADD_CORRECTIONLIB);
-        add_correction.add_argument(name_lexeme);
-        add_correction.add_argument(filename);
-        add_correction.add_argument(keyname);
+        add_correction.add_dest_argument(name_lexeme);
+        add_correction.add_source_argument(filename);
+        add_correction.add_source_argument(keyname);
 
         command_list.push_back(add_correction);
     } else {
@@ -1627,8 +1673,8 @@ void ALIConverter::visit_definition(PNode node) {
 
         AnalysisCommand add_def_name(ADD_ALIAS);
 
-        add_def_name.add_argument(name_lexeme);
-        add_def_name.add_argument(last_value_name);
+        add_def_name.add_dest_argument(name_lexeme);
+        add_def_name.add_source_argument(last_value_name);
 
         command_list.push_back(add_def_name);
     }
@@ -1662,8 +1708,8 @@ void ALIConverter::visit_table_def(PNode node) {
     std::string prev_name = reserve_scoped_value_name();
 
     AnalysisCommand create_table(CREATE_TABLE);
-    create_table.add_argument(prev_name);
-    create_table.add_argument(nvars->get_token()->get_lexeme());
+    create_table.add_dest_argument(prev_name);
+    create_table.add_source_argument(nvars->get_token()->get_lexeme());
 
     command_list.push_back(create_table);
 
@@ -1672,33 +1718,33 @@ void ALIConverter::visit_table_def(PNode node) {
         AnalysisCommand append_to_table(APPEND_TO_TABLE);
 
         current_name = reserve_scoped_value_name();
-        append_to_table.add_argument(current_name);
-        append_to_table.add_argument(prev_name);
+        append_to_table.add_dest_argument(current_name);
+        append_to_table.add_source_argument(prev_name);
 
         AnalysisCommand create_table_value(CREATE_TABLE_VALUE);
         std::string values_name = reserve_scoped_value_name();
-        create_table_value.add_argument(values_name);
+        create_table_value.add_dest_argument(values_name);
 
         AnalysisCommand create_table_lower_bounds(CREATE_TABLE_LOWER_BOUNDS);
         std::string lower_bound_name = reserve_scoped_value_name();
-        create_table_lower_bounds.add_argument(lower_bound_name);
+        create_table_lower_bounds.add_dest_argument(lower_bound_name);
 
         AnalysisCommand create_table_upper_bounds(CREATE_TABLE_UPPER_BOUNDS);
         std::string upper_bound_name = reserve_scoped_value_name();
-        create_table_upper_bounds.add_argument(upper_bound_name);
+        create_table_upper_bounds.add_dest_argument(upper_bound_name);
 
-        append_to_table.add_argument(values_name);
-        append_to_table.add_argument(lower_bound_name);
-        append_to_table.add_argument(upper_bound_name);
+        append_to_table.add_source_argument(values_name);
+        append_to_table.add_source_argument(lower_bound_name);
+        append_to_table.add_source_argument(upper_bound_name);
 
         for (int col = 0; col < num_columns_per_row; col++) {
             std::string cur_lexeme = node->get_children()[entry]->get_token()->get_lexeme();
             if (col <= (do_errors ? 2 : 0)) {
-                create_table_value.add_argument(cur_lexeme);
+                create_table_value.add_source_argument(cur_lexeme);
             } else if (col % 2 == 0) {
-                create_table_upper_bounds.add_argument(cur_lexeme);
+                create_table_upper_bounds.add_source_argument(cur_lexeme);
             } else {
-                create_table_lower_bounds.add_argument(cur_lexeme);
+                create_table_lower_bounds.add_source_argument(cur_lexeme);
             }
             
             entry += 1;
@@ -1713,8 +1759,8 @@ void ALIConverter::visit_table_def(PNode node) {
     }
 
     AnalysisCommand finish_table(FINISH_TABLE);
-    finish_table.add_argument(name->get_token()->get_lexeme());
-    finish_table.add_argument(prev_name);
+    finish_table.add_dest_argument(name->get_token()->get_lexeme());
+    finish_table.add_source_argument(prev_name);
     command_list.push_back(finish_table);
 
 }
@@ -1728,8 +1774,19 @@ void ALIConverter::visitation(PNode root) {
 }
 
 void ALIConverter::print_commands() {
+
+    int top_size_of_dest = 0;
+    int top_size_of_inst = 0;
+
     for (auto it = command_list.begin(); it != command_list.end(); ++it) {
-        it->print_instruction();
+        if (it->has_dest_argument()) {
+            top_size_of_dest = std::max(top_size_of_dest, static_cast<int>(it->get_dest_argument().size()));
+        }
+        top_size_of_inst = std::max(top_size_of_inst, static_cast<int>(AnalysisCommand::instruction_to_text(it->get_instruction()).size()));
+    }
+
+    for (auto it = command_list.begin(); it != command_list.end(); ++it) {
+        it->print_instruction(top_size_of_dest+4, top_size_of_inst+1);
     }
 }
 
