@@ -173,6 +173,53 @@ RVec<ROOT::Math::PtEtaPhiMVector> TLV(RVec<float> pt,RVec<float> eta,RVec<float>
     return vs;
 }
 
+float M(ROOT::Math::PtEtaPhiMVector vec) {
+    return vec.M();
+}
+
+RVec<float> M(RVec<ROOT::Math::PtEtaPhiMVector> vecs) {
+    auto M_lamb = [](ROOT::Math::PtEtaPhiMVector vec) {
+        return vec.M();
+    };
+    auto M_vec = Map(vecs, M_lamb);
+    return M_vec;
+}
+
+float Pt(ROOT::Math::PtEtaPhiMVector vec) {
+    return vec.Pt();
+}
+
+RVec<float> Pt(RVec<ROOT::Math::PtEtaPhiMVector> vecs) {
+    auto Pt_lamb = [](ROOT::Math::PtEtaPhiMVector vec) {
+        return vec.Pt();
+    };
+    auto Pt_vec = Map(vecs, Pt_lamb);
+    return Pt_vec;
+}
+
+float Eta(ROOT::Math::PtEtaPhiMVector vec) {
+    return vec.Eta();
+}
+
+RVec<float> Eta(RVec<ROOT::Math::PtEtaPhiMVector> vecs) {
+    auto Eta_lamb = [](ROOT::Math::PtEtaPhiMVector vec) {
+        return vec.Eta();
+    };
+    auto Eta_vec = Map(vecs, Eta_lamb);
+    return Eta_vec;
+}
+
+float Phi(ROOT::Math::PtEtaPhiMVector vec) {
+    return vec.Phi();
+}
+
+RVec<float> Phi(RVec<ROOT::Math::PtEtaPhiMVector> vecs) {
+    auto Phi_lamb = [](ROOT::Math::PtEtaPhiMVector vec) {
+        return vec.Phi();
+    };
+    auto Phi_vec = Map(vecs, Phi_lamb);
+    return Phi_vec;
+}
 
 
 // turns a table into a useable correction function
