@@ -115,6 +115,10 @@ std::string TimberConverter::existing_definitions_string() {
 */
 std::string TimberConverter::index_particle(AnalysisCommand command, bool is_named, std::string part_text) {
     std::stringstream idx_text;
+    
+    std::regex e ("\x1d"); 
+    part_text = std::regex_replace(part_text, e, "");
+
     if (command.get_num_arguments() - is_named >= 4) {
         idx_text << "index_get(" << part_text << '\x1d' << " ," << command.get_argument(2+is_named) << "," << command.get_argument(3+is_named) << ")";\
     } else if (command.get_num_arguments() - is_named >= 3) {
@@ -180,7 +184,7 @@ void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
         is_lorentz_vector.insert(command_text.str());
     } else {
         // the source is empty, and so we simply add this as a particle without any special actions
-        command_text << indexed_if_needed;
+        command_text << get_mapping_if_exists(indexed_if_needed);
     }
     
     var_mappings[command.get_argument(0)] = command_text.str();
@@ -230,11 +234,12 @@ void TimberConverter::append_4vector_label(AnalysisCommand command, std::string 
     std::string output = command.get_argument(0);
     std::string input = get_mapping_if_exists(command.get_argument(1));
     if (is_lorentz_vector.count(input) != 0) {
-        // in this case, this input is a lorentz vector object, and we want to get its pt via an object attribute
+        // in this case, this input is a lorentz vector object, and we want to get its traits via an object attribute
         if (suffix_if_lv == "" && prefix_if_lv == "") {
             raise_non_implemented_conversion_exception(AnalysisCommand::instruction_to_text(command.get_instruction()), "this function makes sense only when used on a 4-vector, but is being used on a raw NanoAOD value");
         }
         var_mappings[output] = generate_4vector_label(input, prefix_if_lv, suffix_if_lv);
+
     } else {
         if (suffix == "" && prefix == "") {
             raise_non_implemented_conversion_exception(AnalysisCommand::instruction_to_text(command.get_instruction()), "this function makes sense only when used on raw NanoAOD values, but is being used on an added 4-vector");        }
@@ -340,7 +345,26 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "RUN_REGION";
         case ADD_ALIAS:
         {
-            var_mappings[command.get_argument(0)] = get_mapping_if_exists(command.get_argument(1));
+            std::string source = get_mapping_if_exists(command.get_argument(1));
+            std::string dest = command.get_argument(0);
+            var_mappings[dest] = get_mapping_if_exists(source);
+
+            // if we are aliasing a 4vector object, we should define it so that we do not do too much redundant work
+            if (is_lorentz_vector.count(source) != 0) {
+    
+                std::regex e ("\x1d"); 
+                source = std::regex_replace(source, e, "");
+
+                command_text << "\na.Define('xVECx" << dest << "', '" << source << "')";
+                // is_lorentz_vector.insert(command.get_argument(0));
+                command_text << "\na.Define('" << dest << "_pt', 'Pt(xVECx" << dest << ")')";
+                command_text << "\na.Define('" << dest << "_eta', 'Eta(xVECx" << dest << ")')";
+                command_text << "\na.Define('" << dest << "_phi', 'Phi(xVECx" << dest << ")')";
+                command_text << "\na.Define('" << dest << "_mass', 'M(xVECx" << dest << ")')";
+
+                var_mappings[command.get_argument(0)] = command.get_argument(0);
+                return command_text.str();
+            }
             return "";
         }
         case ADD_EXTERNAL:
@@ -375,7 +399,9 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case CREATE_MASK:
         {
             command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
-            command_text << command.get_argument(0) << ".Add('" << command.get_argument(0) << "', 'create_mask(" << generate_4vector_label(get_mapping_if_exists(command.get_argument(1)), "_pt") << ")')";            
+
+            append_4vector_label(command, "", "_pt", "Pt(", ")");
+            command_text << command.get_argument(0) << ".Add('" << command.get_argument(0) << "', 'create_mask(" << get_mapping_if_exists(command.get_argument(0)) << ")')";            
             var_mappings[command.get_argument(0)] = command.get_argument(0);
 
             existing_definitions.push_back(command.get_argument(0));
@@ -591,7 +617,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             add_particle(command, "MET");
             return "";
         case ADD_PART_METLV:
-            sub_particle(command, "METLV");
+            add_particle(command, "PuppiMET");
             return "";
         case ADD_PART_GEN:
             add_particle(command, "GenPart");
@@ -633,7 +659,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             sub_particle(command, "MET");
             return "";
         case SUB_PART_METLV:
-            sub_particle(command, "METLV");
+            sub_particle(command, "PuppiMET");
             return "";
         case SUB_PART_GEN:
             sub_particle(command, "GenPart");
@@ -784,7 +810,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << add_all_relevant_tags_for_union_merge(command, "MET");
             return command_text.str();
         case ADD_METLV_TO_UNION:
-            command_text << add_all_relevant_tags_for_union_merge(command, "METLV");
+            command_text << add_all_relevant_tags_for_union_merge(command, "PuppiMET");
             return command_text.str();
         case ADD_GEN_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "GenPart");
@@ -834,7 +860,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << add_structure_for_comb_merge(command, "MET");
             return command_text.str();
         case ADD_METLV_TO_COMB:
-            command_text << add_structure_for_comb_merge(command, "METLV");
+            command_text << add_structure_for_comb_merge(command, "PuppiMET");
             return command_text.str();
         case ADD_GEN_TO_COMB:
             command_text << add_structure_for_comb_merge(command, "GenPart");
@@ -877,8 +903,8 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             raise_non_implemented_conversion_exception("FUNC_EDZ");
             return "FUNC_EDZ";
         case FUNC_DZ:
-            raise_non_implemented_conversion_exception("FUNC_DZ");
-            return "FUNC_DZ";
+            append_4vector_label(command, "_dz");
+            return "";
         case FUNC_ABS_ETA:
             raise_non_implemented_conversion_exception("FUNC_ABS_ETA");
             return "FUNC_ABS_ETA";
@@ -947,7 +973,7 @@ void TimberConverter::print_timber() {
     std::cout << preliminary << std::endl;
 
     std::string definitions =
-        "\na.Define('MET', 'MET_pt')\n";
+        "\na.Define('MET', 'PuppiMET_pt')\na.Define('PuppiMET_eta','PuppiMET_pt - PuppiMET_pt')\na.Define('PuppiMET_mass', 'PuppiMET_eta')";
 
     std::cout << definitions << std::endl;
 

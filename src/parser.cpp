@@ -127,7 +127,12 @@ void Parser::parse_blocks(PNode parent) {
                 return;
                 
             // BLOCKS -> epsilon
+            case LEXER_END_OF_FILE:
+                return;
+            
+            // If we have anything but these options and the file has not ended, this is an error state
             default:
+                raise_parsing_exception("Unexpected token follows a block - expected either a continuation of the previous block or the start of a new one", tok);
                 return;
         }
 
@@ -282,13 +287,17 @@ void Parser::parse_initializations(PNode parent) {
     switch (next->get_token_type()) {
 
         // INITIALIZATIONS -> INITIALIZATION INITIALIZATIONS
-        case SKIP_HISTO: case SKIP_EFFS: case ADLINFO: case PAP_TITLE: case PAP_EXPERIMENT: case PAP_ID: case PAP_PUBLICATION: case PAP_SQRTS: case PAP_LUMI: case PAP_ARXIV: case PAP_DOI: case PAP_HEPDATA: case SYSTEMATIC: case TRGE: case TRGM: 
+        case SKIP_HISTO: case SKIP_EFFS: case PAP_TITLE: case PAP_EXPERIMENT: case PAP_ID: case PAP_PUBLICATION: case PAP_SQRTS: case PAP_LUMI: case PAP_ARXIV: case PAP_DOI: case PAP_HEPDATA: case SYSTEMATIC: case TRGE: case TRGM: 
             parent->add_child(parse_initialization(parent));
             parse_initializations(parent);
             return;
 
         // INITIALIZATONS -> epsilon
+        case ADLINFO: case COUNTSFORMAT: case DEF: case TABLE: case OBJ: case ALGO: case HISTOLIST:
+            return;
+        // Anything not in the follow set indicates a problem state, stop parsing here
         default:
+            raise_parsing_exception("Unexpected token after an initialization block", next);
             return;
     }
 }

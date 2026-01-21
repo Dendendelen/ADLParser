@@ -832,19 +832,19 @@ std::string ALIConverter::particle_list_function(PNode node) {
     visit_children(node);
 
     PNode particle_list_node = node->get_children()[0];
+
+    // iterate through all children of this function e.g. the relevant particles
     for (auto it = particle_list_node->get_children().begin(); it != particle_list_node->get_children().end(); ++it) {
 
         bool needs_numeric_index = ((*it)->get_children().size() > 0) && ((*it)->get_children()[0]->get_ast_type() == INDEX);
-        std::string indexed_name_if_relevant;
 
-        if (needs_numeric_index) {
-            AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
-            std::string empty_name = reserve_scoped_value_name();
-            make_empty.add_dest_argument(empty_name);
-            command_list.push_back(make_empty);
+        // make an empty particle structure
+        AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
+        std::string empty_name = reserve_scoped_value_name();
+        make_empty.add_dest_argument(empty_name);
+        command_list.push_back(make_empty);
 
-            indexed_name_if_relevant = handle_particle(*it, empty_name);
-        }
+        std::string name_of_particle_variable = handle_particle(*it, empty_name);
 
         if ((*it)->get_token()->get_token_type() == FIRST || (*it)->get_token()->get_token_type() == SECOND) {
             AnalysisCommand indexing((*it)->get_token()->get_token_type() == FIRST ? FUNC_FIRST : FUNC_SECOND);
@@ -857,12 +857,13 @@ std::string ALIConverter::particle_list_function(PNode node) {
             indexing.add_source_argument(lexeme_for_child);
             command_list.push_back(indexing);
             func.add_source_argument(dest_for_index);
-        } else if ((*it)->get_token()->get_token_type() == THIS) {
-            if (needs_numeric_index) {func.add_source_argument(indexed_name_if_relevant);}
-            else {func.add_source_argument(current_object_particle_if_named);}
+        // } else if ((*it)->get_token()->get_token_type() == THIS) {
+        //     if (needs_numeric_index) {func.add_source_argument(indexed_name_if_relevant);}
+        //     else {func.add_source_argument(current_object_particle_if_named);}
         } else {
-            if (needs_numeric_index) {func.add_source_argument(indexed_name_if_relevant);}
-            else {func.add_source_argument((*it)->get_token()->get_lexeme());}
+            // if (needs_numeric_index) {func.add_source_argument(indexed_name_if_relevant);}
+            // else {func.add_source_argument((*it)->get_token()->get_lexeme());}
+            func.add_source_argument(name_of_particle_variable);
         }
     }
     // std::string particle_name = handle_particle_list(node->get_children()[0]);
@@ -1513,29 +1514,17 @@ void ALIConverter::visit_object(PNode node) {
     std::string name_lexeme = name->get_token()->get_lexeme();
     std::string source_lexeme = source->get_token()->get_lexeme();
 
+
+    AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
+    std::string empty_name = reserve_scoped_value_name();
+    make_empty.add_dest_argument(empty_name);
+    command_list.push_back(make_empty);
+
+    std::string source_name = handle_particle(source, empty_name);
+
     current_object_token = source->get_token()->get_token_type();
     current_object_particle_if_named = source_lexeme;
 
-    switch (current_object_token) {
-        case ELECTRON: 
-            source_lexeme = "Electron"; break;
-        case MUON: 
-            source_lexeme = "Muon"; break;
-        case TAU: 
-            source_lexeme = "Tau"; break;
-        case GEN: 
-            source_lexeme = "Gen"; break;
-        case PHOTON: 
-            source_lexeme = "Photon"; break;
-        case JET: 
-            source_lexeme = "Jet"; break;
-        case FJET: 
-            source_lexeme = "FatJet"; break;
-        case LEPTON:
-            source_lexeme = "Lepton"; break;
-        default:
-            break;
-    }
 
     // the CREATE_MASK command takes the new mask's name, the target object's name, and the source object's name
 
@@ -1549,7 +1538,7 @@ void ALIConverter::visit_object(PNode node) {
     current_limit = current_scope_name;
 
     create_mask.add_dest_argument(current_scope_name);
-    create_mask.add_source_argument(source_lexeme);
+    create_mask.add_source_argument(source_name);
     command_list.push_back(create_mask);
 
 
