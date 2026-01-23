@@ -122,14 +122,6 @@ enum Token_type {
     STATUS_FLAGS,
     
     FLAVOR,
-    PTCONE,
-    ETCONE,
-
-    VERT,
-    VERX,
-    VERY,
-    VERZ,
-    VERTR,
 
     IS_TIGHT,
     IS_MEDIUM,
@@ -146,9 +138,7 @@ enum Token_type {
     ABS_ISO,
 
     DXY,
-    EDXY,
     DZ,
-    EDZ,
 
     HF_CLASSIFICATION,
     TTBAR_NNLOREC,
@@ -156,7 +146,6 @@ enum Token_type {
     PHI,
     ETA,
     RAPIDITY,
-    ABS_ETA,
 
     CHARGE,
     MASS,
@@ -172,7 +161,6 @@ enum Token_type {
     DETA,
 
     NUMOF,
-    NBF,
     HT,
     MET,
 
@@ -239,8 +227,6 @@ enum Token_type {
     TANH,
     EXP,
     LOG,
-    HSTEP,
-    DELTA,
     ABS,
     SQRT,
     SORT,

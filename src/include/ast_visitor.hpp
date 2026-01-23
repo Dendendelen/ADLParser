@@ -15,6 +15,8 @@ class ASTVisitor {
         virtual void visit_object_reject(PNode node) = 0;
 
         virtual void visit_region_select(PNode node) = 0;
+        virtual void visit_region_reject(PNode node) = 0;
+
         virtual void visit_use(PNode node) = 0;
 
         virtual void visit_expression(PNode node) = 0;

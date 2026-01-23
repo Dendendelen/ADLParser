@@ -206,14 +206,6 @@ if (uppercase_token == "BIN") return BIN;
 
 
     if (uppercase_token == "STATUSFLAGS") return STATUS_FLAGS;
-    if (uppercase_token == "PTCONE") return PTCONE;
-    if (uppercase_token == "ETCONE") return ETCONE;
-
-    if (uppercase_token == "VERTEXT") return VERT;
-    if (uppercase_token == "VERTEXX") return VERX;
-    if (uppercase_token == "VERTEXY") return VERY;
-    if (uppercase_token == "VERTEXZ") return VERZ;
-    if (uppercase_token == "VERTEXTR") return VERTR;
 
     if (uppercase_token == "ISTIGHT" ) return IS_TIGHT;
     if (uppercase_token == "ISMEDIUM") return IS_MEDIUM;
@@ -229,9 +221,7 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "ABSISO") return ABS_ISO;
 
     if (token == "dxy"||uppercase_token == "D0") return DXY;
-    if (token == "edxy" || uppercase_token == "ED0") return EDXY;
     if (token == "dz") return DZ;
-    if (token == "edz") return EDZ;
 
     if (token == "m_HF_Classification") return HF_CLASSIFICATION; // generalize event variables.
     if (token == "fTTrr") return TTBAR_NNLOREC;
@@ -239,7 +229,6 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "PHI") return PHI;//functions
     if (uppercase_token == "ETA") return ETA;
     if (uppercase_token == "RAP") return RAPIDITY;
-    if (uppercase_token == "ABSETA") return ABS_ETA;
 
     if (uppercase_token == "CHARGE") return CHARGE;
     if (uppercase_token == "MASS") return MASS;
@@ -253,7 +242,6 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "DPHI" || uppercase_token == "DELTAPHI") return DPHI;
     if (uppercase_token == "DETA" || uppercase_token == "DELTAETA") return DETA;
     if (uppercase_token == "SIZE" || uppercase_token == "COUNT" || uppercase_token == "NUMOF") return NUMOF;//no arg funcs 
-    if (uppercase_token == "NBJ") return NBF;
     if (uppercase_token == "FHT") return HT; // attention
     if (token == "fAplanarity") return APLANARITY;
     if (token == "fSphericity") return SPHERICITY;
@@ -319,8 +307,6 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "TANH") return TANH;
     if (uppercase_token == "EXP") return EXP;
     if (uppercase_token == "LOG") return LOG;
-    if (uppercase_token == "HSTEP") return HSTEP;
-    if (uppercase_token == "DELTA") return DELTA;
     if (uppercase_token == "ABS") return ABS;
     if (uppercase_token == "SQRT") return SQRT;
 
@@ -490,14 +476,6 @@ std::string token_type_to_string(Token_type type) {
         case STATUS_FLAGS: return "STATUS_FLAGS";
 
         case FLAVOR: return "FLAVOR";
-        case PTCONE: return "PTCONE";
-        case ETCONE: return "ETCONE";
-
-        case VERT: return "VERT";
-        case VERX: return "VERX";
-        case VERY: return "VERY";
-        case VERZ: return "VERZ";
-        case VERTR: return "VERTR";
 
         case IS_TIGHT: return "IS_TIGHT";
         case IS_MEDIUM: return "IS_MEDIUM";
@@ -514,9 +492,7 @@ std::string token_type_to_string(Token_type type) {
         case ABS_ISO: return "ABS_ISO";
 
         case DXY: return "DXY";
-        case EDXY: return "EDXY";
         case DZ: return "DZ";
-        case EDZ: return "EDZ";
 
         case HF_CLASSIFICATION: return "HF_CLASSIFICATION";
         case TTBAR_NNLOREC: return "TTBAR_NNLOREC";
@@ -524,7 +500,6 @@ std::string token_type_to_string(Token_type type) {
         case PHI: return "PHI";
         case ETA: return "ETA";
         case RAPIDITY: return "RAPIDITY";
-        case ABS_ETA: return "ABS_ETA";
 
         case CHARGE: return "CHARGE";
         case MASS: return "MASS";
@@ -540,7 +515,6 @@ std::string token_type_to_string(Token_type type) {
         case DETA: return "DETA";
 
         case NUMOF: return "NUMOF";
-        case NBF: return "NBF";
         case HT: return "HT";
         case MET: return "MET";
 
@@ -609,8 +583,6 @@ std::string token_type_to_string(Token_type type) {
         case TANH: return "TANH";
         case EXP: return "EXP";
         case LOG: return "LOG";
-        case HSTEP: return "HSTEP";
-        case DELTA: return "DELTA";
         case ABS: return "ABS";
         case SQRT: return "SQRT";
         case SORT: return "SORT";
@@ -647,7 +619,7 @@ void Lexer::lex_token(std::string &token, int &line_number, int &column_number) 
     // Do not lex an empty token
     if (token.size() == 0) return;
 
-    auto tok = std::shared_ptr<Token>(new Token(identify_token(token)));
+    auto tok = std::make_shared<Token>(identify_token(token));
     tok->set_data(line_number, column_number, token);
 
     if (tok->get_token_type() == LEXER_ERROR) {
@@ -747,7 +719,7 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
         // The line is over, we lex the remainder
         lex_token(running_token, line, column);
 
-        auto endline = std::shared_ptr<Token>(new Token(LEXER_NEWLINE));
+        auto endline = std::make_shared<Token>(LEXER_NEWLINE);
         endline->set_data(line, column, "\n");
         tokens.push_back(endline);
 
@@ -795,7 +767,8 @@ void Lexer::reset() {
 }
 
 std::shared_ptr<Token> Lexer::next() {
-    if (current_token == non_whitespace_tokens.end()) return std::shared_ptr<Token>(new Token(LEXER_END_OF_FILE));
+    if (current_token == non_whitespace_tokens.end()) return 
+    std::make_shared<Token>(LEXER_END_OF_FILE);
 
     auto tok = *current_token;
     ++current_token;
@@ -827,10 +800,12 @@ std::shared_ptr<Token> Lexer::peek(int lookahead) {
     while (lookahead > 0) {
         ++ahead_tok_it;
         lookahead--;
-        if (ahead_tok_it == non_whitespace_tokens.end()) return std::shared_ptr<Token>(new Token(LEXER_END_OF_FILE));
+        if (ahead_tok_it == non_whitespace_tokens.end()) return 
+        std::make_shared<Token>(LEXER_END_OF_FILE);
     }
 
-    if (ahead_tok_it == non_whitespace_tokens.end()) return std::shared_ptr<Token>(new Token(LEXER_END_OF_FILE));
+    if (ahead_tok_it == non_whitespace_tokens.end()) return 
+    std::make_shared<Token>(LEXER_END_OF_FILE);
 
     return *ahead_tok_it;
 }

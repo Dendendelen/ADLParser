@@ -341,8 +341,6 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << var_mappings[command.get_argument(1)] << "[0].Add('" << command.get_argument(0) << "', '" << var_mappings[command.get_argument(2)] << "')"; 
             var_mappings[command.get_argument(0)] = get_mapping_if_exists(command.get_argument(1));
             return command_text.str();
-        case RUN_REGION:
-            return "RUN_REGION";
         case ADD_ALIAS:
         {
             std::string source = get_mapping_if_exists(command.get_argument(1));
@@ -394,8 +392,6 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case SORT_DESCEND:
             command_text << "ROOT::VecOps::Reverse(ROOT::VecOps::Sort(" << command.get_argument(1) << "))";
             var_mappings[command.get_argument(0)] = command_text.str(); return "";
-        case ADD_OBJECT:
-            return "ADD_OBJECT";
         case CREATE_MASK:
         {
             command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
@@ -673,12 +669,6 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case SUB_PART_NAMED:
             sub_particle(command, command.get_argument(1));
             return "";
-        case FUNC_HSTEP:
-            raise_non_implemented_conversion_exception("FUNC_HSTEP");
-            return "FUNC_HSTEP";
-        case FUNC_DELTA:
-            raise_non_implemented_conversion_exception("FUNC_DELTA");
-            return "FUNC_DELTA";
         case FUNC_ANYOF:
             raise_non_implemented_conversion_exception("FUNC_ANYOF");
             return "FUNC_ANYOF";
@@ -896,39 +886,18 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_DXY:
             append_4vector_label(command, "_dxy");
             return "";
-        case FUNC_EDXY:
-            raise_non_implemented_conversion_exception("FUNC_EDXY");
-            return "FUNC_EDXY";
-        case FUNC_EDZ:
-            raise_non_implemented_conversion_exception("FUNC_EDZ");
-            return "FUNC_EDZ";
         case FUNC_DZ:
             append_4vector_label(command, "_dz");
             return "";
-        case FUNC_ABS_ETA:
-            raise_non_implemented_conversion_exception("FUNC_ABS_ETA");
-            return "FUNC_ABS_ETA";
         case FUNC_THETA:
             raise_non_implemented_conversion_exception("FUNC_THETA");
             return "FUNC_THETA";
-        case FUNC_PT_CONE:
-            raise_non_implemented_conversion_exception("FUNC_PT_CONE");
-            return "FUNC_PT_CONE";
-        case FUNC_ET_CONE:
-            raise_non_implemented_conversion_exception("FUNC_ET_CONE");
-            return "FUNC_ET_CONE";
         case FUNC_ABS_ISO:
             raise_non_implemented_conversion_exception("FUNC_ABS_ISO");
             return "FUNC_ABS_ISO";
         case FUNC_MINI_ISO:
             raise_non_implemented_conversion_exception("FUNC_MINI_ISO");
             return "FUNC_MINI_ISO";
-        case FUNC_PZ:
-            raise_non_implemented_conversion_exception("FUNC_PZ");
-            return "FUNC_PZ";
-        case FUNC_NBF:
-            raise_non_implemented_conversion_exception("FUNC_NBF");
-            return "FUNC_NBF";
         case FUNC_DR:
             command_text << "LVDeltaR(" << lorentzify(get_mapping_if_exists(command.get_argument(1))) << ", " << lorentzify(get_mapping_if_exists(command.get_argument(2))) << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
@@ -944,11 +913,6 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case CREATE_BIN:
-        case FUNC_VER_TR:
-        case FUNC_VER_Z:
-        case FUNC_VER_Y:
-        case FUNC_VER_X:
-        case FUNC_VER_T:
         case FUNC_GEN_PART_IDX:
         case FUNC_RAPIDITY:
         case FUNC_FMT2:

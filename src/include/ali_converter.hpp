@@ -2,7 +2,9 @@
 #define ALI_CONVERTER_H
 
 #include "ast_visitor.hpp"
+#include "lexer.hpp"
 #include "tokens.hpp"
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -12,13 +14,10 @@ enum AnalysisLevelInstruction {
     MERGE_REGIONS,
     CUT_REGION,
 
-    RUN_REGION,
-
     ADD_ALIAS,
     ADD_EXTERNAL,
     ADD_CORRECTIONLIB,
 
-    ADD_OBJECT,
     CREATE_MASK,
     LIMIT_MASK,
     APPLY_MASK,
@@ -46,6 +45,7 @@ enum AnalysisLevelInstruction {
 
     BEGIN_EXPRESSION,
     END_EXPRESSION,
+
     BEGIN_IF,
     END_IF,
 
@@ -74,11 +74,6 @@ enum AnalysisLevelInstruction {
     EXPR_NEGATE,
     EXPR_LOGICAL_NOT,
 
-    FUNC_VER_TR,
-    FUNC_VER_Z,
-    FUNC_VER_Y,
-    FUNC_VER_X,
-    FUNC_VER_T,
     FUNC_GEN_PART_IDX,
 
     FUNC_CHARGE,
@@ -92,18 +87,15 @@ enum AnalysisLevelInstruction {
     FUNC_ENERGY,
     FUNC_MSOFTDROP,
 
-    FUNC_ABS_ETA,
     FUNC_THETA,
-    FUNC_PT_CONE,
-    FUNC_ET_CONE,
+
     FUNC_ABS_ISO,
     FUNC_MINI_ISO,
 
-    FUNC_PZ,
-    FUNC_NBF,
     FUNC_DR,
     FUNC_DPHI,
     FUNC_DETA,
+
     FUNC_SIZE,
 
     FUNC_FMT2,
@@ -111,6 +103,49 @@ enum AnalysisLevelInstruction {
     FUNC_HT,
     FUNC_SPHERICITY,
     FUNC_APLANARITY,
+
+    FUNC_ANYOF, 
+    FUNC_ALLOF, 
+
+    FUNC_SQRT, 
+    FUNC_ABS, 
+    FUNC_COS,  
+    FUNC_SIN, 
+    FUNC_TAN, 
+    FUNC_SINH, 
+    FUNC_COSH, 
+    FUNC_TANH, 
+    FUNC_EXP, 
+    FUNC_LOG, 
+    FUNC_AVE, 
+    FUNC_SUM, 
+    FUNC_MIN,
+    FUNC_MAX,
+
+    FUNC_MAX_LIST,
+    FUNC_MIN_LIST,
+
+    FUNC_ANYOCCURRENCES,
+    FUNC_FIRST,
+    FUNC_SECOND,
+    FUNC_SORT_ASCEND,
+    FUNC_SORT_DESCEND,
+
+    FUNC_FLAVOR,
+    FUNC_CONSTITUENTS,
+    FUNC_PDG_ID,
+    FUNC_JET_ID,
+    FUNC_IDX,
+    FUNC_TAUTAG,
+    FUNC_CTAG,
+    FUNC_DXY,
+    FUNC_DZ,
+
+    FUNC_IS_TIGHT,
+    FUNC_IS_MEDIUM,
+    FUNC_IS_LOOSE,
+
+    FUNC_NAMED,
 
     MAKE_EMPTY_PARTICLE,
 
@@ -174,63 +209,22 @@ enum AnalysisLevelInstruction {
     SUB_PART_GEN,
     SUB_PART_JET,
     SUB_PART_FJET,
-    SUB_PART_NAMED,
-
-    FUNC_HSTEP,
-    FUNC_DELTA, 
-    FUNC_ANYOF, 
-    FUNC_ALLOF, 
-    FUNC_SQRT, 
-    FUNC_ABS, 
-    FUNC_COS,  
-    FUNC_SIN, 
-    FUNC_TAN, 
-    FUNC_SINH, 
-    FUNC_COSH, 
-    FUNC_TANH, 
-    FUNC_EXP, 
-    FUNC_LOG, 
-    FUNC_AVE, 
-    FUNC_SUM, 
-    FUNC_MIN,
-    FUNC_MAX,
-
-    FUNC_MAX_LIST,
-    FUNC_MIN_LIST,
-
-    FUNC_ANYOCCURRENCES,
-    FUNC_FIRST,
-    FUNC_SECOND,
-    FUNC_SORT_ASCEND,
-    FUNC_SORT_DESCEND,
-
-    FUNC_FLAVOR,
-    FUNC_CONSTITUENTS,
-    FUNC_PDG_ID,
-    FUNC_JET_ID,
-    FUNC_IDX,
-    FUNC_TAUTAG,
-    FUNC_CTAG,
-    FUNC_DXY,
-    FUNC_EDXY,
-    FUNC_EDZ,
-    FUNC_DZ,
-
-    FUNC_IS_TIGHT,
-    FUNC_IS_MEDIUM,
-    FUNC_IS_LOOSE,
-
-    FUNC_NAMED,
+    SUB_PART_NAMED
 
 };
 
 class AnalysisCommand {
     private:
         AnalysisLevelInstruction instruction;
+
         std::string dest_argument;
         std::vector<std::string> source_arguments;
         bool has_dest_argument_yet;
+
+        std::weak_ptr<Token> source_token;
+        bool has_source_token;
     public:
+        AnalysisCommand(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok);
         AnalysisCommand(AnalysisLevelInstruction inst);
 
         void add_dest_argument(std::string arg);
@@ -303,6 +297,7 @@ class ALIConverter : ASTVisitor {
         void visit_object_select(PNode node) override;
         void visit_object_reject(PNode node) override;
         void visit_region_select(PNode node) override;
+        void visit_region_reject(PNode node) override;
         void visit_condition(PNode node) override;
         void visit_region(PNode node) override;
         void visit_definition(PNode node) override;

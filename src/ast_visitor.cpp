@@ -21,6 +21,8 @@ void ASTVisitor::visit(PNode node) {
             return visit_object_reject(node);
         case REGION_SELECT:
             return visit_region_select(node);
+        case REGION_REJECT:
+            return visit_region_reject(node);
         case REGION_USE:
             return visit_use(node);
         case HISTO_LIST:
