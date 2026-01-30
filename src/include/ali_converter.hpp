@@ -2,6 +2,7 @@
 #define ALI_CONVERTER_H
 
 #include "ast_visitor.hpp"
+#include "config.hpp"
 #include "lexer.hpp"
 #include "tokens.hpp"
 #include <memory>
@@ -33,6 +34,7 @@ enum AnalysisLevelInstruction {
     WEIGHT_APPLY,
 
     DO_CUTFLOW_ON_REGION,
+    DO_EVENTLIST_ON_REGION,
 
     CREATE_BIN,
 
@@ -69,6 +71,10 @@ enum AnalysisLevelInstruction {
     EXPR_OR,
 
     EXPR_WITHIN,
+    EXPR_WITHIN_EXCLUSIVE,
+    EXPR_WITHIN_LEFT_EXCLUSIVE,
+    EXPR_WITHIN_RIGHT_EXCLUSIVE,
+
     EXPR_OUTSIDE,
 
     EXPR_NEGATE,
@@ -181,6 +187,26 @@ enum AnalysisLevelInstruction {
     ADD_JET_TO_COMB,
     ADD_FJET_TO_COMB,
 
+    NAME_ELEMENT_OF_COMB,
+
+    MAKE_EMPTY_DISJOINT,
+    ADD_NAMED_TO_DISJOINT,
+    ADD_ELECTRON_TO_DISJOINT,
+    ADD_MUON_TO_DISJOINT,
+    ADD_TAU_TO_DISJOINT,
+    ADD_TRACK_TO_DISJOINT,
+    ADD_LEPTON_TO_DISJOINT,
+    ADD_PHOTON_TO_DISJOINT,
+    ADD_BJET_TO_DISJOINT,
+    ADD_QGJET_TO_DISJOINT,
+    ADD_NUMET_TO_DISJOINT,
+    ADD_METLV_TO_DISJOINT,
+    ADD_GEN_TO_DISJOINT,
+    ADD_JET_TO_DISJOINT,
+    ADD_FJET_TO_DISJOINT,
+
+    NAME_ELEMENT_OF_DISJOINT,
+
     ADD_PART_ELECTRON,
     ADD_PART_MUON,
     ADD_PART_TAU,
@@ -246,7 +272,8 @@ class AnalysisCommand {
 class ALIConverter : ASTVisitor {
     private:
         std::vector<AnalysisCommand> command_list;
-        std::vector<AnalysisCommand> post_list;
+
+        void clean_command_list();
 
         std::string handle_expression(PNode node);
 
@@ -258,10 +285,11 @@ class ALIConverter : ASTVisitor {
 
         std::string expression_function(PNode node);
         std::string union_list(PNode node, std::string prev);
-        std::string comb_list(PNode node, std::string prev);
+        std::string comb_list(PNode node, std::string prev, bool is_comb);
 
         std::string unary_operator(PNode node);
         std::string binary_operator(PNode node);
+        std::string comparison_operator(PNode node);
         std::string interval_operator(PNode node);
         std::string literal_value(PNode node);
         std::string keyword_value(PNode node);
@@ -290,6 +318,8 @@ class ALIConverter : ASTVisitor {
 
         int iter_command;
 
+        Config &config;
+
     protected:
         void visit_object(PNode node) override;
         void visit_if(PNode node) override;
@@ -312,11 +342,10 @@ class ALIConverter : ASTVisitor {
         void visit_bin_list(PNode node) override;
         void visit_table_def(PNode node) override;
         void visit_weight(PNode node) override;
-        void visit_cutflow_use(PNode node) override;
 
 
     public:
-        ALIConverter();
+        ALIConverter(Config &conf);
 
         void visitation(PNode root);
         void print_commands();
@@ -325,5 +354,16 @@ class ALIConverter : ASTVisitor {
         bool clear_to_next();
 };
 
+
+class ALILToFrameworkCompiler {
+    protected:
+        std::unique_ptr<ALIConverter> alil;
+        Config &config;
+
+    public:
+        ALILToFrameworkCompiler(ALIConverter *alil_in, Config &conf);
+        virtual ~ALILToFrameworkCompiler() = default;
+        virtual void print() = 0;
+};
 
 #endif

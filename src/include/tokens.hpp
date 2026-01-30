@@ -23,6 +23,7 @@ enum Token_type {
     REJEC,
     OBJ,
     ALGO,
+    COMP,
     TRGE,
     TRGM,
 
@@ -82,8 +83,6 @@ enum Token_type {
     SKIP_HISTO,
     SKIP_EFFS,
     GEN,
-
-    CUTFLOW,
     
     ELECTRON,
     MUON,
@@ -232,7 +231,7 @@ enum Token_type {
     SORT,
     ANYOCCURRENCES,
     COMB,
-    PERM,
+    DISJOINT,
     MIN,
     MAX,
     FIRST,

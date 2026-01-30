@@ -78,7 +78,6 @@ std::string AST_type_to_string(AST_type type) {
         case IFSTATEMENT: return "IFSTATEMENT";
         case NEGATE: return "NEGATE";
         case USER_FUNCTION: return "USER_FUNCTION";
-        case CUTFLOW_USE: return "CUTFLOW_USE";
     }
 }
 

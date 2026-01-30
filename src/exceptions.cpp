@@ -11,9 +11,6 @@ void raise_lexing_exception(PToken token) {
 void raise_parsing_exception(std::string error, PToken token) {
     std::stringstream stream;
     stream << "Failed to parse \"" << token->get_lexeme() << "\", at line " << token->get_line() << ", column " << token->get_column() << ": " << error << std::endl;
-    if (token->get_token_type() == UNDERSCORE) {
-        stream << "Note: The ADL syntax implemented here does not currently allow underscores in variable names due to a parsing ambiguity" << std::endl;
-    }
 
     throw ParsingException(stream.str().c_str());
 

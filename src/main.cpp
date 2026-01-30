@@ -1,9 +1,12 @@
+#include "ali_converter.hpp"
 #include "coffea_converter.hpp"
+#include "config.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
 #include "timber_converter.hpp"
 #include <iostream>
 #include <memory>
+#include <utility>
 
 int main(int argc, char** argv) {
 
@@ -22,7 +25,6 @@ int main(int argc, char** argv) {
     std::unique_ptr<Lexer> lexer = std::make_unique<Lexer>();
 
     lexer->read_lines(filename);
-    // lexer->read_lines("adl_test_2.adl");
 
     if (argument == "lex") {
         lexer->print();
@@ -37,7 +39,9 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    std::unique_ptr<ALIConverter> alil(new ALIConverter());
+    Config config("config.txt");
+
+    std::unique_ptr<ALIConverter> alil = std::make_unique<ALIConverter>(config);
     alil->visitation(parser->get_root());
 
     if (argument == "alil") {
@@ -45,18 +49,21 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    std::unique_ptr<ALILToFrameworkCompiler> final_state_compiler;
+
     if (argument == "timber") {
-        std::unique_ptr<TimberConverter> timber = std::make_unique<TimberConverter>(alil.release());
-        timber->print_timber();
-        return 0;
+        final_state_compiler = std::make_unique<TimberConverter>(alil.release(), config);
     }
     
     if (argument == "coffea") {
-        std::unique_ptr<CoffeaConverter> coffea = std::make_unique<CoffeaConverter>(alil.release());
-        coffea->print_coffea();
-        return 0;
+        final_state_compiler = std::make_unique<CoffeaConverter>(alil.release(), config);    
     }
 
-    std::cerr << "Error: invalid argument: " << argument << std::endl;
-    return -1;
+    if (!final_state_compiler) {
+        std::cerr << "Error: invalid argument: " << argument << std::endl;
+        return -1;
+    }
+
+    final_state_compiler->print();
+    return 0;
 } 

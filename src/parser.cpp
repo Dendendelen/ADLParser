@@ -114,6 +114,12 @@ void Parser::parse_blocks(PNode parent) {
                 parse_blocks(parent);
                 return;
 
+            // BLOCKS -> COMPOSITE BLOCKS
+            case COMP:
+                parent->add_child(parse_composite(parent));
+                parse_blocks(parent);
+                return;
+
             // BLOCKS -> REGION BLOCKS
             case ALGO:
                 parent->add_child(parse_region(parent));
@@ -227,6 +233,24 @@ PNode Parser::parse_object(PNode parent) {
     return object;
 }
 
+//TODO: finish composite
+PNode Parser::parse_composite(PNode parent) {
+
+    PNode object(std::make_shared<Node>(COMPOSITE, parent));
+    
+    lexer->expect_and_consume(COMP);
+    object->add_child(parse_id(object));
+    auto tok = lexer->next();
+
+    // OBJECT -> obj ID take OBJ_RVALUE 
+    // OBJECT -> obj ID : OBJ_RVALUE  
+    // OBJECT -> obj ID : OBJ_RVALUE  
+    if (tok->get_token_type() != COLON && tok->get_token_type() != TAKE && tok->get_token_type() != ASSIGN) raise_parsing_exception("Expected symbol for object definition, either ':' or '=' or TAKE", tok);
+    parse_composite_rvalue(object);
+
+    return object;
+}
+
 /* TABLE productions:
 ---
     TABLE -> table ID tabletype ID nvars integer errors BOOL BIN_OR_BOX_VALUES
@@ -293,7 +317,7 @@ void Parser::parse_initializations(PNode parent) {
             return;
 
         // INITIALIZATONS -> epsilon
-        case ADLINFO: case COUNTSFORMAT: case DEF: case TABLE: case OBJ: case ALGO: case HISTOLIST:
+        case ADLINFO: case COUNTSFORMAT: case DEF: case TABLE: case OBJ: case ALGO: case HISTOLIST: case COMP:
             return;
         // Anything not in the follow set indicates a problem state, stop parsing here
         default:
@@ -548,7 +572,7 @@ PNode Parser::parse_histo_entry(PNode parent) {
 
         DEF_RVALUE -> correctionlib string string
 
-        DEF_RVALUE -> particle_keyword PARTICLE_LIST
+        DEF_RVALUE -> particle_keyword PARTICLE_SUM
 
         DEF_RVALUE -> E
 
@@ -657,7 +681,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
             return PNode(std::make_shared<Node>(AST_ERROR, parent));
         
         case STRING: case VARNAME:
-            if (lexer->peek(1)->get_token_type() == OPEN_SQUARE_BRACE || lexer->peek(1)->get_token_type() == UNDERSCORE)
+            if (lexer->peek(1)->get_token_type() == OPEN_SQUARE_BRACE)
             {
                 raise_parsing_exception("Cannot use a particle in a definition without specifying the \"particle\" keyword", tok);
                 return PNode(std::make_shared<Node>(AST_ERROR, parent));
@@ -670,6 +694,52 @@ PNode Parser::parse_def_rvalue(PNode parent) {
             return parse_expression(parent);
     }
 
+}
+
+/* COMPOSITE_RVALUE productions:
+---
+
+    COMPOSITE_RVALUE -> comb ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
+    COMPOSITE_RVALUE -> dijoint ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
+
+---
+*/
+
+void Parser::parse_composite_rvalue(PNode parent) {
+    
+    auto tok = lexer->peek(0);
+
+    switch(tok->get_token_type()) {
+
+        // OBJ_RVALUE -> comb ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
+        // COMPOSITE_RVALUE -> dijoint ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
+
+        case COMB: case DISJOINT:
+        {
+            PNode comb_type = make_terminal(parent, lexer->next());
+
+            parent->add_child(comb_type);
+
+            lexer->expect_and_consume(OPEN_PAREN);
+
+            PNode particle_list(std::make_shared<Node>(NAMED_PARTICLE_LIST, comb_type));
+            comb_type->add_child(particle_list);
+
+            parse_named_particle_list(particle_list);
+            lexer->expect_and_consume(CLOSE_PAREN);
+
+            parse_composite_criteria(parent);
+
+            return;
+        }
+
+
+        // OBJ_RVALUE -> PARTICLE CRITERIA
+        default:
+        {
+            raise_parsing_exception("Invalid input to a composite statement, need either comb or disjoint", tok);
+        }
+    }
 }
 
 
@@ -694,7 +764,7 @@ void Parser::parse_obj_rvalue(PNode parent) {
     switch(tok->get_token_type()) {
 
         // OBJ_RVALUE -> union ( PARTICLE_LIST )
-        case UNION: case COMB: case FIRST: case SECOND:
+        case UNION: // case COMB: case FIRST: case SECOND:
         {
             PNode union_or_comb_type = make_terminal(parent, lexer->next());
 
@@ -824,7 +894,7 @@ void Parser::parse_region_commands(PNode parent) {
     auto tok = lexer->peek(0);
 
     switch(tok->get_token_type()) {
-        case SELECT: case REJEC: case BINS: case BIN: case SAVE: case PRINT: case WEIGHT: case COUNTS: case HISTO: case SORT: case USE: case TAKE: case CUTFLOW:
+        case SELECT: case REJEC: case BINS: case BIN: case SAVE: case PRINT: case WEIGHT: case COUNTS: case HISTO: case SORT: case USE: case TAKE:
             parent->add_child(parse_region_command(parent));
             parse_region_commands(parent);
             return;
@@ -892,8 +962,6 @@ PNode Parser::parse_region_command_select(PNode parent) {
     REGION_COMMAND -> counts ID COUNTS
 
     REGION_COMMAND -> histo HISTOGRAM
-
-    REGION_COMMAND -> cutflow
 
     REGION_COMMAND -> if EXPRESSION then REGION_COMMAND else REGION_COMMAND
 
@@ -997,13 +1065,6 @@ PNode Parser::parse_region_command(PNode parent) {
             counts->add_child(parse_id(counts));
             parse_counts(counts);
             return counts;
-        }
-
-        // REGION_COMMAND -> cutflow
-        case CUTFLOW:
-        {
-            PNode cutflow(std::make_shared<Node>(CUTFLOW_USE, parent));
-            return cutflow;
         }
 
         // REGION_COMMAND -> histo HISTOGRAM
@@ -1173,7 +1234,8 @@ void Parser::parse_variable_list(PNode parent) {
 
         // VARIABLE_LIST -> epsilon 
         // this is the follow set for VARIABLE_LIST, and none of them are in the first set of EXPRESSION
-        case CLOSE_CURLY_BRACE: case CLOSE_PAREN: case COLON: case OBJ:  case SELECT: case PRINT: case HISTO: case REJEC: case BINS: case BIN: case SAVE: case WEIGHT: case COUNTS: case SORT: case ADLINFO: case COUNTSFORMAT: case DEF: case TABLE: case ALGO: case COMMA: case USE:
+        // TODO: update this
+        case CLOSE_CURLY_BRACE: case CLOSE_PAREN: case COLON: case OBJ: case COMP:  case SELECT: case PRINT: case HISTO: case REJEC: case BINS: case BIN: case SAVE: case WEIGHT: case COUNTS: case SORT: case ADLINFO: case COUNTSFORMAT: case DEF: case TABLE: case ALGO: case COMMA: case USE:
             return;            
 
         // VARIABLE_LIST -> EXPRESSION VARIABLE_LIST
@@ -1476,6 +1538,26 @@ void Parser::parse_particle_list(PNode parent) {
     }
 }
 
+void Parser::parse_named_particle_list(PNode parent) {
+
+    parent->add_child(parse_particle(parent));
+    parent->add_child(parse_id(parent));
+    auto tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+
+        // NAMED_PARTICLE_LIST -> PARTICLE ID, NAMED_PARTICLE_LIST
+        case COMMA:
+            lexer->expect_and_consume(COMMA);
+            parse_named_particle_list(parent);
+            return;
+
+        default:
+        // PARTICLE_LIST -> PARTICLE ID
+            return;
+    }
+}
+
 
 /* PARTICLE productions:
 ---
@@ -1601,13 +1683,9 @@ PNode Parser::parse_particle(PNode parent) {
 /* INDEX productions:
 ---
 
-    INDEX -> _integer
-
     INDEX -> [integer]
 
     INDEX -> [integer:integer]
-
-    INDEX -> _integer:integer
     
     INDEX -> epsilon
 
@@ -1618,11 +1696,9 @@ PNode Parser::parse_index(PNode parent) {
 
     switch(tok->get_token_type()) {
 
-        // INDEX -> _integer
         // INDEX -> [integer]
         // INDEX -> [integer:integer]
-        // INDEX -> _integer:integer        
-        case UNDERSCORE: case OPEN_SQUARE_BRACE:
+        case OPEN_SQUARE_BRACE:
         {    
             lexer->next();
             PNode index(std::make_shared<Node>(INDEX, parent));
@@ -1631,7 +1707,6 @@ PNode Parser::parse_index(PNode parent) {
             index->add_child(make_terminal(index, next));
             
             // INDEX -> [integer:integer]
-            // INDEX -> _integer:integer 
             if (lexer->peek(0)->get_token_type() == COLON) {
                 lexer->expect_and_consume(COLON);
 
@@ -1702,6 +1777,26 @@ PNode Parser::parse_syst_vtype(PNode parent) {
     }
 }
 
+/* COMPOSITE_CRITERIA productions:
+---
+
+    COMPOSITE_CRITERIA -> COMPOSITE_CRITERION COMPOSITE_CRITERIA
+
+    COMPOSITE_CRITERIA -> epsilon
+*/
+void Parser::parse_composite_criteria(PNode parent) {
+
+    auto tok = lexer->peek(0);
+    switch(tok->get_token_type()) {
+        case SELECT: case PRINT: case HISTO: case REJEC:
+            parent->add_child(parse_composite_criterion(parent));
+            parse_composite_criteria(parent);
+            return;
+        default:
+            return;
+    }
+}
+
 
 /* CRITERIA productions:
 ---
@@ -1721,6 +1816,44 @@ void Parser::parse_criteria(PNode parent) {
         default:
             return;
     }
+}
+
+/* COMPOSITE_CRITERION productions:
+---
+
+    COMPOSITE_CRITERION -> particle_keyword ID = PARTICLE_SUM
+    COMPOSITE_CRITERION -> particle_keyword ID : PARTICLE_SUM
+
+    COMPOSITE_CRITERION -> CRITERION
+ */
+PNode Parser::parse_composite_criterion(PNode parent) {
+
+    auto tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+
+        case PARTICLE_KEYWORD:
+        {
+            PNode definition(std::make_shared<Node>(DEFINITION, parent));
+
+            auto add_particles = make_terminal(parent, lexer->next());
+            definition->add_child(parse_id(definition));
+            definition->add_child(add_particles);
+
+            auto eq_tok = lexer->next();
+
+            if (eq_tok->get_token_type() != ASSIGN && eq_tok->get_token_type() != COLON) raise_parsing_exception("Unknown token for particle definition assignment, expected '=' or ':'", eq_tok);
+            
+            PNode particle_list(std::make_shared<Node>(PARTICLE_SUM, add_particles));
+            parse_particle_sum(particle_list);
+            add_particles->add_child(particle_list);
+
+            return definition;
+        }
+        default:
+            return parse_criterion(parent);
+    }
+
 }
 
 /* CRITERION productions:
@@ -1821,11 +1954,15 @@ PNode Parser::precedence_climber(PNode parent, PNode lhs, int min_precedence) {
     auto lookahead = lexer->peek(0);
     PToken op;
     PNode op_node;
+
+    // go until the next operator fails to have sufficient precedence
     while(get_precedence(lookahead) >= min_precedence) {
         op = lexer->next();
         op_node = make_terminal(parent, op);
         auto rhs = parse_expression_helper(op_node);
         lookahead = lexer->peek(0);
+
+        // keep recursively going right until we fail to exceed the current precedence
         while (get_precedence(lookahead) > get_precedence(op)){
             rhs = precedence_climber(op_node, rhs, get_precedence(op)+ 1);
             lookahead = lexer->peek(0);

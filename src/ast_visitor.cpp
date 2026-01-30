@@ -31,8 +31,6 @@ void ASTVisitor::visit(PNode node) {
             return visit_histogram(node);
         case HISTO_USE:
             return visit_histo_use(node);
-        case CUTFLOW_USE:
-            return visit_cutflow_use(node);
         case PARTICLE_SUM:
             return visit_particle_sum(node);
         case EXPRESSION:

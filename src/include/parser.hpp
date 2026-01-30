@@ -15,6 +15,7 @@ class Parser {
         PNode parse_count_format(PNode parent);
         PNode parse_region(PNode parent);
         PNode parse_object(PNode parent);
+        PNode parse_composite(PNode parent);
         PNode parse_definition(PNode parent);
         PNode parse_table(PNode parent);
         PNode parse_histo_list(PNode parent);
@@ -32,16 +33,21 @@ class Parser {
         PNode parse_initialization(PNode parent);
 
         void parse_obj_rvalue(PNode parent);
+        void parse_composite_rvalue(PNode parent);
         PNode parse_def_rvalue(PNode parent);
 
         void parse_criteria(PNode parent);
         PNode parse_criterion(PNode parent);
+
+        void parse_composite_criteria(PNode parent);
+        PNode parse_composite_criterion(PNode parent);
 
         PNode parse_hamhum(PNode parent);
         PNode parse_index(PNode parent);
 
         void parse_particle_sum(PNode parent);
         void parse_particle_list(PNode parent);
+        void parse_named_particle_list(PNode parent);
         PNode parse_particle(PNode parent);
 
         PNode parse_action(PNode parent);

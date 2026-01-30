@@ -89,7 +89,7 @@ float LVDeltaR(ROOT::Math::PtEtaPhiMVector v1, ROOT::Math::PtEtaPhiMVector v2) {
     return sqrt(deta*deta+dphi*dphi);  
 }
 
-RVec<float> LVDeltaR(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+RVec<float> LVDeltaRHadamard(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
     auto dR_lamb = [](ROOT::Math::PtEtaPhiMVector vec1, ROOT::Math::PtEtaPhiMVector vec2) {
         return LVDeltaR(vec1, vec2);
     };
@@ -110,12 +110,62 @@ RVec<float> LVDeltaR(ROOT::Math::PtEtaPhiMVector single_vec, RVec<ROOT::Math::Pt
 }
 
 
+RVec<RVec<float>> LVDeltaROuter(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+    auto dR_lamb = [v2](ROOT::Math::PtEtaPhiMVector single_vec) {
+        return LVDeltaR(v2, single_vec);
+    };
+    auto dR_matrix = Map(v1, dR_lamb);
+    return dR_matrix;
+}
+
+RVec<RVec<float>> LVDeltaR(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+    return LVDeltaROuter(v1, v2);
+}
+
+int AnyOf(RVec<int> vec) { 
+    return static_cast<int>(Any(vec));
+}
+
+RVec<int> AnyOf(RVec<RVec<int>> matrix) {
+    auto any_lamb = [](RVec<int> row) {
+        return AnyOf(row);
+    };
+    auto truth_list = Map(matrix, any_lamb);
+    return truth_list;
+}
+
+// a truly horrifying solution to a problem, the base RVec code forces the return type to be an RVec<int>, while we really need RVec<RVec<int>> for our matrix-like situations.
+// here we force this new code into the VecOps namespace to act as a more specific template to force the interpreter to go with this one, giving us the right return type.
+namespace ROOT { namespace VecOps {
+#define RVEC_NEW_LOGICAL_OPERATOR(OP)                           \
+template <typename T1>                                          \
+auto operator OP(const RVec<RVec<float>> &lhs, const T1 &rhs) { \
+    auto lt_lamb = [rhs] (RVec<float> one_vec){                 \
+        return one_vec OP rhs;                                  \
+    };                                                          \
+    RVec<RVec<int>> lt_vec = Map(lhs, lt_lamb);                 \
+    return lt_vec;                                              \
+}                                                               \
+
+RVEC_NEW_LOGICAL_OPERATOR(<)
+RVEC_NEW_LOGICAL_OPERATOR(>)
+RVEC_NEW_LOGICAL_OPERATOR(==)
+RVEC_NEW_LOGICAL_OPERATOR(!=)
+RVEC_NEW_LOGICAL_OPERATOR(<=)
+RVEC_NEW_LOGICAL_OPERATOR(>=)
+RVEC_NEW_LOGICAL_OPERATOR(&&)
+RVEC_NEW_LOGICAL_OPERATOR(||)
+
+#undef RVEC_NEW_LOGICAL_OPERATOR
+}}
+
+
 float LVDeltaPhi(ROOT::Math::PtEtaPhiMVector v1, ROOT::Math::PtEtaPhiMVector v2) {
     float dphi = DeltaPhi(v1.Phi(),v2.Phi());
     return dphi;
 }
 
-RVec<float> LVDeltaPhi(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+RVec<float> LVDeltaPhiHadamard(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
     auto dR_lamb = [](ROOT::Math::PtEtaPhiMVector vec1, ROOT::Math::PtEtaPhiMVector vec2) {
         return LVDeltaPhi(vec1, vec2);
     };
@@ -140,7 +190,7 @@ float LVDeltaEta(ROOT::Math::PtEtaPhiMVector v1, ROOT::Math::PtEtaPhiMVector v2)
     return deta;  
 }
 
-RVec<float> LVDeltaEta(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+RVec<float> LVDeltaEtaHadamard(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
     auto dR_lamb = [](ROOT::Math::PtEtaPhiMVector vec1, ROOT::Math::PtEtaPhiMVector vec2) {
         return LVDeltaEta(vec1, vec2);
     };
@@ -219,6 +269,33 @@ RVec<float> Phi(RVec<ROOT::Math::PtEtaPhiMVector> vecs) {
     };
     auto Phi_vec = Map(vecs, Phi_lamb);
     return Phi_vec;
+}
+
+RVec<RVec<unsigned long>> ExpandComb(RVec<RVec<unsigned long>>  &input_tuple, RVec<float> &new_vector) {
+    auto indices = Combinations(input_tuple[0], new_vector);
+    auto indices_for_new = indices[1];
+    auto indices_for_all_old = indices[0];
+
+    RVec<RVec<unsigned long>> new_indices;
+
+    for (auto single_old_index_list : input_tuple) {
+        auto new_list = Take(single_old_index_list, indices_for_all_old);
+        new_indices.push_back(new_list);
+    }
+
+    new_indices.push_back(indices_for_new);
+    return new_indices;
+}
+
+RVec<RVec<unsigned long>> GeneralComb(RVec<RVec<float>> &input_particles) {
+
+    if (input_particles.size() < 2) return Combinations(input_particles[0],1);
+
+    RVec<RVec<unsigned long>> new_indices = Combinations(input_particles[0], input_particles[1]);
+    for (int i = 2; i < input_particles.size(); i++) {
+        new_indices = ExpandComb(new_indices, input_particles[i]);
+    }
+    return new_indices;
 }
 
 

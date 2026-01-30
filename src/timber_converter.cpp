@@ -4,11 +4,13 @@
 #include "node.hpp"
 #include "tokens.hpp"
 #include "exceptions.hpp"
+#include <cstddef>
 #include <ostream>
 #include <regex>
 #include <sstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
 
 std::string TimberConverter::add_all_relevant_tags_for_object(AnalysisCommand command) {
@@ -52,43 +54,68 @@ std::string TimberConverter::add_all_relevant_tags_for_union_merge(AnalysisComma
 }
 
 std::string TimberConverter::add_structure_for_comb_empty(AnalysisCommand command) {
-    std::stringstream command_text;
 
     std::string dest_vec = command.get_argument(0);
 
-    empty_union_names.insert(dest_vec);
-    return command_text.str();  
+    comb_map[dest_vec] = std::vector<std::string>();
+
+    return "";
 }
 
 std::string TimberConverter::add_structure_for_comb_merge(AnalysisCommand command, std::string adding_name) {
-    std::stringstream command_text;
 
     std::string dest_vec = command.get_argument(0);
     std::string old_comb = command.get_argument(1);
 
-    if (empty_union_names.find(old_comb) != empty_union_names.end()) {
-        empty_union_names.erase(empty_union_names.find(old_comb));
-        var_mappings[dest_vec] = adding_name;
-        command_text << "";
+    comb_map[get_mapping_if_exists(old_comb)].push_back(generate_4vector_label(get_mapping_if_exists(adding_name), "_pt"));
+    var_mappings[dest_vec] = get_mapping_if_exists(old_comb);
 
-    } else {
-        command_text << "a.SubCollection('" << dest_vec << "xfirst', '" << get_mapping_if_exists(old_comb) << "', 'ROOT::VecOps::Combinations(";
+    // } else {
+    //     command_text << "a.SubCollection('" << dest_vec << "xfirst', '" << get_mapping_if_exists(old_comb) << "', 'ROOT::VecOps::Combinations(";
 
-        command_text << generate_4vector_label(get_mapping_if_exists(get_mapping_if_exists(old_comb)), "_pt") << ", ";
-        command_text << generate_4vector_label(get_mapping_if_exists(adding_name), "_pt") << ")[0]";
+    //     command_text << generate_4vector_label(get_mapping_if_exists(get_mapping_if_exists(old_comb)), "_pt") << ", ";
+    //     command_text << generate_4vector_label(get_mapping_if_exists(adding_name), "_pt") << ")[0]";
 
-        command_text << "', useTake=True)\n"; 
+    //     command_text << "', useTake=True)\n"; 
 
-        command_text << "a.SubCollection('" << dest_vec << "xsecond', '" << get_mapping_if_exists(adding_name) << "', 'ROOT::VecOps::Combinations(";
+    //     command_text << "a.SubCollection('" << dest_vec << "xsecond', '" << get_mapping_if_exists(adding_name) << "', 'ROOT::VecOps::Combinations(";
 
-        command_text << generate_4vector_label(get_mapping_if_exists(get_mapping_if_exists(old_comb)), "_pt") << ", ";
-        command_text << generate_4vector_label(get_mapping_if_exists(adding_name), "_pt") << ")[1]";
+    //     command_text << generate_4vector_label(get_mapping_if_exists(get_mapping_if_exists(old_comb)), "_pt") << ", ";
+    //     command_text << generate_4vector_label(get_mapping_if_exists(adding_name), "_pt") << ")[1]";
 
-        command_text << "', useTake=True)\n"; 
+    //     command_text << "', useTake=True)\n"; 
+    // }
+
+    return "";
+}
+
+std::string TimberConverter::add_comb_argument(std::string new_name, std::string name_of_comb, std::string val) {
+    std::stringstream command_text;
+    command_text << "\na.Define('vORIGCOMB" << name_of_comb << "', 'GeneralComb({";
+
+    bool is_first = true;
+    for (std::string comb_entry : comb_map[get_mapping_if_exists(name_of_comb)]) {
+        if (!is_first) {
+            command_text << ",";
+        } else {
+            is_first = false;
+        }
+        command_text << comb_entry;
     }
 
-    return command_text.str();  
+    command_text << "})')";
+
+    int index = std::stoi(val);
+    std::string relevant_comb_entry_variable = comb_map[get_mapping_if_exists(name_of_comb)][index];
+    //TODO: check that this works always, or replace it
+    relevant_comb_entry_variable.erase(relevant_comb_entry_variable.length() - 3);
+
+    command_text << "\na.SubCollection('" << new_name << "', '" << relevant_comb_entry_variable << "', 'vORIGCOMB" << name_of_comb << "[" << val << "]', useTake=True)\n";
+
+    return command_text.str();
+
 }
+
 
 std::string TimberConverter::get_mapping_if_exists(std::string str) {
     if (var_mappings.count(str) == 0) {
@@ -260,6 +287,19 @@ std::string TimberConverter::binary_command(AnalysisCommand command, std::string
 
 std::string TimberConverter::command_convert(AnalysisCommand command) {
 
+    AnalysisCommand new_command(command.get_instruction());
+
+    for (int i = 0; i < command.get_num_arguments(); i++) {
+        std::regex e("_");
+        std::string new_arg = std::regex_replace(command.get_argument(i), e, "v");
+        if (i == 0) 
+            new_command.add_dest_argument(new_arg);
+        else
+            new_command.add_source_argument(new_arg);
+    }
+    command = new_command;
+
+
     AnalysisLevelInstruction inst = command.get_instruction();
     std::stringstream command_text;
 
@@ -281,7 +321,23 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << "\nprint('\\n---\\n')";
             command_text << "\na.SetActiveNode(_old_node)\n";
             return command_text.str();
+        case DO_EVENTLIST_ON_REGION:            
+            command_text << "\n_old_node = a.GetActiveNode()";
+            command_text << "\n_eventlist_node_" << command.get_argument(0) << " = a.Apply(" << get_mapping_if_exists(command.get_argument(0)) << "[0])";
+            command_text << "\n_eventlist_node_" << command.get_argument(0) << " = a.AddCorrections(" << get_mapping_if_exists(command.get_argument(0)) << "[1])";
+            
+            command_text << "\nprint('\\n---\\nBeginning event list for region ";
+            {
+                std::regex e(".*REGx");
+                std::string clean_name = std::regex_replace(command.get_argument(0), e, "");
+                command_text << clean_name;
+            }
+            command_text << "')";
 
+            command_text << "\n_eventlist_node_" << command.get_argument(0) << ".DataFrame.Display(columnList=['run', 'luminosityBlock', 'event'], nRows=1000).Print()";
+            command_text << "\nprint('\\n---\\n')";
+            command_text << "\na.SetActiveNode(_old_node)\n";
+            return command_text.str();
         case HIST_1D:
             command_text << "\n_histogram" << command.get_argument(0) << " = []";
             command_text << "\n_histogram" << command.get_argument(0) << ".append('" << command.get_argument(0) << "')";
@@ -353,12 +409,14 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
                 std::regex e ("\x1d"); 
                 source = std::regex_replace(source, e, "");
 
-                command_text << "\na.Define('xVECx" << dest << "', '" << source << "')";
+                char non_underscore_delimiter = 'v';
+
+                command_text << "\na.Define('" << non_underscore_delimiter << "VEC" << non_underscore_delimiter << dest << "', '" << source << "')";
                 // is_lorentz_vector.insert(command.get_argument(0));
-                command_text << "\na.Define('" << dest << "_pt', 'Pt(xVECx" << dest << ")')";
-                command_text << "\na.Define('" << dest << "_eta', 'Eta(xVECx" << dest << ")')";
-                command_text << "\na.Define('" << dest << "_phi', 'Phi(xVECx" << dest << ")')";
-                command_text << "\na.Define('" << dest << "_mass', 'M(xVECx" << dest << ")')";
+                command_text << "\na.Define('" << dest << "_pt', 'Pt(" << non_underscore_delimiter << "VEC" << non_underscore_delimiter << dest << ")')";
+                command_text << "\na.Define('" << dest << "_eta', 'Eta(" << non_underscore_delimiter << "VEC" << non_underscore_delimiter << dest << ")')";
+                command_text << "\na.Define('" << dest << "_phi', 'Phi(" << non_underscore_delimiter << "VEC" << non_underscore_delimiter << dest << ")')";
+                command_text << "\na.Define('" << dest << "_mass', 'M(" << non_underscore_delimiter << "VEC" << non_underscore_delimiter << dest << ")')";
 
                 var_mappings[command.get_argument(0)] = command.get_argument(0);
                 return command_text.str();
@@ -613,7 +671,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             add_particle(command, "MET");
             return "";
         case ADD_PART_METLV:
-            add_particle(command, "PuppiMET");
+            add_particle(command, met_name);
             return "";
         case ADD_PART_GEN:
             add_particle(command, "GenPart");
@@ -655,7 +713,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             sub_particle(command, "MET");
             return "";
         case SUB_PART_METLV:
-            sub_particle(command, "PuppiMET");
+            sub_particle(command, met_name);
             return "";
         case SUB_PART_GEN:
             sub_particle(command, "GenPart");
@@ -670,11 +728,13 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             sub_particle(command, command.get_argument(1));
             return "";
         case FUNC_ANYOF:
-            raise_non_implemented_conversion_exception("FUNC_ANYOF");
-            return "FUNC_ANYOF";
+            command_text << "AnyOf(" << var_mappings[command.get_argument(1)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
         case FUNC_ALLOF:
-            raise_non_implemented_conversion_exception("FUNC_ALLOF");
-            return "FUNC_ALLOF";
+            command_text << "ROOT::VecOps::All(" << var_mappings[command.get_argument(1)] << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
         case FUNC_SQRT:
             command_text << "sqrt(" << var_mappings[command.get_argument(1)] << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
@@ -800,7 +860,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << add_all_relevant_tags_for_union_merge(command, "MET");
             return command_text.str();
         case ADD_METLV_TO_UNION:
-            command_text << add_all_relevant_tags_for_union_merge(command, "PuppiMET");
+            command_text << add_all_relevant_tags_for_union_merge(command, met_name);
             return command_text.str();
         case ADD_GEN_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "GenPart");
@@ -850,7 +910,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << add_structure_for_comb_merge(command, "MET");
             return command_text.str();
         case ADD_METLV_TO_COMB:
-            command_text << add_structure_for_comb_merge(command, "PuppiMET");
+            command_text << add_structure_for_comb_merge(command, met_name);
             return command_text.str();
         case ADD_GEN_TO_COMB:
             command_text << add_structure_for_comb_merge(command, "GenPart");
@@ -861,6 +921,12 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case ADD_FJET_TO_COMB:
             command_text << add_structure_for_comb_merge(command, "FatJet");
             return command_text.str();
+
+        case NAME_ELEMENT_OF_COMB:
+            command_text << add_comb_argument(get_mapping_if_exists(command.get_argument(0)), get_mapping_if_exists(command.get_argument(1)), get_mapping_if_exists(command.get_argument(2)));
+            return command_text.str();
+
+//TODO: add DISJOINT
 
         case FUNC_FLAVOR:
             append_4vector_label(command, "_partonFlavor");
@@ -932,14 +998,19 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
 
 void TimberConverter::print_timber() {
 
-    std::string preliminary = 
-        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\nfrom adl_helpers import combine_without_duplicates, use_histo, use_histo_list\nCompileCpp('adl_helpers.cc')\na = analyzer('filename.root')\nout = ROOT.TFile.Open('adl_out.root','UPDATE')";
-    std::cout << preliminary << std::endl;
+    met_name = config.get_argument("MET");
+    std::string in_file = config.get_argument("infile");
 
-    std::string definitions =
-        "\na.Define('MET', 'PuppiMET_pt')\na.Define('PuppiMET_eta','PuppiMET_pt - PuppiMET_pt')\na.Define('PuppiMET_mass', 'PuppiMET_eta')";
+    std::stringstream preliminary;
+    preliminary << 
+        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\nfrom adl_helpers import combine_without_duplicates, use_histo, use_histo_list\nCompileCpp('adl_helpers.cc')\na = analyzer('" << in_file << "')\nout = ROOT.TFile.Open('adl_out.root','UPDATE')";
+    std::cout << preliminary.str() << std::endl;
 
-    std::cout << definitions << std::endl;
+    std::stringstream definitions;
+    definitions <<
+        "\na.Define('MET', '" << met_name << "_pt')\na.Define('" << met_name << "_eta','" << met_name << "_pt - " << met_name << "_pt')\na.Define('" << met_name << "_mass', '" << met_name << "_eta')";
+
+    std::cout << definitions.str() << std::endl;
 
     while (alil->clear_to_next()) {
         std::string out = command_convert(alil->next_command());
@@ -952,4 +1023,6 @@ void TimberConverter::print_timber() {
     std::cout << postscriptum << std::endl;
 }
 
-TimberConverter::TimberConverter(ALIConverter *alil_in): alil(alil_in) {}
+void TimberConverter::print() {
+    print_timber();
+}

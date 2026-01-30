@@ -605,4 +605,6 @@ void CoffeaConverter::print_coffea() {
     std::cout << postscriptum << std::endl;
 }
 
-CoffeaConverter::CoffeaConverter(ALIConverter *alil_in): alil(alil_in) {}
+void CoffeaConverter::print() {
+    return print_coffea();
+}

@@ -8,11 +8,9 @@
 #include <vector>
 
 
-class TimberConverter {
+class TimberConverter : public ALILToFrameworkCompiler {
 
     private:
-        
-        std::unique_ptr<ALIConverter> alil;
 
         std::vector<std::string> existing_definitions;
         std::unordered_map<std::string, std::string> var_mappings;
@@ -21,7 +19,10 @@ class TimberConverter {
         std::unordered_set<std::string> needs_btag;
         std::unordered_set<std::string> empty_union_names;
         std::unordered_set<std::string> is_lorentz_vector;
-        
+
+        std::unordered_map<std::string, std::vector<std::string>> comb_map;
+
+        std::string met_name;
  
         std::string command_convert(AnalysisCommand command);
 
@@ -46,14 +47,16 @@ class TimberConverter {
 
         std::string add_structure_for_comb_empty(AnalysisCommand command);
         std::string add_structure_for_comb_merge(AnalysisCommand command, std::string adding_name);
+        std::string add_comb_argument(std::string new_name, std::string name_of_comb, std::string val);
+
 
         std::string get_mapping_if_exists(std::string str);
 
 
     public:
-        TimberConverter(ALIConverter *alil_in);
-
+        using ALILToFrameworkCompiler::ALILToFrameworkCompiler;
         void print_timber();
+        void print() override;
 };
 
 

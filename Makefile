@@ -4,10 +4,10 @@ SRCDIR = src/
 INCDIR = src/include/
 ODIR = out/
 
-main: $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o
-	g++ $(CFLAGS) -g -o main $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o
+main: $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o
+	g++ $(CFLAGS) -g -o main $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o
 
-$(ODIR)main.o: $(SRCDIR)main.cpp $(INCDIR)lexer.hpp
+$(ODIR)main.o: $(SRCDIR)main.cpp $(INCDIR)lexer.hpp 
 	mkdir -p out
 	g++ $(CFLAGS) -o $(ODIR)main.o -c $(SRCDIR)main.cpp
 
@@ -42,6 +42,10 @@ $(ODIR)coffea_converter.o: $(SRCDIR)coffea_converter.cpp $(INCDIR)coffea_convert
 $(ODIR)exceptions.o: $(SRCDIR)exceptions.cpp $(INCDIR)exceptions.hpp
 	mkdir -p out
 	g++ $(CFLAGS) -o $(ODIR)exceptions.o -c $(SRCDIR)exceptions.cpp
+
+$(ODIR)config.o: $(SRCDIR)config.cpp $(INCDIR)config.hpp
+	mkdir -p out
+	g++ $(CFLAGS) -o $(ODIR)config.o -c $(SRCDIR)config.cpp
 
 out:
 	mkdir out

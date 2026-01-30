@@ -87,6 +87,7 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "HISTOLIST") return HISTOLIST;
     if (uppercase_token == "INFO") return ADLINFO;
     if (uppercase_token == "OBJ" || uppercase_token == "OBJECT") return OBJ;
+    if (uppercase_token == "COMP" || uppercase_token == "COMPOSITE") return COMP;
 
 
     if (uppercase_token == "CMD" || uppercase_token == "CUT" || uppercase_token == "SELECT") return SELECT;
@@ -145,7 +146,6 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "TABLETYPE") return TABLETYPE;
     if (uppercase_token == "TAKE"  || uppercase_token == "USING") return TAKE;
     if (uppercase_token == "HISTO" || uppercase_token == "HIST") return HISTO;
-    if (uppercase_token == "CUTFLOW") return CUTFLOW;
     if (uppercase_token == "WEIGHT") return WEIGHT;
     if (uppercase_token == "TABLE") return TABLE;
     if (uppercase_token == "SKIPHISTOS") return SKIP_HISTO;
@@ -316,8 +316,8 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "ADD") return ADD;
     if (uppercase_token == "SAVE") return SAVE;
     if (uppercase_token == "CSV") return CSV;
-    if (uppercase_token == "ANYOF") return ANYOF;
-    if (uppercase_token == "ALLOF") return ALLOF;
+    if (uppercase_token == "ANY" || uppercase_token == "ANYOF") return ANYOF;
+    if (uppercase_token == "ALLOF" || uppercase_token ==  "ALL") return ALLOF;
 
     if (uppercase_token == "ASCEND") return ASCEND;
 
@@ -325,7 +325,7 @@ if (uppercase_token == "BIN") return BIN;
     
     if (uppercase_token == "SORT") return SORT;
     if (uppercase_token == "COMB") return COMB;
-    if (uppercase_token == "PERM") return PERM;
+    if (uppercase_token == "DISJOINT") return DISJOINT;
     if (uppercase_token == "MIN") return MIN;
     if (uppercase_token == "MAX") return MAX;
     if (uppercase_token == "FIRST") return FIRST;
@@ -436,8 +436,6 @@ std::string token_type_to_string(Token_type type) {
         case SKIP_HISTO: return "SKIP_HISTO";
         case SKIP_EFFS: return "SKIP_EFFS";
         case GEN: return "GEN";
-
-        case CUTFLOW: return "CUTFLOW";
 
         case ELECTRON: return "ELECTRON";
         case MUON: return "MUON";
@@ -587,7 +585,7 @@ std::string token_type_to_string(Token_type type) {
         case SQRT: return "SQRT";
         case SORT: return "SORT";
         case COMB: return "COMB";
-        case PERM: return "PERM";
+        case DISJOINT: return "DISJOINT";
         case MIN: return "MIN";
         case MAX: return "MAX";
         case PM: return "PM";
@@ -688,8 +686,8 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
             bool delimiter = is_delimiter(current_char);
             bool symbol = is_symbol(current_char);
 
-            if (current_char == '(' || current_char == ')' || current_char == ',' || current_char == '_' || current_char == '{' || current_char == '}' || current_char == '[' || current_char == ']') {
-                // Exception: commas and parenthesis must be allowed to be stacked adjacent to whatever, and that must unequivocably be its own token - there is never a situation in which this should not be the case
+            if (current_char == '(' || current_char == ')' || current_char == ','|| current_char == '{' || current_char == '}' || current_char == '[' || current_char == ']') {
+                // Exception: commas and brackets of all kinds must be allowed to be stacked adjacent to whatever, and that must unequivocably be its own token - there is never a situation in which this should not be the case
                 lex_token(running_token, line, column);
                 running_token += current_char;
                 lex_token(running_token, line, column);

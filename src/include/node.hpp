@@ -24,6 +24,7 @@ enum AST_type{
     COUNT_FORMAT,
     OBJECT,
     DEFINITION,
+    COMPOSITE,
     TABLE_DEF,
     REGION,
     HISTO_LIST,
@@ -69,8 +70,7 @@ enum AST_type{
     HISTOLIST_HISTOGRAM,
     HISTO_USE,
 
-    CUTFLOW_USE,
-
+    NAMED_PARTICLE_LIST,
     PARTICLE_LIST,
     PARTICLE_SUM,
     INDEX,

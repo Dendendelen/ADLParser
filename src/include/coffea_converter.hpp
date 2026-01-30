@@ -8,7 +8,7 @@
 #include <vector>
 
 
-class CoffeaConverter {
+class CoffeaConverter : public ALILToFrameworkCompiler {
 
     private:
         
@@ -34,8 +34,8 @@ class CoffeaConverter {
 
 
     public:
-        CoffeaConverter(ALIConverter *alil_in);
-
+        using ALILToFrameworkCompiler::ALILToFrameworkCompiler;
+        void print() override;
         void print_coffea();
 };
 
