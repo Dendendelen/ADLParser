@@ -7,6 +7,7 @@ ODIR = out/
 
 main: $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o
 	g++ $(CFLAGS) -g -o main $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o
+	./main _ genconfig
 
 $(ODIR)main.o: $(SRCDIR)main.cpp $(INCDIR)lexer.hpp 
 	mkdir -p out

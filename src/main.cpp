@@ -13,14 +13,19 @@ int main(int argc, char** argv) {
     std::string argument;
 
     if (argc < 2) {
-        std::cerr << "Usage: main FILENAME.adl [timber]|[coffea]|[lex]|[parse]|[alil] " << std::endl;
+        std::cerr << "Usage: main FILENAME.adl [genconfig]|[timber]|[coffea]|[lex]|[parse]|[alil] " << std::endl;
         return -1;
     }
 
     std::string filename(argv[1]);
+    Config config("config.txt");
 
     if (argc > 2) argument = std::string(argv[2]);
     else argument = "timber";
+
+    if (argument == "genconfig") {
+        return 0;
+    }
 
     std::unique_ptr<Lexer> lexer = std::make_unique<Lexer>();
 
@@ -38,8 +43,6 @@ int main(int argc, char** argv) {
         parser->print_parse_dot();
         return 0;
     }
-
-    Config config("config.txt");
 
     std::unique_ptr<ALILConverter> alil = std::make_unique<ALILConverter>(config);
     alil->visitation(parser->get_root());
