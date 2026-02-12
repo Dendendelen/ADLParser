@@ -2,9 +2,7 @@
 #define LEXER_H
 
 #include "tokens.hpp"
-#include <exception>
 #include <regex>
-#include <stdexcept>
 #include <string>
 #include <memory>
 #include <vector>

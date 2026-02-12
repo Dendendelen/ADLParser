@@ -1,5 +1,6 @@
-CFLAGS2 = -g -fsanitize=address
-CFLAGS = -g -Isrc/include
+# CFLAGS2 = -g -fsanitize=address
+ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+CFLAGS = -g -Isrc/include -D'ROOT_DIR="$(ROOT_DIR)"'
 SRCDIR = src/
 INCDIR = src/include/
 ODIR = out/

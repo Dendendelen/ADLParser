@@ -1,9 +1,8 @@
 #include "exceptions.hpp"
-#include "tokens.hpp"
 
 void raise_lexing_exception(PToken token) {
     std::stringstream stream;
-    stream << "Malformed token \"" << token << "\", at line " << token->get_line() << ", column " << token->get_column() << std::endl;
+    stream << "Malformed token \"" << token->get_lexeme() << "\", at line " << token->get_line() << ", column " << token->get_column() << std::endl;
 
     throw LexingException(stream.str().c_str());
 }

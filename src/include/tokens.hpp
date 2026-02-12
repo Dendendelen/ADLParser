@@ -202,6 +202,9 @@ enum Token_type {
     COLON,
     RAISED_TO_POWER,
 
+    DOT_INDEX,
+    ARROW_INDEX,
+
     OPEN_PAREN,
     CLOSE_PAREN,
     OPEN_SQUARE_BRACE,

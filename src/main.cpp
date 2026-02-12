@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
 
     Config config("config.txt");
 
-    std::unique_ptr<ALIConverter> alil = std::make_unique<ALIConverter>(config);
+    std::unique_ptr<ALILConverter> alil = std::make_unique<ALILConverter>(config);
     alil->visitation(parser->get_root());
 
     if (argument == "alil") {

@@ -269,7 +269,7 @@ class AnalysisCommand {
         std::string static instruction_to_text(AnalysisLevelInstruction inst);
 };
 
-class ALIConverter : ASTVisitor {
+class ALILConverter : ASTVisitor {
     private:
         std::vector<AnalysisCommand> command_list;
 
@@ -281,6 +281,8 @@ class ALIConverter : ASTVisitor {
 
         std::string handle_particle_list(PNode node);
         std::string handle_particle(PNode node, std::string last_part);
+
+        std::string function_handler(PNode node);
         std::string particle_list_function(PNode node);
 
         std::string expression_function(PNode node);
@@ -303,17 +305,17 @@ class ALIConverter : ASTVisitor {
         void visit_comb_type(PNode node); 
 
         std::string last_condition_name;
-
         std::string last_value_name;
-
         std::string current_limit;
-
         std::string current_scope_name;
 
         Token_type current_object_token;
         std::string current_object_particle_if_named;
 
         std::string current_region;
+
+        std::vector<std::string> current_defined_variables_within_comb;
+
         int highest_var_val;
 
         int iter_command;
@@ -328,6 +330,7 @@ class ALIConverter : ASTVisitor {
         void visit_object_reject(PNode node) override;
         void visit_region_select(PNode node) override;
         void visit_region_reject(PNode node) override;
+        void visit_composite(PNode node) override;
         void visit_condition(PNode node) override;
         void visit_region(PNode node) override;
         void visit_definition(PNode node) override;
@@ -345,7 +348,7 @@ class ALIConverter : ASTVisitor {
 
 
     public:
-        ALIConverter(Config &conf);
+        ALILConverter(Config &conf);
 
         void visitation(PNode root);
         void print_commands();
@@ -357,11 +360,11 @@ class ALIConverter : ASTVisitor {
 
 class ALILToFrameworkCompiler {
     protected:
-        std::unique_ptr<ALIConverter> alil;
+        std::unique_ptr<ALILConverter> alil;
         Config &config;
 
     public:
-        ALILToFrameworkCompiler(ALIConverter *alil_in, Config &conf);
+        ALILToFrameworkCompiler(ALILConverter *alil_in, Config &conf);
         virtual ~ALILToFrameworkCompiler() = default;
         virtual void print() = 0;
 };

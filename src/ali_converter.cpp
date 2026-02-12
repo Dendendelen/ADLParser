@@ -411,10 +411,48 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "FUNC_TAUTAU";
         case FUNC_APLANARITY:
             return "FUNC_APLANARITY";
-        case FUNC_SPHERICITY:
-            return "FUNC_SPHERICITY";
-        case FUNC_HT:
-            return "FUNC_HT";
+
+        case EXPR_WITHIN_EXCLUSIVE:
+            return "EXPR_WITHIN_EXCLUSIVE";
+        case EXPR_WITHIN_LEFT_EXCLUSIVE:
+            return "EXPR_WITHIN_LEFT_EXCLUSIVE";
+        case EXPR_WITHIN_RIGHT_EXCLUSIVE:
+            return "EXPR_WITHIN_RIGHT_EXCLUSIVE";
+        case NAME_ELEMENT_OF_COMB:
+            return "NAME_ELEMENT_OF_COMB";
+        case MAKE_EMPTY_DISJOINT:
+            return "MAKE_EMPTY_DISJOINT";
+        case ADD_NAMED_TO_DISJOINT:
+            return "ADD_NAMED_TO_DISJOINT";
+        case ADD_ELECTRON_TO_DISJOINT:
+            return "ADD_ELECTRON_TO_DISJOINT";
+        case ADD_MUON_TO_DISJOINT:
+            return "ADD_MUON_TO_DISJOINT";
+        case ADD_TAU_TO_DISJOINT:
+            return "ADD_TAU_TO_DISJOINT";
+        case ADD_TRACK_TO_DISJOINT:
+            return "ADD_TRACK_TO_DISJOINT";
+        case ADD_LEPTON_TO_DISJOINT:
+            return "ADD_LEPTON_TO_DISJOINT";
+        case ADD_PHOTON_TO_DISJOINT:
+            return "ADD_PHOTON_TO_DISJOINT";
+        case ADD_BJET_TO_DISJOINT:
+            return "ADD_BJET_TO_DISJOINT";
+        case ADD_QGJET_TO_DISJOINT:
+            return "ADD_QGJET_TO_DISJOINT";
+        case ADD_NUMET_TO_DISJOINT:
+            return "ADD_NUMET_TO_DISJOINT";
+        case ADD_METLV_TO_DISJOINT:
+            return "ADD_METLV_TO_DISJOINT";
+        case ADD_GEN_TO_DISJOINT:
+            return "ADD_GEN_TO_DISJOINT";
+        case ADD_JET_TO_DISJOINT:
+            return "ADD_JET_TO_DISJOINT";
+        case ADD_FJET_TO_DISJOINT:
+            return "ADD_FJET_TO_DISJOINT";
+        case NAME_ELEMENT_OF_DISJOINT:
+            return "NAME_ELEMENT_OF_DISJOINT";
+          break;
         }
 }
 
@@ -450,37 +488,41 @@ void visit_if(PNode node) {
 
 }
 
-std::string ALIConverter::reserve_scoped_value_name() {
+std::string ALILConverter::reserve_scoped_value_name() {
     std::stringstream new_var_name;
     new_var_name << "_V" << highest_var_val++ << "" << current_scope_name;
     last_value_name = new_var_name.str();
     return last_value_name;
 }
 
-std::string ALIConverter::reserve_scoped_limit_name() {
+std::string ALILConverter::reserve_scoped_limit_name() {
     std::stringstream new_var_name;
     new_var_name << "_L" << highest_var_val++ << "" << current_scope_name;
     return new_var_name.str();
 }
 
-std::string ALIConverter::reserve_scoped_region_name() {
+std::string ALILConverter::reserve_scoped_region_name() {
     std::stringstream new_var_name;
     new_var_name << "_R" << highest_var_val++ << "" << current_scope_name;
     return new_var_name.str();
 }
 
-std::string ALIConverter::if_operator(PNode node) {
+std::string ALILConverter::if_operator(PNode node) {
     
 }
 
 
 
 
-std::string ALIConverter::handle_particle(PNode node, std::string last_part) {
+std::string ALILConverter::handle_particle(PNode node, std::string last_part) {
     AnalysisLevelInstruction inst;
 
     PToken tok = node->get_token();
     std::string lexeme = tok->get_lexeme();
+
+    if (tok->get_token_type() == ARROW_INDEX) {
+        lexeme = binary_operator(node);
+    }
 
     if (tok->get_token_type() == MINUS) {
         node = node->get_children()[0];
@@ -587,7 +629,7 @@ std::string ALIConverter::handle_particle(PNode node, std::string last_part) {
     return part_name;
 }
 
-void ALIConverter::visit_bin(PNode node) {
+void ALILConverter::visit_bin(PNode node) {
     AnalysisCommand bin(CREATE_BIN);
 
     visit_children(node);
@@ -602,7 +644,7 @@ void ALIConverter::visit_bin(PNode node) {
 
 }
 
-void ALIConverter::visit_bin_list(PNode node) {
+void ALILConverter::visit_bin_list(PNode node) {
     visit_expression(node->get_children()[0]);
 
     std::string exp_value_name = current_scope_name;
@@ -628,7 +670,7 @@ void ALIConverter::visit_bin_list(PNode node) {
 
 }
 
-void ALIConverter::visit_weight(PNode node) {
+void ALILConverter::visit_weight(PNode node) {
     std::string prev_name = current_region;
     current_region = reserve_scoped_limit_name();
 
@@ -643,7 +685,7 @@ void ALIConverter::visit_weight(PNode node) {
     command_list.push_back(weight_apply);
 }
 
-std::string ALIConverter::handle_particle_list(PNode node) {
+std::string ALILConverter::handle_particle_list(PNode node) {
 
     AnalysisCommand start(MAKE_EMPTY_PARTICLE);
 
@@ -660,17 +702,18 @@ std::string ALIConverter::handle_particle_list(PNode node) {
     return last_part;
 }
 
-void ALIConverter::visit_particle_sum(PNode node) {
+void ALILConverter::visit_particle_sum(PNode node) {
     handle_particle_list(node);
 }
 
 
 
-std::string ALIConverter::particle_list_function(PNode node) {
+std::string ALILConverter::particle_list_function(PNode node) {
 
     AnalysisLevelInstruction inst;
+    auto function_node = node->get_token()->get_token_type() == DOT_INDEX ? node->get_children()[1] : node;
 
-    switch (node->get_token()->get_token_type()) {
+    switch (function_node->get_token()->get_token_type()) {
         case LETTER_E: 
             inst = FUNC_ENERGY; break;
         case LETTER_P: case PT:
@@ -741,51 +784,52 @@ std::string ALIConverter::particle_list_function(PNode node) {
             inst = FUNC_APLANARITY; break;
 
         default:
-            raise_analysis_conversion_exception("Undefined particle function", node->get_token());
+            raise_analysis_conversion_exception("Undefined particle function", function_node->get_token());
             break;
 
     }
 
-    AnalysisCommand func(inst, node->get_token());
+    AnalysisCommand func(inst, function_node->get_token());
 
     std::string dest = reserve_scoped_value_name();
     func.add_dest_argument(dest);
 
     visit_children(node);
 
-    PNode particle_list_node = node->get_children()[0];
+    if (node->get_token()->get_token_type() == DOT_INDEX) {
+        // in this case we definitely have only one particle here by the nature of a dot attribute.
+        auto child_node = node->get_children()[0];
+        bool needs_numeric_index = node->get_children().size() > 0 && node->get_children()[0]->get_ast_type() == INDEX;
 
-    // iterate through all children of this function e.g. the relevant particles
-    for (auto it = particle_list_node->get_children().begin(); it != particle_list_node->get_children().end(); ++it) {
-
-        bool needs_numeric_index = ((*it)->get_children().size() > 0) && ((*it)->get_children()[0]->get_ast_type() == INDEX);
-
+        //TODO: improve this
         // make an empty particle structure
         AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
         std::string empty_name = reserve_scoped_value_name();
         make_empty.add_dest_argument(empty_name);
         command_list.push_back(make_empty);
 
-        std::string name_of_particle_variable = handle_particle(*it, empty_name);
+        std::string name_of_particle_variable = handle_particle(child_node, empty_name);
+        
+        func.add_source_argument(name_of_particle_variable);
+    } else {
+        // iterate through all children of this function e.g. the relevant particles
+            
+        PNode particle_list_node = node->get_children()[0];
+        for (auto it = particle_list_node->get_children().begin(); it != particle_list_node->get_children().end(); ++it) {
 
-        if ((*it)->get_token()->get_token_type() == FIRST || (*it)->get_token()->get_token_type() == SECOND) {
-            AnalysisCommand indexing((*it)->get_token()->get_token_type() == FIRST ? FUNC_FIRST : FUNC_SECOND, (*it)->get_token());
-            std::string dest_for_index = reserve_scoped_value_name();
-            indexing.add_dest_argument(dest_for_index);
+            bool needs_numeric_index = ((*it)->get_children().size() > 0) && ((*it)->get_children()[0]->get_ast_type() == INDEX);
 
-            std::string lexeme_for_child = (*it)->get_children()[0]->get_token()->get_lexeme();
-            if ((*it)->get_children()[0]->get_token()->get_token_type() == THIS) lexeme_for_child = current_object_particle_if_named;
+            // make an empty particle structure
+            AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
+            std::string empty_name = reserve_scoped_value_name();
+            make_empty.add_dest_argument(empty_name);
+            command_list.push_back(make_empty);
 
-            indexing.add_source_argument(lexeme_for_child);
-            command_list.push_back(indexing);
-            func.add_source_argument(dest_for_index);
-        } else {
+            std::string name_of_particle_variable = handle_particle(*it, empty_name);
+            
             func.add_source_argument(name_of_particle_variable);
         }
     }
-    // std::string particle_name = handle_particle_list(node->get_children()[0]);
-    
-    // func.add_argument(particle_name);
 
     command_list.push_back(func);
 
@@ -793,7 +837,7 @@ std::string ALIConverter::particle_list_function(PNode node) {
 }
 
 
-std::string ALIConverter::unary_operator(PNode node) {
+std::string ALILConverter::unary_operator(PNode node) {
 
     std::string source = handle_expression(node->get_children()[0]);
 
@@ -817,7 +861,7 @@ std::string ALIConverter::unary_operator(PNode node) {
     
 }
 
-std::string ALIConverter::interval_operator(PNode node) {
+std::string ALILConverter::interval_operator(PNode node) {
 
     AnalysisLevelInstruction inst;
 
@@ -850,7 +894,7 @@ std::string ALIConverter::interval_operator(PNode node) {
 }
 
 
-std::string ALIConverter::comparison_operator(PNode node) {
+std::string ALILConverter::comparison_operator(PNode node) {
 
     Token_type lhs_tok = node->get_children()[0]->get_token()->get_token_type();
     Token_type rhs_tok = node->get_children()[1]->get_token()->get_token_type();
@@ -908,14 +952,26 @@ std::string ALIConverter::comparison_operator(PNode node) {
 }
 
 
-std::string ALIConverter::binary_operator(PNode node) {
-    std::string lhs = handle_expression(node->get_children()[0]);
+std::string ALILConverter::binary_operator(PNode node) {
 
+    Token_type type = node->get_token()->get_token_type();
+
+    if (type == ARROW_INDEX) {
+        // simply combine the names again - this is not a real operation in ALIL, and is just sugar from ADL
+        std::string left_name = node->get_children()[0]->get_token()->get_lexeme();
+        std::string right_name = node->get_children()[1]->get_token()->get_lexeme();
+
+        std::stringstream full_name;
+        full_name << left_name << "->" << right_name;
+        return full_name.str();
+    } 
+
+    std::string lhs = handle_expression(node->get_children()[0]);
     std::string rhs = handle_expression(node->get_children()[1]);
 
     AnalysisLevelInstruction inst;
 
-    switch(node->get_token()->get_token_type()) {
+    switch(type) {
         case RAISED_TO_POWER:
             inst = EXPR_RAISE; break;
         case MULTIPLY:
@@ -949,8 +1005,7 @@ std::string ALIConverter::binary_operator(PNode node) {
         case WITHIN:
             inst = EXPR_WITHIN; break;
         case OUTSIDE:
-            inst = EXPR_OUTSIDE; break;
-        
+            inst = EXPR_OUTSIDE; break;            
     }
 
     AnalysisCommand binary_exp(inst, node->get_token());
@@ -965,7 +1020,7 @@ std::string ALIConverter::binary_operator(PNode node) {
     return dest;
 }
 
-std::string ALIConverter::literal_value(PNode node) {
+std::string ALILConverter::literal_value(PNode node) {
     AnalysisCommand assign(ADD_ALIAS, node->get_token());
 
     std::string dest = reserve_scoped_value_name();
@@ -977,13 +1032,42 @@ std::string ALIConverter::literal_value(PNode node) {
     return dest;
 }
 
-std::string ALIConverter::expression_function(PNode node) {
+
+std::string ALILConverter::function_handler(PNode node) {
+
+    Token_type type = node->get_token()->get_token_type();
+
+    // if we have a dot function, the rhs tells us what kind it is
+    if (type == DOT_INDEX) type = node->get_children()[1]->get_token()->get_token_type();
+
+    switch (type) {
+        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: case CHARGE: case MASS:
+        case FLAVOR: case CONSTITUENTS: case PDG_ID: case IDX: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
+        case DXY: case DZ:
+        case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case THETA: 
+        case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
+        case  MSOFTDROP: case JET_ID:
+        case PT: case PZ: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY: case FIRST: case SECOND:
+            return particle_list_function(node);
+
+        case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX: case ANYOCCURRENCES:
+        default:
+            return expression_function(node);
+    }
+}
+
+
+
+std::string ALILConverter::expression_function(PNode node) {
+
     std::string source = handle_expression(node->get_children()[0]);
     std::string dest = reserve_scoped_limit_name();
 
     AnalysisLevelInstruction inst;
 
-    switch (node->get_token()->get_token_type()) {
+    auto function_node = node->get_token()->get_token_type() == DOT_INDEX ? node->get_children()[1] : node ;
+
+    switch (function_node->get_token()->get_token_type()) {
         case ANYOF: 
             inst = FUNC_ANYOF; break;
         case ALLOF: 
@@ -1032,17 +1116,17 @@ std::string ALIConverter::expression_function(PNode node) {
     }
 
     if (inst == FUNC_MAX) {
-        if (node->get_children().size() > 1) inst = FUNC_MAX_LIST;
+        if (function_node->get_children().size() > 1) inst = FUNC_MAX_LIST;
     } else if (inst == FUNC_MIN) {
-        if (node->get_children().size() > 1) inst = FUNC_MIN_LIST;
+        if (function_node->get_children().size() > 1) inst = FUNC_MIN_LIST;
     }
 
-    AnalysisCommand func(inst, node->get_token());
+    AnalysisCommand func(inst, function_node->get_token());
     func.add_dest_argument(dest);
     func.add_source_argument(source);
 
     if (inst == FUNC_ANYOCCURRENCES || inst == FUNC_MAX_LIST || inst == FUNC_MIN_LIST) {
-        std::string second_source = handle_expression(node->get_children()[1]);   
+        std::string second_source = handle_expression(function_node->get_children()[1]);   
         func.add_source_argument(second_source);
     } 
 
@@ -1051,12 +1135,12 @@ std::string ALIConverter::expression_function(PNode node) {
     return dest;
 }
 
-void ALIConverter::visit_expression(PNode node) {
+void ALILConverter::visit_expression(PNode node) {
     std::string resultant_name = handle_expression(node->get_children()[0]);
     last_value_name = resultant_name;
 }
 
-std::string ALIConverter::handle_expression(PNode node) {
+std::string ALILConverter::handle_expression(PNode node) {
 
     if (node->get_ast_type() == USER_FUNCTION) {
         std::string source = handle_expression(node->get_children()[0]);
@@ -1066,7 +1150,7 @@ std::string ALIConverter::handle_expression(PNode node) {
         func.add_source_argument(source);
         func.add_source_argument(node->get_children()[1]->get_token()->get_lexeme());
 
-    command_list.push_back(func);
+        command_list.push_back(func);
     } else if (node->get_ast_type() == NEGATE) {
         return unary_operator(node);
     } else if (node->get_ast_type() == EXPRESSION) {
@@ -1076,7 +1160,7 @@ std::string ALIConverter::handle_expression(PNode node) {
     switch(node->get_token()->get_token_type()) {
         case GT: case LT: case LE: case GE:
             return comparison_operator(node);
-        case BWL: case BWR: case RAISED_TO_POWER: case MULTIPLY: case DIVIDE: case PLUS: case MINUS: case IRG: case ERG: case MAXIMIZE: case MINIMIZE:  case EQ: case NE: case AMPERSAND: case PIPE: case AND: case OR:
+        case BWL: case BWR: case RAISED_TO_POWER: case MULTIPLY: case DIVIDE: case PLUS: case MINUS: case IRG: case ERG: case MAXIMIZE: case MINIMIZE:  case EQ: case NE: case AMPERSAND: case PIPE: case AND: case OR: case ARROW_INDEX:
             return binary_operator(node);
         case WITHIN: case OUTSIDE:
             return interval_operator(node);
@@ -1089,15 +1173,16 @@ std::string ALIConverter::handle_expression(PNode node) {
         case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
         case  MSOFTDROP: case JET_ID:
         case PT: case PZ: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY: case FIRST: case SECOND:
-            return particle_list_function(node);
+        case DOT_INDEX:
+            return function_handler(node);
         case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX: case ANYOCCURRENCES:
-            return expression_function(node);
+            return function_handler(node);
         default:
             return literal_value(node);
     }
 }
 
-void ALIConverter::visit_condition(PNode node) {
+void ALILConverter::visit_condition(PNode node) {
 
     std::stringstream cond_name;
     cond_name << reserve_scoped_value_name() << "_COND";
@@ -1112,7 +1197,7 @@ void ALIConverter::visit_condition(PNode node) {
     last_condition_name = cond_name.str();
 }
 
-void ALIConverter::visit_if(PNode node) {
+void ALILConverter::visit_if(PNode node) {
     if (node->get_children().size() == 1) {
 
         visit_children(node);
@@ -1134,7 +1219,7 @@ void ALIConverter::visit_if(PNode node) {
     }
 }
 
-void ALIConverter::visit_sort(PNode node) {
+void ALILConverter::visit_sort(PNode node) {
     std::string to_be_sorted = handle_expression(node->get_children()[0]);
     AnalysisLevelInstruction which_way;
     if (node->get_children()[1]->get_token()->get_token_type() == ASCEND) {
@@ -1150,7 +1235,7 @@ void ALIConverter::visit_sort(PNode node) {
     command_list.push_back(sort);
 }
 
-void ALIConverter::visit_histo_use(PNode node) {
+void ALILConverter::visit_histo_use(PNode node) {
     AnalysisCommand hist_use(USE_HIST_LIST, node->get_children()[0]->get_token());
     hist_use.add_source_argument(node->get_children()[0]->get_token()->get_lexeme());
 
@@ -1159,7 +1244,7 @@ void ALIConverter::visit_histo_use(PNode node) {
     command_list.push_back(hist_use);
 }
 
-void ALIConverter::visit_histo_list(PNode node) {
+void ALILConverter::visit_histo_list(PNode node) {
 
     std::string prev_scope = current_scope_name;
 
@@ -1185,7 +1270,7 @@ void ALIConverter::visit_histo_list(PNode node) {
     current_scope_name = prev_scope;
 }
 
-void ALIConverter::visit_histogram(PNode node) {
+void ALILConverter::visit_histogram(PNode node) {
 
     std::string prev_scope = current_scope_name;
 
@@ -1261,7 +1346,7 @@ void ALIConverter::visit_histogram(PNode node) {
     }
 }
 
-void ALIConverter::visit_object_select(PNode node) {
+void ALILConverter::visit_object_select(PNode node) {
 
     std::string prev_name = current_limit;
     current_limit = reserve_scoped_limit_name();
@@ -1276,7 +1361,7 @@ void ALIConverter::visit_object_select(PNode node) {
     command_list.push_back(limit_mask);
 }
 
-void ALIConverter::visit_object_reject(PNode node) {
+void ALILConverter::visit_object_reject(PNode node) {
     std::string prev_name = current_limit;
     current_limit = reserve_scoped_limit_name();
 
@@ -1305,7 +1390,7 @@ void ALIConverter::visit_object_reject(PNode node) {
     
 }
 
-std::string ALIConverter::comb_list(PNode node, std::string prev, bool is_comb) {
+std::string ALILConverter::comb_list(PNode node, std::string prev, bool is_comb) {
     AnalysisLevelInstruction inst;
 
     switch (node->get_token()->get_token_type()) {
@@ -1354,7 +1439,7 @@ std::string ALIConverter::comb_list(PNode node, std::string prev, bool is_comb) 
     return dest;
 }
 
-std::string ALIConverter::union_list(PNode node, std::string prev) {
+std::string ALILConverter::union_list(PNode node, std::string prev) {
 
     AnalysisLevelInstruction inst;
 
@@ -1404,7 +1489,7 @@ std::string ALIConverter::union_list(PNode node, std::string prev) {
     return dest;
 }
 
-void ALIConverter::visit_union_type(PNode node) {
+void ALILConverter::visit_union_type(PNode node) {
 
     std::string prev_name = current_scope_name;
 
@@ -1437,9 +1522,11 @@ void ALIConverter::visit_union_type(PNode node) {
 
 }
 
-void ALIConverter::visit_comb_type(PNode node) {
+void ALILConverter::visit_comb_type(PNode node) {
 
-    bool is_comb = node->get_token()->get_token_type() == COMB;
+    current_defined_variables_within_comb.clear();
+
+    bool is_comb = node->get_children()[1]->get_token()->get_token_type() == COMB;
 
     std::string prev_name = current_scope_name;
 
@@ -1469,7 +1556,7 @@ void ALIConverter::visit_comb_type(PNode node) {
     command_list.push_back(finalize_comb);
 
     // give names to all the arguments of the comb
-    PNode names_node = node->get_children()[1];
+    PNode names_node = node->get_children()[1]->get_children()[0];
 
     int i = 0;
     for (auto it = names_node->get_children().begin(); it != names_node->get_children().end(); ++it) {
@@ -1477,18 +1564,23 @@ void ALIConverter::visit_comb_type(PNode node) {
         ++it;
         AnalysisCommand name_comb_arg(is_comb ? NAME_ELEMENT_OF_COMB : NAME_ELEMENT_OF_DISJOINT);
 
-        //TODO: resolve the matter of "scope" here - can we reuse these same names?
-        name_comb_arg.add_dest_argument((*it)->get_token()->get_lexeme());
+        std::string dest_comb = (*it)->get_token()->get_lexeme();
+
+        name_comb_arg.add_dest_argument(dest_comb);
         name_comb_arg.add_source_argument(name);
         name_comb_arg.add_source_argument(std::to_string(i++));
+
+        current_defined_variables_within_comb.push_back(dest_comb);
 
         command_list.push_back(name_comb_arg);
     }
 
     current_scope_name = prev_name;
+
+    return;
 }
 
-void ALIConverter::visit_object_first_second(PNode node) {
+void ALILConverter::visit_object_first_second(PNode node) {
 
     std::string name = node->get_children()[0]->get_token()->get_lexeme();
     PNode index = node->get_children()[1];
@@ -1510,7 +1602,71 @@ void ALIConverter::visit_object_first_second(PNode node) {
     command_list.push_back(finalize_indexing);
 }
 
-void ALIConverter::visit_object(PNode node) {
+void ALILConverter::visit_composite(PNode node) {
+    std::string prev_name = current_scope_name;
+
+    PNode name = node->get_children()[0];
+    PNode source = node->get_children()[1];
+
+    current_defined_variables_within_comb.clear();
+
+    if (!(source->get_token()->get_token_type() == COMB) && !(source->get_token()->get_token_type() == DISJOINT)) {
+        raise_analysis_conversion_exception("Invalid operation to create a composite", source->get_token());
+    }
+
+    visit_comb_type(node);
+    std::string name_lexeme = name->get_token()->get_lexeme();
+    std::string source_lexeme = current_defined_variables_within_comb[0];
+
+
+    // AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
+    // std::string empty_name = reserve_scoped_value_name();
+    // make_empty.add_dest_argument(empty_name);
+    // command_list.push_back(make_empty);
+
+    // std::string source_name = handle_particle(source, empty_name);
+
+    current_object_token = source->get_token()->get_token_type();
+    current_object_particle_if_named = source_lexeme;
+
+
+    // the CREATE_MASK command takes the new mask's name, the target object's name, and the source object's name
+
+    AnalysisCommand create_mask(CREATE_MASK, node->get_children()[0]->get_token());
+    
+    std::stringstream mask_name;
+    mask_name << "_MASK" << name_lexeme;
+
+    // move us into the "scope" of this object
+    current_scope_name = mask_name.str();
+    current_limit = current_scope_name;
+
+    create_mask.add_dest_argument(current_scope_name);
+    create_mask.add_source_argument(source_lexeme);
+    command_list.push_back(create_mask);
+
+
+    visit_children_after_index(node, 1);
+
+    // APPLY_MASK takes the target object's name, the mask's name, and the source object's name
+
+    for (auto it = current_defined_variables_within_comb.begin(); it != current_defined_variables_within_comb.end(); ++it) {
+        AnalysisCommand apply_mask(APPLY_MASK);
+
+        std::stringstream dest_arg;
+        dest_arg << name_lexeme << "->" << *it;
+
+        apply_mask.add_dest_argument(dest_arg.str());
+        apply_mask.add_source_argument(current_limit);
+        apply_mask.add_source_argument(*it);
+
+        command_list.push_back(apply_mask);
+    }
+
+    current_scope_name = prev_name;
+}
+
+void ALILConverter::visit_object(PNode node) {
 
 
     
@@ -1576,7 +1732,7 @@ void ALIConverter::visit_object(PNode node) {
     current_scope_name = prev_name;
 }
 
-void ALIConverter::visit_region_select (PNode node) {
+void ALILConverter::visit_region_select (PNode node) {
     std::string prev_name = current_region;
     current_region = reserve_scoped_limit_name();
 
@@ -1590,7 +1746,7 @@ void ALIConverter::visit_region_select (PNode node) {
     command_list.push_back(cut_region);
 }
 
-void ALIConverter::visit_region_reject(PNode node) {
+void ALILConverter::visit_region_reject(PNode node) {
 
     std::string prev_name = current_region;
     current_region = reserve_scoped_limit_name();
@@ -1620,7 +1776,7 @@ void ALIConverter::visit_region_reject(PNode node) {
 
 }
 
-void ALIConverter::visit_use(PNode node) {
+void ALILConverter::visit_use(PNode node) {
     
     std::string prev_name = current_region;
     current_region = reserve_scoped_value_name();
@@ -1638,7 +1794,7 @@ void ALIConverter::visit_use(PNode node) {
 }
 
 
-void ALIConverter::visit_region(PNode node) {
+void ALILConverter::visit_region(PNode node) {
     std::string prev_name = current_scope_name;
 
     PNode name = node->get_children()[0];
@@ -1683,7 +1839,7 @@ void ALIConverter::visit_region(PNode node) {
 }
 
 
-void ALIConverter::visit_definition(PNode node) {
+void ALILConverter::visit_definition(PNode node) {
 
     std::string prev_name = current_scope_name;
 
@@ -1729,12 +1885,15 @@ void ALIConverter::visit_definition(PNode node) {
         command_list.push_back(add_def_name);
     }
     
+    // add this to the running list of all variables that have been defined within the current block (if we are not in a block, this is not relevant)
+    current_defined_variables_within_comb.push_back(name_lexeme);
+
     current_scope_name = prev_name;
     
 }
 
 // we precompile the table to get it to have the right dimensionality for easy array operations
-void ALIConverter::visit_table_def(PNode node) {
+void ALILConverter::visit_table_def(PNode node) {
     PNode name = node->get_children()[0];
     PNode nvars = node->get_children()[2];
     PNode do_errors_node = node->get_children()[3];
@@ -1816,11 +1975,11 @@ void ALIConverter::visit_table_def(PNode node) {
 
 }
 
-void ALIConverter::visit_criteria(PNode node) {
+void ALILConverter::visit_criteria(PNode node) {
     
 }
 
-void ALIConverter::clean_command_list() {
+void ALILConverter::clean_command_list() {
     std::deque<AnalysisCommand> new_list;
 
     bool do_last_cutflow = false;
@@ -1852,12 +2011,12 @@ void ALIConverter::clean_command_list() {
 
 }
 
-void ALIConverter::visitation(PNode root) {
+void ALILConverter::visitation(PNode root) {
     visit(root);
     clean_command_list();
 }
 
-void ALIConverter::print_commands() {
+void ALILConverter::print_commands() {
 
     int top_size_of_dest = 0;
     int top_size_of_inst = 0;
@@ -1874,15 +2033,15 @@ void ALIConverter::print_commands() {
     }
 }
 
-bool ALIConverter::clear_to_next() {
+bool ALILConverter::clear_to_next() {
     if (iter_command >= command_list.size()) return false;
     return true;
 }
 
-AnalysisCommand ALIConverter::next_command() {
+AnalysisCommand ALILConverter::next_command() {
     return command_list[iter_command++];
 }
 
-ALIConverter::ALIConverter(Config &conf): highest_var_val(0), iter_command(0),  config(conf){}
+ALILConverter::ALILConverter(Config &conf): highest_var_val(0), iter_command(0),  config(conf){}
 
-ALILToFrameworkCompiler::ALILToFrameworkCompiler(ALIConverter *alil_in, Config &conf): alil(alil_in), config(conf) {}
+ALILToFrameworkCompiler::ALILToFrameworkCompiler(ALILConverter *alil_in, Config &conf): alil(alil_in), config(conf) {}

@@ -1,10 +1,7 @@
 #include "timber_converter.hpp"
 #include "ali_converter.hpp"
-#include "lexer.hpp"
-#include "node.hpp"
-#include "tokens.hpp"
 #include "exceptions.hpp"
-#include <cstddef>
+#include <filesystem>
 #include <ostream>
 #include <regex>
 #include <sstream>
@@ -1001,9 +998,32 @@ void TimberConverter::print_timber() {
     met_name = config.get_argument("MET");
     std::string in_file = config.get_argument("infile");
 
+    // get the path for our helper functions, relying on the "ROOT DIR" macro which we set during compile time
+    std::filesystem::path abs_path = std::filesystem::absolute(ROOT_DIR);
+    std::filesystem::path path_to_helper_cpp = abs_path / "helpers" / "adl_helpers.cc";
+    std::filesystem::path path_to_helper_py = abs_path / "helpers" / "adl_helpers.py";
+
     std::stringstream preliminary;
+    // import our needed TIMBER and other python functions
     preliminary << 
-        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\nfrom adl_helpers import combine_without_duplicates, use_histo, use_histo_list\nCompileCpp('adl_helpers.cc')\na = analyzer('" << in_file << "')\nout = ROOT.TFile.Open('adl_out.root','UPDATE')";
+        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\n";
+        
+    // add the path to the python helper file as an import, regardless of its location
+    preliminary << 
+        "adl_help_dir = os.path.abspath('" << path_to_helper_py.string() << "')\nif adl_help_dir not in sys.path:\n    sys.path.append(adl_help_dir)\n";
+
+    // import all our needed python helper functions
+    preliminary <<
+        "from adl_helpers import combine_without_duplicates, use_histo, use_histo_list\n";
+        
+    // compile the cpp helper functions into this
+    preliminary <<
+        "CompileCpp('" << path_to_helper_cpp.string() << "')\n";
+        
+    // open up the input file and an output file
+    preliminary << 
+        "a = analyzer('" << in_file << "')\nout = ROOT.TFile.Open('adl_out.root','UPDATE')";
+
     std::cout << preliminary.str() << std::endl;
 
     std::stringstream definitions;

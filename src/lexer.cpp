@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <ostream>
 #include <regex>
@@ -34,7 +35,7 @@ std::string Token::get_lexeme() {
 
 // Is the character an inherently delimiting symbol?
 bool Lexer::is_symbol (char c) {
-    if (c == '=' || c == '!' || c == '!' || c == '~' || c == '<' || c == '>' || c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}' || c == ':' || c == '&' || c == '|' || c == '+' || c == '-' || c == '*' || c == '/' || c == '?' || c == '^' || c == ',') return true;
+    if (c == '=' || c == '!' || c == '!' || c == '~' || c == '<' || c == '>' || c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}' || c == ':' || c == '&' || c == '|' || c == '+' || c == '-' || c == '*' || c == '/' || c == '?' || c == '^' || c == ',' || c == '.') return true;
     return false;
 }
 
@@ -115,7 +116,7 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == "process") return PROCESS;
 
     
-    if (uppercase_token == "PARTICLE") return PARTICLE_KEYWORD; // keyword that allows definitions to be of particles and not functions
+    if (uppercase_token == "PARTICLE" || uppercase_token == "CANDIDATE") return PARTICLE_KEYWORD; // keyword that allows definitions to be of particles and not functions
     if (uppercase_token == "EXTERN" || uppercase_token  == "EXTERNAL") return EXTERNAL; // keyword that allows arbitrary external functions to be included
     if (uppercase_token == "CORRECTIONLIB") return CORRECTIONLIB;
 
@@ -285,6 +286,9 @@ if (uppercase_token == "BIN") return BIN;
     if (token == ":") return COLON;
     if (token == "^") return RAISED_TO_POWER;
 
+    //  A dot, likely used to index an attribute e.g. particle.m
+    if (token == ".") return DOT_INDEX;
+    if (token == "->") return ARROW_INDEX;
 
     if (token == "(") return OPEN_PAREN;
     if (token == ")") return CLOSE_PAREN;
@@ -552,6 +556,9 @@ std::string token_type_to_string(Token_type type) {
         case MULTIPLY: return "MULTIPLY";
         case DIVIDE: return "DIVIDE";
 
+        case DOT_INDEX: return "DOT_INDEX";
+        case ARROW_INDEX: return "ARROW_INDEX";
+
         case AMPERSAND: return "AMPERSAND";
         case PIPE: return "PIPE";
         case COLON: return "COLON";
@@ -648,7 +655,7 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
         bool is_commented_out = false;
         bool is_quoted_out = false;
 
-        int column = 0;
+        int column = 1;
         for (auto it = content.begin(); it != content.end(); ++it) {
             char current_char = *it;
 
@@ -705,9 +712,16 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
             bool previous_delimiter = is_delimiter(prev_char);
             bool previous_symbol = is_symbol(prev_char);
 
+            char next_char = std::next(it) != content.end() ? *std::next(it) : ' ';
+
             // if the running token is of the same type as the current char, then we add it to the string and keep going
             if (delimiter != previous_delimiter || symbol != previous_symbol) {
-                if (!(prev_char == '-' && current_char >= '0' && current_char <= '9')) {
+
+                bool was_negative_sign_for_number = prev_char == '-' && current_char >= '0' && current_char <= '9';
+                bool was_decimal_point_for_number = prev_char == '.' && current_char >= '0' && current_char <= '9';
+                bool is_decimal_point_in_number = current_char == '.' && next_char <= '9' && next_char >= '0';
+
+                if (!was_negative_sign_for_number && !was_decimal_point_for_number && !is_decimal_point_in_number) {
                     // Otherwise, we do not have compatible symbols, so this clearly must be the end of a running token
                     lex_token(running_token, line, column);
                 }

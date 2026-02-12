@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "exceptions.hpp"
+#include "lexer.hpp"
 #include "node.hpp"
 #include "tokens.hpp"
 
@@ -712,7 +713,7 @@ void Parser::parse_composite_rvalue(PNode parent) {
     switch(tok->get_token_type()) {
 
         // OBJ_RVALUE -> comb ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
-        // COMPOSITE_RVALUE -> dijoint ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
+        // COMPOSITE_RVALUE -> disjoint ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
 
         case COMB: case DISJOINT:
         {
@@ -733,8 +734,6 @@ void Parser::parse_composite_rvalue(PNode parent) {
             return;
         }
 
-
-        // OBJ_RVALUE -> PARTICLE CRITERIA
         default:
         {
             raise_parsing_exception("Invalid input to a composite statement, need either comb or disjoint", tok);
@@ -1566,6 +1565,8 @@ void Parser::parse_named_particle_list(PNode parent) {
     
     PARTICLE -> second(PARTICLE)
 
+    PARTICLE -> ID arrow_index ID
+
     PARTICLE -> gen constituents
 
     PARTICLE -> jet constituents
@@ -1669,9 +1670,13 @@ PNode Parser::parse_particle(PNode parent) {
                 return minus;
             }
 
+        // PARTICLE -> ID arrow_index ID
         // PARTICLE -> ID INDEX
         default:
             {
+                if (lexer->peek(1)->get_token_type() == ARROW_INDEX) {
+                    return precedence_climber(parent, 0);
+                }
                 PNode particle = parse_id(parent);
                 particle->add_child(parse_index(particle));
                 return particle;
@@ -1788,7 +1793,7 @@ void Parser::parse_composite_criteria(PNode parent) {
 
     auto tok = lexer->peek(0);
     switch(tok->get_token_type()) {
-        case SELECT: case PRINT: case HISTO: case REJEC:
+        case SELECT: case PRINT: case HISTO: case REJEC: case PARTICLE_KEYWORD:
             parent->add_child(parse_composite_criterion(parent));
             parse_composite_criteria(parent);
             return;
@@ -1915,67 +1920,88 @@ PNode Parser::parse_criterion(PNode parent) {
 PNode Parser::parse_condition(PNode parent) {
     PNode condition(std::make_shared<Node>(CONDITION, parent));
 
-    condition->add_child(precedence_climber(condition, parse_expression_helper(condition), 0));
+    condition->add_child(precedence_climber(condition,  0));
 
     return condition;
 }
 
-int get_precedence(PToken tok) {
+int get_precedence(PToken tok, bool increase_if_left_associative = false) {
+
+    int left_associative_addition = increase_if_left_associative ? 1 : 0;
+    
     switch(tok->get_token_type()) {
 
+        // highest priority is an indexing of the form composite->subvariable
+        case ARROW_INDEX:
+        return 110 + left_associative_addition;
+
+        // second-highest priority is an indexing of the form object.function
+        case DOT_INDEX:
+        return 100 + left_associative_addition;
+
+        // raising to a power is right-associative
         case RAISED_TO_POWER:
-        return 9;
+        return 90;
 
         case MULTIPLY: case DIVIDE:
-        return 8;
+        return 80 + left_associative_addition;
 
         case PLUS: case MINUS:
-        return 7;
+        return 70 + left_associative_addition;
 
         case WITHIN: case OUTSIDE:
-        return 4;
+        return 40 + left_associative_addition;
 
         case MAXIMIZE: case MINIMIZE:
-        return 3;
+        return 30 + left_associative_addition;
 
         case LT: case GT: case LE: case GE: case EQ: case NE: 
-        return 2;
+        return 20 + left_associative_addition;
 
         case AND: case OR:
-        return 1;
+        return 10 + left_associative_addition;
 
         default:
-        return -1;
+        return -5;
+
 
     }
 }
 
-PNode Parser::precedence_climber(PNode parent, PNode lhs, int min_precedence) {
+
+PNode Parser::precedence_climber(PNode parent, int min_precedence) {
+
+    auto lhs = parse_primary_expression(parent);
+
     auto lookahead = lexer->peek(0);
     PToken op;
     PNode op_node;
 
-    // go until the next operator fails to have sufficient precedence
-    while(get_precedence(lookahead) >= min_precedence) {
+    // keep going while the next token is an operator with at least our current level of precedence
+    while (get_precedence(lookahead) >= min_precedence) {
         op = lexer->next();
         op_node = make_terminal(parent, op);
-        auto rhs = parse_expression_helper(op_node);
-        lookahead = lexer->peek(0);
 
-        // keep recursively going right until we fail to exceed the current precedence
-        while (get_precedence(lookahead) > get_precedence(op)){
-            rhs = precedence_climber(op_node, rhs, get_precedence(op)+ 1);
-            lookahead = lexer->peek(0);
-        }
+        // find what precedence is our new minimum - if the operator is left-associative, it is one more than it's normal precedence
+        int new_min_precedence = get_precedence(op, true);
+
+        auto rhs = precedence_climber(op_node, new_min_precedence);
+
         op_node->add_child(lhs);
+        lhs->set_parent(op_node);
+
         op_node->add_child(rhs);
+
         lhs = op_node;
+
+        lookahead = lexer->peek(0);
     }
         
+    // at this point, we have parsed all we can of precedences above our threshold. We give our final node of the loop
     return lhs;
 }
 
-PNode Parser::parse_expression_helper(PNode parent) {
+PNode Parser::parse_primary_expression(PNode parent) {
 
     auto tok = lexer->next();
     PNode node(make_terminal(parent, tok));
@@ -1984,18 +2010,17 @@ PNode Parser::parse_expression_helper(PNode parent) {
         case MINUS: 
         {
             PNode negate_node(std::make_shared<Node>(NEGATE, parent));
-            negate_node->add_child(parse_expression_helper(negate_node));
+            negate_node->add_child(parse_primary_expression(negate_node));
             return negate_node;
         }
         case NOT:
         {
-            node->add_child(parse_expression_helper(node));
+            node->add_child(parse_primary_expression(node));
             return node;
         }
         case OPEN_PAREN:
         {
-            PNode lhs = parse_expression_helper(parent);
-            PNode subexpression = precedence_climber(parent, lhs, 0);
+            PNode subexpression = precedence_climber(parent, 0);
             lexer->expect_and_consume(CLOSE_PAREN);
             return subexpression;
         }
@@ -2017,9 +2042,9 @@ PNode Parser::parse_expression_helper(PNode parent) {
         case OPEN_SQUARE_BRACE:
         {
             PNode interval(std::make_shared<Node>(INTERVAL, parent)); 
-            interval->add_child(parse_expression_helper(interval));
+            interval->add_child(parse_primary_expression(interval));
             if (lexer->peek(0)->get_token_type() == COMMA) lexer->expect_and_consume(COMMA);
-            interval->add_child(parse_expression_helper(interval));
+            interval->add_child(parse_primary_expression(interval));
             lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
             return interval;
         }
@@ -2029,8 +2054,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
             // E -> sort (E, ascend)
             // E -> sort (E, descend)
             lexer->expect_and_consume(OPEN_PAREN);
-            PNode lhs = parse_expression_helper(node);
-            node->add_child(precedence_climber(parent, lhs, 0));
+            node->add_child(precedence_climber(parent, 0));
             lexer->expect_and_consume(COMMA);
             node->add_child(make_terminal(node, lexer->next()));
             lexer->expect_and_consume(CLOSE_PAREN);
@@ -2042,11 +2066,9 @@ PNode Parser::parse_expression_helper(PNode parent) {
         {
             // E -> anyoccurances (E in E)
             lexer->expect_and_consume(OPEN_PAREN);
-            PNode lhs = parse_expression_helper(node);
-            node->add_child(precedence_climber(parent, lhs, 5));
+            node->add_child(precedence_climber(node, 5));
             lexer->expect_and_consume(WITHIN);
-            PNode rhs = parse_expression_helper(node);
-            node->add_child(precedence_climber(parent, rhs, 5));
+            node->add_child(precedence_climber(node, 5));
             lexer->expect_and_consume(CLOSE_PAREN);
             return node;
         }   
@@ -2054,8 +2076,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
         case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: 
         {
             lexer->expect_and_consume(OPEN_PAREN);
-            PNode lhs = parse_expression_helper(node);
-            node->add_child(precedence_climber(parent, lhs, 0));
+            node->add_child(precedence_climber(parent, 0));
             lexer->expect_and_consume(CLOSE_PAREN);
             return node;
         }
@@ -2066,6 +2087,11 @@ PNode Parser::parse_expression_helper(PNode parent) {
         case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
         case PT: case PZ: case DR: case DPHI: case DETA: case NUMOF: case HT: case FMT2: case FMTAUTAU: case APLANARITY: case SPHERICITY:
         {
+            if (lexer->peek(0)->get_token_type() != OPEN_PAREN) {
+                // the next token is not an open parenthesis - this is not a function call per se, so either the argument is implicit or this is being used in reverse order in some way. That's not our problem here, so we just save that token.
+                return node;
+            }
+
             lexer->expect_and_consume(OPEN_PAREN);
 
             PNode particle_list(std::make_shared<Node>(PARTICLE_LIST, node));
@@ -2144,6 +2170,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
 
         case STRING: case VARNAME:
         {
+            // here, we are met with a token that isn't any other known form. If it is immediately followed by parentheses, then this is probably some external function. 
             if (lexer->peek(1)->get_token_type() == OPEN_PAREN) {
                 PNode func(std::make_shared<Node>(USER_FUNCTION, parent));
                 node->set_parent(func);
@@ -2153,7 +2180,7 @@ PNode Parser::parse_expression_helper(PNode parent) {
                 lexer->expect_and_consume(CLOSE_PAREN);
                 return func;
             }
-
+            // otherwise, it is unclear what this is other than just some variable name - we will leave it like that
             return node;
         }
         case MIN: case MAX: 
@@ -2165,7 +2192,6 @@ PNode Parser::parse_expression_helper(PNode parent) {
         }
         default:
             if(!is_numerical(tok->get_token_type())) raise_parsing_exception("Invalid token used in expression", tok);
-            // return precedence_climber(parent, node, 0);
             return node;
     }
 }
@@ -2182,7 +2208,7 @@ All productions are done via precedence climbing. Stated grammar does not correc
 PNode Parser::parse_expression(PNode parent) {
     
     PNode expression(std::make_shared<Node>(EXPRESSION, parent));
-    expression->add_child(precedence_climber(expression, parse_expression_helper(expression), 0));
+    expression->add_child(precedence_climber(expression, 0));
 
     return expression;
 }

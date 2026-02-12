@@ -1,5 +1,4 @@
 #include <string>
-#include <sstream>
 #include "lexer.hpp"
 
 class LexingException : public std::runtime_error {

@@ -9,6 +9,8 @@ void ASTVisitor::visit(PNode node) {
             return visit_definition(node);
         case REGION:
             return visit_region(node);
+        case COMPOSITE:
+            return visit_composite(node);
         case CONDITION:
             return visit_condition(node);
         case IF_STATEMENT:

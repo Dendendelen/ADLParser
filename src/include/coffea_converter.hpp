@@ -12,7 +12,7 @@ class CoffeaConverter : public ALILToFrameworkCompiler {
 
     private:
         
-        std::unique_ptr<ALIConverter> alil;
+        std::unique_ptr<ALILConverter> alil;
 
         std::vector<std::string> existing_definitions;
         std::unordered_map<std::string, std::string> var_mappings;
