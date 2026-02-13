@@ -67,47 +67,49 @@ std::string TimberConverter::add_structure_for_comb_merge(AnalysisCommand comman
     comb_map[get_mapping_if_exists(old_comb)].push_back(generate_4vector_label(get_mapping_if_exists(adding_name), "_pt"));
     var_mappings[dest_vec] = get_mapping_if_exists(old_comb);
 
-    // } else {
-    //     command_text << "a.SubCollection('" << dest_vec << "xfirst', '" << get_mapping_if_exists(old_comb) << "', 'ROOT::VecOps::Combinations(";
-
-    //     command_text << generate_4vector_label(get_mapping_if_exists(get_mapping_if_exists(old_comb)), "_pt") << ", ";
-    //     command_text << generate_4vector_label(get_mapping_if_exists(adding_name), "_pt") << ")[0]";
-
-    //     command_text << "', useTake=True)\n"; 
-
-    //     command_text << "a.SubCollection('" << dest_vec << "xsecond', '" << get_mapping_if_exists(adding_name) << "', 'ROOT::VecOps::Combinations(";
-
-    //     command_text << generate_4vector_label(get_mapping_if_exists(get_mapping_if_exists(old_comb)), "_pt") << ", ";
-    //     command_text << generate_4vector_label(get_mapping_if_exists(adding_name), "_pt") << ")[1]";
-
-    //     command_text << "', useTake=True)\n"; 
-    // }
-
     return "";
 }
 
-std::string TimberConverter::add_comb_argument(std::string new_name, std::string name_of_comb, std::string val) {
+std::string TimberConverter::add_comb_argument(std::string new_name, std::string name_of_comb, std::string val, bool is_disjoint) {
     std::stringstream command_text;
-    command_text << "\na.Define('vORIGCOMB" << name_of_comb << "', 'GeneralComb({";
 
-    bool is_first = true;
-    for (std::string comb_entry : comb_map[get_mapping_if_exists(name_of_comb)]) {
-        if (!is_first) {
-            command_text << ",";
-        } else {
-            is_first = false;
+    if (comb_already_made.count(name_of_comb) == 0) {
+        comb_already_made.insert(name_of_comb);
+
+        command_text << "\na.Define('vORIG";
+        if (is_disjoint) command_text << "DISJOINT";
+        else command_text << "COMB";
+        
+        
+        command_text << name_of_comb << "', 'General" ;
+        if (is_disjoint) command_text << "Disjoint";
+        else command_text << "Comb";
+        
+        command_text << "({";
+
+        bool is_first = true;
+        for (std::string comb_entry : comb_map[get_mapping_if_exists(name_of_comb)]) {
+            if (!is_first) {
+                command_text << ",";
+            } else {
+                is_first = false;
+            }
+            command_text << comb_entry;
         }
-        command_text << comb_entry;
-    }
 
-    command_text << "})')";
+        command_text << "})')";
+    }
 
     int index = std::stoi(val);
     std::string relevant_comb_entry_variable = comb_map[get_mapping_if_exists(name_of_comb)][index];
     //TODO: check that this works always, or replace it
     relevant_comb_entry_variable.erase(relevant_comb_entry_variable.length() - 3);
 
-    command_text << "\na.SubCollection('" << new_name << "', '" << relevant_comb_entry_variable << "', 'vORIGCOMB" << name_of_comb << "[" << val << "]', useTake=True)\n";
+    command_text << "\na.SubCollection('" << new_name << "', '" << relevant_comb_entry_variable << "', 'vORIG";
+    
+    if (is_disjoint) command_text << "DISJOINT";
+    else command_text << "COMB";
+    command_text << name_of_comb << "[" << val << "]', useTake=True)\n";
 
     return command_text.str();
 
@@ -287,8 +289,8 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
     AnalysisCommand new_command(command.get_instruction());
 
     for (int i = 0; i < command.get_num_arguments(); i++) {
-        std::regex e("_");
-        std::string new_arg = std::regex_replace(command.get_argument(i), e, "v");
+        std::regex e("[_\\->]");
+        std::string new_arg = std::regex_replace(command.get_argument(i), e, "w");
         if (i == 0) 
             new_command.add_dest_argument(new_arg);
         else
@@ -406,7 +408,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
                 std::regex e ("\x1d"); 
                 source = std::regex_replace(source, e, "");
 
-                char non_underscore_delimiter = 'v';
+                char non_underscore_delimiter = 'w';
 
                 command_text << "\na.Define('" << non_underscore_delimiter << "VEC" << non_underscore_delimiter << dest << "', '" << source << "')";
                 // is_lorentz_vector.insert(command.get_argument(0));
@@ -870,10 +872,8 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return command_text.str();
 
         case MAKE_EMPTY_COMB:
-            // command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
             var_mappings[command.get_argument(0)] = command.get_argument(0);
             command_text << add_structure_for_comb_empty(command);
-
             existing_definitions.push_back(command.get_argument(0));
             return command_text.str();        
         case ADD_NAMED_TO_COMB:
@@ -924,6 +924,58 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return command_text.str();
 
 //TODO: add DISJOINT
+
+        case MAKE_EMPTY_DISJOINT:
+            var_mappings[command.get_argument(0)] = command.get_argument(0);
+            command_text << add_structure_for_comb_empty(command);
+            existing_definitions.push_back(command.get_argument(0));
+            return command_text.str();        
+        case ADD_NAMED_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, get_mapping_if_exists(command.get_argument(2)));
+            return command_text.str();        
+        case ADD_ELECTRON_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "Electron");
+            return command_text.str();
+        case ADD_MUON_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "Muon");
+            return command_text.str();
+        case ADD_TAU_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "Tau");
+            return command_text.str();
+        case ADD_TRACK_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "IsoTrack");
+            return command_text.str();
+        case ADD_LEPTON_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "Lepton");
+            return command_text.str();
+        case ADD_PHOTON_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "Photon");
+            return command_text.str();
+        case ADD_BJET_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "BJet");
+            return command_text.str();
+        case ADD_QGJET_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "QGJet");
+            return command_text.str();
+        case ADD_NUMET_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "MET");
+            return command_text.str();
+        case ADD_METLV_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, met_name);
+            return command_text.str();
+        case ADD_GEN_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "GenPart");
+            return command_text.str();
+        case ADD_JET_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "Jet");
+            return command_text.str();
+        case ADD_FJET_TO_DISJOINT:
+            command_text << add_structure_for_comb_merge(command, "FatJet");
+            return command_text.str();
+
+        case NAME_ELEMENT_OF_DISJOINT:
+            command_text << add_comb_argument(get_mapping_if_exists(command.get_argument(0)), get_mapping_if_exists(command.get_argument(1)), get_mapping_if_exists(command.get_argument(2)), true);
+            return command_text.str();
 
         case FUNC_FLAVOR:
             append_4vector_label(command, "_partonFlavor");

@@ -19,6 +19,7 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::unordered_set<std::string> needs_btag;
         std::unordered_set<std::string> empty_union_names;
         std::unordered_set<std::string> is_lorentz_vector;
+        std::unordered_set<std::string> comb_already_made;
 
         std::unordered_map<std::string, std::vector<std::string>> comb_map;
 
@@ -47,7 +48,7 @@ class TimberConverter : public ALILToFrameworkCompiler {
 
         std::string add_structure_for_comb_empty(AnalysisCommand command);
         std::string add_structure_for_comb_merge(AnalysisCommand command, std::string adding_name);
-        std::string add_comb_argument(std::string new_name, std::string name_of_comb, std::string val);
+        std::string add_comb_argument(std::string new_name, std::string name_of_comb, std::string val, bool disjoint=false);
 
 
         std::string get_mapping_if_exists(std::string str);
