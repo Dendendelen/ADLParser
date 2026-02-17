@@ -65,7 +65,7 @@ Lexer::Lexer() {
 
     reg_int = std::regex("-{0,1}[0-9]+");
     reg_decimal = std::regex("-{0,1}[0-9]*\\.[0-9]+");
-    reg_scientific = std::regex("-{0,1}[0-9]*\\.{0,1}[0-9]*[Ee][-+]{0,1}[0-9]+");
+    reg_scientific = std::regex("-{0,1}[0-9]+\\.{0,1}[0-9]*[Ee][-+]{0,1}[0-9]+");
     reg_varname = std::regex("[A-Za-z][A-Za-z0-9_]*");
     reg_string= std::regex("\"[^\"]*\"");
 
