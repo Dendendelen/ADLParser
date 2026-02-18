@@ -2135,7 +2135,7 @@ PNode Parser::parse_primary_expression(PNode parent) {
             lexer->expect_and_consume(OPEN_PAREN);
             node->add_child(parse_id(node));
             lexer->expect_and_consume(COMMA);
-            if (lexer->peek(0)->get_token_type() == MET) {
+            if (lexer->peek(0)->get_token_type() == METLV) {
                 node->add_child(make_terminal(node, lexer->next()));
             } else {
                 node->add_child(parse_id(node));
@@ -2163,7 +2163,7 @@ PNode Parser::parse_primary_expression(PNode parent) {
             return node;
         }
 
-        case MET: case METSIGNIF: case ALL: case NONE: case TRGM: case TRGE: case EVENT_NO: case RUN_NO: case LB_NO: case MC_CHANNEL_NUMBER: case HF_CLASSIFICATION: case RUNYEAR:
+        case METSIGNIF: case ALL: case NONE: case TRGM: case TRGE: case EVENT_NO: case RUN_NO: case LB_NO: case MC_CHANNEL_NUMBER: case HF_CLASSIFICATION: case RUNYEAR:
         {
             return node;
         }

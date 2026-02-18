@@ -163,11 +163,10 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "FJET"|| uppercase_token == "FATJET") return FJET;
     if (uppercase_token == "QGJET") return QGJET;
     if (token == "NUMET") return NUMET;
-    if (token == "METLV") return METLV;
+    if (token == "MET" || token == "METLV") return METLV;
     if (token == "LEP") return LEPTON;
     if (uppercase_token == "HLT") return HLT;
     if (token == "BJET") return BJET;
-    if (token == "MET") return MET;
 
     // Within-object block helper
     if (uppercase_token == "THIS") return THIS;
@@ -518,7 +517,6 @@ std::string token_type_to_string(Token_type type) {
 
         case NUMOF: return "NUMOF";
         case HT: return "HT";
-        case MET: return "MET";
 
         case APLANARITY: return "APLANARITY";
         case SPHERICITY: return "SPHERICITY";

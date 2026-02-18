@@ -161,7 +161,6 @@ enum Token_type {
 
     NUMOF,
     HT,
-    MET,
 
     APLANARITY,
     SPHERICITY,

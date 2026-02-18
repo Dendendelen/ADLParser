@@ -1080,7 +1080,7 @@ void TimberConverter::print_timber() {
 
     std::stringstream definitions;
     definitions <<
-        "\na.Define('MET', '" << met_name << "_pt')\na.Define('" << met_name << "_eta','" << met_name << "_pt - " << met_name << "_pt')\na.Define('" << met_name << "_mass', '" << met_name << "_eta')";
+        "\na.Define('" << met_name << "_eta','" << met_name << "_pt - " << met_name << "_pt')\na.Define('" << met_name << "_mass', '" << met_name << "_eta')";
 
     std::cout << definitions.str() << std::endl;
 
