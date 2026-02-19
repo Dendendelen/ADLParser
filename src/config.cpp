@@ -46,12 +46,12 @@ void Config::read_config_file(std::string filename) {
     while (std::getline(read_file, content)) {
 
         std::stringstream ss;
-        std::regex e("[\\s:]+");
-        ss << std::regex_replace(content, e, ":");
+        std::regex e("[\\s]+");
+        ss << std::regex_replace(content, e, "\x1d");
 
         std::vector<std::string> args;
         std::string token;
-        while (std::getline(ss, token, ':')) {
+        while (std::getline(ss, token, '\x1d')) {
             args.push_back(token);
         }
         
