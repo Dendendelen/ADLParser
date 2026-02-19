@@ -18,7 +18,10 @@ std::string TimberConverter::add_all_relevant_tags_for_object(AnalysisCommand co
     std::string mask = command.get_argument(1);
     std::string src_vec = command.get_argument(2);
 
-    command_text << "a.Apply(" <<add_target << ")\n";
+    if (already_applied_globally.count(add_target) == 0) {
+        already_applied_globally.emplace(add_target);
+        command_text << "a.Apply(" <<add_target << ")\n";
+    }
     command_text << "a.SubCollection('" << dest_vec << "', '" << generate_4vector_label(get_mapping_if_exists(src_vec), "") << "', '" << mask << "', useTake=False, skip=[\"idx\"])\n";
     return command_text.str();
 
@@ -290,7 +293,10 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
 
     for (int i = 0; i < command.get_num_arguments(); i++) {
         std::regex e("[_\\->]");
-        std::string new_arg = std::regex_replace(command.get_argument(i), e, "w");
+        std::string new_arg = command.get_argument(i);
+        if (new_arg[0] != '"') {
+            new_arg = std::regex_replace(command.get_argument(i), e, "w");
+        }
         if (i == 0) 
             new_command.add_dest_argument(new_arg);
         else
@@ -1023,6 +1029,18 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "";
         case FUNC_DETA:
             command_text << "LVDeltaEta(" << lorentzify(get_mapping_if_exists(command.get_argument(1))) << ", " << lorentzify(get_mapping_if_exists(command.get_argument(2))) << ")";
+            return "";
+        case FUNC_DR_HADAMARD:
+            command_text << "LVDeltaRHadamard(" << lorentzify(get_mapping_if_exists(command.get_argument(1))) << ", " << lorentzify(get_mapping_if_exists(command.get_argument(2))) << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
+        case FUNC_DPHI_HADAMARD:
+            command_text << "LVDeltaPhiHadamard(" << lorentzify(get_mapping_if_exists(command.get_argument(1))) << ", " << lorentzify(get_mapping_if_exists(command.get_argument(2))) << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
+            return "";
+        case FUNC_DETA_HADAMARD:
+            command_text << "LVDeltaEtaHadamard(" << lorentzify(get_mapping_if_exists(command.get_argument(1))) << ", " << lorentzify(get_mapping_if_exists(command.get_argument(2))) << ")";
+            return "";
         case FUNC_SIZE: //TODO: check this does not conflict with a valid use case
             command_text << "size(" << generate_4vector_label(get_mapping_if_exists(command.get_argument(1)), "_pt") << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
@@ -1053,7 +1071,7 @@ void TimberConverter::print_timber() {
     // get the path for our helper functions, relying on the "ROOT DIR" macro which we set during compile time
     std::filesystem::path abs_path = std::filesystem::absolute(ROOT_DIR);
     std::filesystem::path path_to_helper_cpp = abs_path / "helpers" / "adl_helpers.cc";
-    std::filesystem::path path_to_helper_py = abs_path / "helpers" / "adl_helpers.py";
+    std::filesystem::path path_to_helper_py = abs_path / "helpers";
 
     std::stringstream preliminary;
     // import our needed TIMBER and other python functions

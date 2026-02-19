@@ -397,6 +397,12 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "FUNC_DPHI";
         case FUNC_DETA:
             return "FUNC_DETA";
+        case FUNC_DR_HADAMARD:
+            return "FUNC_DR_HADAMARD";
+        case FUNC_DPHI_HADAMARD:
+            return "FUNC_DPHI_HADAMARD";
+        case FUNC_DETA_HADAMARD:
+            return "FUNC_DETA_HADAMARD";
         case FUNC_SIZE:
             return "FUNC_SIZE";
         case FUNC_GEN_PART_IDX:
@@ -770,6 +776,12 @@ std::string ALILConverter::particle_list_function(PNode node) {
             inst = FUNC_DPHI; break;
         case DETA: 
             inst = FUNC_DETA; break;
+        case DR_HADAMARD:
+            inst = FUNC_DR_HADAMARD; break;
+        case DPHI_HADAMARD:
+            inst = FUNC_DPHI_HADAMARD; break;
+        case DETA_HADAMARD:
+            inst = FUNC_DETA_HADAMARD; break;
         case NUMOF:
             inst = FUNC_SIZE; break;
         case FMT2: 
@@ -1047,7 +1059,7 @@ std::string ALILConverter::function_handler(PNode node) {
         case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case THETA: 
         case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
         case  MSOFTDROP: case JET_ID:
-        case PT: case PZ: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY: case FIRST: case SECOND:
+        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY: case FIRST: case SECOND:
             return particle_list_function(node);
 
         case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX: case ANYOCCURRENCES:
@@ -1172,7 +1184,7 @@ std::string ALILConverter::handle_expression(PNode node) {
         case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case THETA: 
         case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
         case  MSOFTDROP: case JET_ID:
-        case PT: case PZ: case DR: case DPHI: case DETA: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY: case FIRST: case SECOND:
+        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY: case FIRST: case SECOND:
         case DOT_INDEX:
             return function_handler(node);
         case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX: case ANYOCCURRENCES:
@@ -1356,8 +1368,15 @@ void ALILConverter::visit_object_select(PNode node) {
     AnalysisCommand limit_mask(LIMIT_MASK);
     limit_mask.add_dest_argument(current_limit);
     limit_mask.add_source_argument(prev_name);
-    limit_mask.add_source_argument(last_condition_name);
 
+
+    if (node->get_children()[0]->get_ast_type() == TERMINAL) {
+        Token_type tok = node->get_children()[0]->get_token()->get_token_type();
+        if (tok == ALL) last_condition_name = "ALL";
+        else if (tok == NONE) last_condition_name = "NONE";
+    }
+
+    limit_mask.add_source_argument(last_condition_name);
     command_list.push_back(limit_mask);
 }
 
@@ -1366,6 +1385,14 @@ void ALILConverter::visit_object_reject(PNode node) {
     current_limit = reserve_scoped_limit_name();
 
     visit_children(node);
+
+    if (node->get_children()[0]->get_ast_type() == TERMINAL) {
+        Token_type tok = node->get_children()[0]->get_token()->get_token_type();
+
+        if (tok == ALL) last_condition_name = "ALL";
+        else if (tok == NONE) last_condition_name = "NONE"; 
+    }
+
 
     AnalysisCommand invert_mask(EXPR_LOGICAL_NOT);
     std::string newly_inverted = reserve_scoped_value_name();

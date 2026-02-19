@@ -159,6 +159,10 @@ enum Token_type {
     DPHI,
     DETA,
 
+    DR_HADAMARD,
+    DPHI_HADAMARD,
+    DETA_HADAMARD,
+
     NUMOF,
     HT,
 

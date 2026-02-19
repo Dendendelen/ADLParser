@@ -20,6 +20,7 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::unordered_set<std::string> empty_union_names;
         std::unordered_set<std::string> is_lorentz_vector;
         std::unordered_set<std::string> comb_already_made;
+        std::unordered_set<std::string> already_applied_globally;
 
         std::unordered_map<std::string, std::vector<std::string>> comb_map;
 

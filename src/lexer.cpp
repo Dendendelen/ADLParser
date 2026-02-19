@@ -241,6 +241,11 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "DR" || uppercase_token == "DELTAR") return DR;
     if (uppercase_token == "DPHI" || uppercase_token == "DELTAPHI") return DPHI;
     if (uppercase_token == "DETA" || uppercase_token == "DELTAETA") return DETA;
+
+    if (uppercase_token == "DRHADAMARD" || uppercase_token == "DELTARHADAMARD") return DR_HADAMARD;
+    if (uppercase_token == "DETAHADAMARD" || uppercase_token == "DELTAETAHADAMARD") return DETA_HADAMARD;
+    if (uppercase_token == "DPHIHADAMARD" || uppercase_token == "DELTAPHIHADAMARD") return DPHI_HADAMARD;
+
     if (uppercase_token == "SIZE" || uppercase_token == "COUNT" || uppercase_token == "NUMOF") return NUMOF;//no arg funcs 
     if (uppercase_token == "FHT") return HT; // attention
     if (token == "fAplanarity") return APLANARITY;
@@ -514,6 +519,10 @@ std::string token_type_to_string(Token_type type) {
 
         case DPHI: return "DPHI";
         case DETA: return "DETA";
+
+        case DR_HADAMARD: return "DR_HADAMARD";
+        case DPHI_HADAMARD: return "DPHI_HADAMARD";
+        case DETA_HADAMARD: return "DETA_HADAMARD";
 
         case NUMOF: return "NUMOF";
         case HT: return "HT";

@@ -287,7 +287,7 @@ RVec<RVec<unsigned long>> ExpandComb(RVec<RVec<unsigned long>>  &input_tuple, RV
     return new_indices;
 }
 
-RVec<RVec<unsigned long>> GeneralComb(RVec<RVec<float>> &input_particles) {
+RVec<RVec<unsigned long>> GeneralComb(RVec<RVec<float>> input_particles) {
 
     if (input_particles.size() < 2) return Combinations(input_particles[0],1);
 
@@ -298,6 +298,19 @@ RVec<RVec<unsigned long>> GeneralComb(RVec<RVec<float>> &input_particles) {
     return new_indices;
 }
 
+
+RVec<RVec<unsigned long>> GeneralDisjoint(RVec<RVec<float>> input_particles) {
+    
+    int particle_size = 0;
+    int count = 0;
+
+    for (auto it = input_particles.cbegin(); it != input_particles.cend(); ++it, ++count) {
+        if (particle_size == 0) particle_size = it->size();
+        assert(it->size() == particle_size);
+    }
+
+    return ROOT::VecOps::Combinations(input_particles, count);
+}
 
 // turns a table into a useable correction function
 /**

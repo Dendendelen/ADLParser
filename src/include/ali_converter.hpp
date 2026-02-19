@@ -102,6 +102,10 @@ enum AnalysisLevelInstruction {
     FUNC_DPHI,
     FUNC_DETA,
 
+    FUNC_DR_HADAMARD,
+    FUNC_DPHI_HADAMARD,
+    FUNC_DETA_HADAMARD,
+
     FUNC_SIZE,
 
     FUNC_FMT2,
