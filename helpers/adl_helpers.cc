@@ -134,6 +134,18 @@ RVec<int> AnyOf(RVec<RVec<int>> matrix) {
     return truth_list;
 }
 
+int AllOf(RVec<int> vec) {
+    return static_cast<int>(All(vec));
+}
+
+RVec<int> AllOf(RVec<RVec<int>> matrix) {
+    auto all_lamb = [](RVec<int> row) {
+        return AllOf(row);
+    };
+    auto truth_list = Map(matrix, all_lamb);
+    return truth_list;
+}
+
 // a truly horrifying solution to a problem, the base RVec code forces the return type to be an RVec<int>, while we really need RVec<RVec<int>> for our matrix-like situations.
 // here we force this new code into the VecOps namespace to act as a more specific template to force the interpreter to go with this one, giving us the right return type.
 namespace ROOT { namespace VecOps {

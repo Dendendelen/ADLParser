@@ -25,8 +25,6 @@ class ASTVisitor {
         virtual void visit_if(PNode node) = 0;
         virtual void visit_condition(PNode node) = 0;
 
-        virtual void visit_sort(PNode node) = 0;
-
         virtual void visit_histo_use(PNode node) = 0;
         virtual void visit_histogram(PNode node) = 0;
         virtual void visit_histo_list(PNode node) = 0;

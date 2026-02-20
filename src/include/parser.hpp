@@ -12,7 +12,6 @@ class Parser {
         void parse_blocks(PNode parent);
 
         PNode parse_info(PNode parent);
-        PNode parse_count_format(PNode parent);
         PNode parse_region(PNode parent);
         PNode parse_object(PNode parent);
         PNode parse_composite(PNode parent);
@@ -23,7 +22,6 @@ class Parser {
         PNode parse_histo_entry(PNode parent);
 
         void parse_initializations(PNode parent);
-        void parse_count_processes(PNode parent);
         void parse_histo_entries(PNode parent);
 
 
@@ -42,7 +40,6 @@ class Parser {
         void parse_composite_criteria(PNode parent);
         PNode parse_composite_criterion(PNode parent);
 
-        PNode parse_hamhum(PNode parent);
         PNode parse_index(PNode parent);
 
         void parse_particle_sum(PNode parent);
@@ -54,11 +51,8 @@ class Parser {
         PNode parse_if_or_condition(PNode parent);
         PNode parse_condition(PNode parent);
         void parse_bin_or_box_values(PNode parent);
-        void parse_counts(PNode parent);
-        void parse_count(PNode parent);
 
         void parse_histogram(PNode parent);
-
 
         PNode precedence_climber(PNode parent, int min_precedence);
         PNode parse_primary_expression(PNode parent);
@@ -68,14 +62,8 @@ class Parser {
         PNode parse_id(PNode parent);
 
         PNode parse_description(PNode parent);
-        PNode parse_count_process(PNode parent);
-        PNode parse_err_type(PNode parent);
-
 
         void parse_variable_list(PNode parent);
-        PNode parse_lepton(PNode parent);
-
-        PNode parse_syst_vtype(PNode parent);
 
         PNode parse_region_command_select(PNode parent);
         PNode parse_region_command_bins(PNode parent);

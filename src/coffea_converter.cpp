@@ -325,20 +325,11 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
         case ADD_PART_TRACK:
             add_particle(command, "IsoTrack");
             return "";
-        case ADD_PART_LEPTON:
-            add_particle(command, "Lepton"); //TODO: change?
-            return "";
         case ADD_PART_PHOTON:
             add_particle(command, "Photon"); 
             return "";
-        case ADD_PART_BJET:
-            add_particle(command, "BJet"); //TODO: change?
-            return "";
         case ADD_PART_QGJET:
             add_particle(command, "QGJet"); //TODO: change?
-            return "";
-        case ADD_PART_NUMET:
-            add_particle(command, "MET");
             return "";
         case ADD_PART_METLV:
             add_particle(command, "METLV");
@@ -368,21 +359,11 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
         case SUB_PART_TRACK:
             sub_particle(command, "IsoTrack");
             return "";
-        case SUB_PART_LEPTON:
-            sub_particle(command, "Lepton");
-            return "";
         case SUB_PART_PHOTON:
             sub_particle(command, "Photon");
             return "";
-        case SUB_PART_BJET:
-            sub_particle(command, "BJet");
-            return "";
         case SUB_PART_QGJET:
             sub_particle(command, "QGJet");
-            return "";
-        case SUB_PART_NUMET:
-            sub_particle(command, "MET");
-            return "";
         case SUB_PART_METLV:
             sub_particle(command, "METLV");
             return "";
@@ -478,24 +459,12 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
             command_text << handle_union_merge(command, "IsoTrack");
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
-        case ADD_LEPTON_TO_UNION:
-            command_text << handle_union_merge(command, "Lepton");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
-            return command_text.str();
         case ADD_PHOTON_TO_UNION:
             command_text << handle_union_merge(command, "Photon");
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
-        case ADD_BJET_TO_UNION:
-            command_text << handle_union_merge(command, "BJet");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
-            return command_text.str();
         case ADD_QGJET_TO_UNION:
             command_text << handle_union_merge(command, "QGJet");
-            var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
-            return command_text.str();
-        case ADD_NUMET_TO_UNION:
-            command_text << handle_union_merge(command, "MET");
             var_mappings[command.get_argument(0)] = var_mappings[command.get_argument(1)];
             return command_text.str();
         case ADD_METLV_TO_UNION:
@@ -526,9 +495,6 @@ std::string CoffeaConverter::command_convert(AnalysisCommand command) {
         case FUNC_PDG_ID:
             append_4vector_label(command, "pdgId");
             return "";
-        case FUNC_IDX:
-            raise_non_implemented_conversion_exception("FUNC_IDX");
-            return "FUNC_IDX";
         case FUNC_TAUTAG:
             raise_non_implemented_conversion_exception("FUNC_TAUTAG");
             return "FUNC_TAUTAG";

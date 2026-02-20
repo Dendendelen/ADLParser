@@ -24,8 +24,6 @@ enum Token_type {
     OBJ,
     ALGO,
     COMP,
-    TRGE,
-    TRGM,
 
     HISTOLIST,
 
@@ -43,12 +41,6 @@ enum Token_type {
     PARTICLE_KEYWORD,
     EXTERNAL,
     CORRECTIONLIB,
-
-    COUNTS,
-    COUNTSFORMAT,
-    ERR_STAT,
-    ERR_SYST,
-    PROCESS,
     
     SYSTEMATIC,
     SYST_TTREE,
@@ -65,20 +57,23 @@ enum Token_type {
     LB_NO,
     OME,
 
-    USE,
     IF,
     THEN,
     ELSE,
     DO,
     PRINT,
+
     TRUE,
     FALSE,
+    
     NVARS,
     ERRORS,
     TABLETYPE,
+
     TAKE,
     HISTO,
     WEIGHT,
+
     TABLE,
     SKIP_HISTO,
     SKIP_EFFS,
@@ -92,21 +87,13 @@ enum Token_type {
     JET,
     FJET,
     QGJET,
+
     BIN,
     BINS,
     CONSTITUENTS,
 
-    NUMET,
     METLV,
-    LEPTON,
-    HLT,
-    BJET,
-    IDX,
 
-    METSIGNIF,
-    APPLY_HM,
-    APPLY_PTF,
-    APPLY_EF,
     GENPART_IDX,
 
     UNION,
@@ -126,21 +113,11 @@ enum Token_type {
     IS_MEDIUM,
     IS_LOOSE,
 
-    FMEGAJETS,
-    FHEMISPHERE,
-    FMR,
-    FMTR,
-    FMT2,
-    FMTAUTAU,
-
     MINI_ISO,
     ABS_ISO,
 
     DXY,
     DZ,
-
-    HF_CLASSIFICATION,
-    TTBAR_NNLOREC,
 
     PHI,
     ETA,
@@ -151,9 +128,11 @@ enum Token_type {
 
     MSOFTDROP,
 
-    THETA,
     PT,
     PZ,
+
+    THETA,
+
     DR,
 
     DPHI,
@@ -162,15 +141,6 @@ enum Token_type {
     DR_HADAMARD,
     DPHI_HADAMARD,
     DETA_HADAMARD,
-
-    NUMOF,
-    HT,
-
-    APLANARITY,
-    SPHERICITY,
-    LEP_SF,
-    BTAGS_SF,
-    XSLUMICORR_SF,
 
     ANYOF,
     ALLOF,
@@ -187,8 +157,6 @@ enum Token_type {
     GE,
     LT,
     GT,
-    IRG,
-    ERG,
     AND,
     OR,
     NOT,
@@ -217,6 +185,7 @@ enum Token_type {
     QUESTION,
     ASSIGN,
 
+    NUMOF,
     AVE,
     SUM,
     ADD,
@@ -234,7 +203,9 @@ enum Token_type {
     LOG,
     ABS,
     SQRT,
+
     SORT,
+
     ANYOCCURRENCES,
     COMB,
     DISJOINT,
@@ -242,9 +213,8 @@ enum Token_type {
     MAX,
     FIRST,
     SECOND,
+
     PM,
-    BWR,
-    BWL,
 
     COMMA,
     UNDERSCORE,

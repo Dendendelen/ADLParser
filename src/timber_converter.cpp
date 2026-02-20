@@ -316,7 +316,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             
             command_text << "\nprint('\\n---\\nBeginning cutflow report for region ";
             {
-                std::regex e(".*REGx");
+                std::regex e(".*REGw");
                 std::string clean_name = std::regex_replace(command.get_argument(0), e, "");
                 command_text << clean_name;
             }
@@ -448,13 +448,23 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << "ROOT.gInterpreter.Declare('auto " << command.get_argument(0) << " = correction::CorrectionSet::from_file(" << filename_with_quotes << ")->at(" << keyname_with_quotes << ")')\n";
             return command_text.str();
         }
-        //TODO: check that this is consistant with the overall syntax
         case SORT_ASCEND:
-            command_text << "ROOT::VecOps::Sort(" << command.get_argument(1) << ")";
-            var_mappings[command.get_argument(0)] = command_text.str(); return "";
+            command_text << "\na.SubCollection('" << command.get_argument(0) << "', ";
+            command_text << get_mapping_if_exists(command.get_argument(1));
+            command_text << "', 'ROOT::VecOps::Argsort(" << get_mapping_if_exists(command.get_argument(2));
+            command_text << ")', useTake=True)\n";
+
+            return command_text.str();
+
         case SORT_DESCEND:
-            command_text << "ROOT::VecOps::Reverse(ROOT::VecOps::Sort(" << command.get_argument(1) << "))";
-            var_mappings[command.get_argument(0)] = command_text.str(); return "";
+
+            command_text << "\na.SubCollection('" << command.get_argument(0) << "', ";
+            command_text << get_mapping_if_exists(command.get_argument(1));
+            command_text << "', 'ROOT::VecOps::Reverse(ROOT::VecOps::Argsort(" << get_mapping_if_exists(command.get_argument(2));
+            command_text << "))', useTake=True)\n";
+
+            return command_text.str();
+
         case CREATE_MASK:
         {
             command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
@@ -660,20 +670,11 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case ADD_PART_TRACK:
             add_particle(command, "IsoTrack");
             return "";
-        case ADD_PART_LEPTON:
-            add_particle(command, "Lepton"); //TODO: change?
-            return "";
         case ADD_PART_PHOTON:
             add_particle(command, "Photon"); 
             return "";
-        case ADD_PART_BJET:
-            add_particle(command, "BJet"); //TODO: change?
-            return "";
         case ADD_PART_QGJET:
             add_particle(command, "QGJet"); //TODO: change?
-            return "";
-        case ADD_PART_NUMET:
-            add_particle(command, "MET");
             return "";
         case ADD_PART_METLV:
             add_particle(command, met_name);
@@ -702,20 +703,11 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case SUB_PART_TRACK:
             sub_particle(command, "IsoTrack");
             return "";
-        case SUB_PART_LEPTON:
-            sub_particle(command, "Lepton");
-            return "";
         case SUB_PART_PHOTON:
             sub_particle(command, "Photon");
             return "";
-        case SUB_PART_BJET:
-            sub_particle(command, "BJet");
-            return "";
         case SUB_PART_QGJET:
             sub_particle(command, "QGJet");
-            return "";
-        case SUB_PART_NUMET:
-            sub_particle(command, "MET");
             return "";
         case SUB_PART_METLV:
             sub_particle(command, met_name);
@@ -737,7 +729,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case FUNC_ALLOF:
-            command_text << "ROOT::VecOps::All(" << var_mappings[command.get_argument(1)] << ")";
+            command_text << "AllOf(" << var_mappings[command.get_argument(1)] << ")";
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case FUNC_SQRT:
@@ -849,20 +841,11 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case ADD_TRACK_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "IsoTrack");
             return command_text.str();
-        case ADD_LEPTON_TO_UNION:
-            command_text << add_all_relevant_tags_for_union_merge(command, "Lepton");
-            return command_text.str();
         case ADD_PHOTON_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "Photon");
             return command_text.str();
-        case ADD_BJET_TO_UNION:
-            command_text << add_all_relevant_tags_for_union_merge(command, "BJet");
-            return command_text.str();
         case ADD_QGJET_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, "QGJet");
-            return command_text.str();
-        case ADD_NUMET_TO_UNION:
-            command_text << add_all_relevant_tags_for_union_merge(command, "MET");
             return command_text.str();
         case ADD_METLV_TO_UNION:
             command_text << add_all_relevant_tags_for_union_merge(command, met_name);
@@ -897,20 +880,11 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case ADD_TRACK_TO_COMB:
             command_text << add_structure_for_comb_merge(command, "IsoTrack");
             return command_text.str();
-        case ADD_LEPTON_TO_COMB:
-            command_text << add_structure_for_comb_merge(command, "Lepton");
-            return command_text.str();
         case ADD_PHOTON_TO_COMB:
             command_text << add_structure_for_comb_merge(command, "Photon");
             return command_text.str();
-        case ADD_BJET_TO_COMB:
-            command_text << add_structure_for_comb_merge(command, "BJet");
-            return command_text.str();
         case ADD_QGJET_TO_COMB:
             command_text << add_structure_for_comb_merge(command, "QGJet");
-            return command_text.str();
-        case ADD_NUMET_TO_COMB:
-            command_text << add_structure_for_comb_merge(command, "MET");
             return command_text.str();
         case ADD_METLV_TO_COMB:
             command_text << add_structure_for_comb_merge(command, met_name);
@@ -928,8 +902,6 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case NAME_ELEMENT_OF_COMB:
             command_text << add_comb_argument(get_mapping_if_exists(command.get_argument(0)), get_mapping_if_exists(command.get_argument(1)), get_mapping_if_exists(command.get_argument(2)));
             return command_text.str();
-
-//TODO: add DISJOINT
 
         case MAKE_EMPTY_DISJOINT:
             var_mappings[command.get_argument(0)] = command.get_argument(0);
@@ -951,20 +923,11 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case ADD_TRACK_TO_DISJOINT:
             command_text << add_structure_for_comb_merge(command, "IsoTrack");
             return command_text.str();
-        case ADD_LEPTON_TO_DISJOINT:
-            command_text << add_structure_for_comb_merge(command, "Lepton");
-            return command_text.str();
         case ADD_PHOTON_TO_DISJOINT:
             command_text << add_structure_for_comb_merge(command, "Photon");
             return command_text.str();
-        case ADD_BJET_TO_DISJOINT:
-            command_text << add_structure_for_comb_merge(command, "BJet");
-            return command_text.str();
         case ADD_QGJET_TO_DISJOINT:
             command_text << add_structure_for_comb_merge(command, "QGJet");
-            return command_text.str();
-        case ADD_NUMET_TO_DISJOINT:
-            command_text << add_structure_for_comb_merge(command, "MET");
             return command_text.str();
         case ADD_METLV_TO_DISJOINT:
             command_text << add_structure_for_comb_merge(command, met_name);
@@ -995,9 +958,6 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_PDG_ID:
             append_4vector_label(command, "_pdgId");
             return "";
-        case FUNC_IDX:
-            raise_non_implemented_conversion_exception("FUNC_IDX");
-            return "FUNC_IDX";
         case FUNC_TAUTAG:
             raise_non_implemented_conversion_exception("FUNC_TAUTAG");
             return "FUNC_TAUTAG";
@@ -1048,18 +1008,17 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case CREATE_BIN:
         case FUNC_GEN_PART_IDX:
         case FUNC_RAPIDITY:
-        case FUNC_FMT2:
-        case FUNC_TAUTAU:
-        case FUNC_HT:
-        case FUNC_SPHERICITY:
-        case FUNC_APLANARITY:
+        case EXPR_WITHIN_EXCLUSIVE:
+        case EXPR_WITHIN_LEFT_EXCLUSIVE:
+        case EXPR_WITHIN_RIGHT_EXCLUSIVE:
             raise_non_implemented_conversion_exception("Function not implemented");
             return "";
-        default:
-            std::stringstream error;
-            error << AnalysisCommand::instruction_to_text(inst);
-            raise_non_implemented_conversion_exception(error.str());
-            return "";
+
+                // default:
+        //     std::stringstream error;
+        //     error << AnalysisCommand::instruction_to_text(inst);
+        //     raise_non_implemented_conversion_exception(error.str());
+        //     return "";
         }
 }
 

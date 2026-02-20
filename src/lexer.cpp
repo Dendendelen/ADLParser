@@ -94,10 +94,6 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "CMD" || uppercase_token == "CUT" || uppercase_token == "SELECT") return SELECT;
     if (uppercase_token == "REJECT") return REJEC;
 
-
-    if (token == "TRGe") return TRGE;
-    if (token == "TRGm") return TRGM;
-
     // Header info tags
     if (token == "experiment") return PAP_EXPERIMENT;
     if (token == "id") return PAP_ID;
@@ -108,13 +104,6 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == "arXiv") return PAP_ARXIV;
     if (token == "hepdata") return PAP_HEPDATA;
     if (token == "doi"   ) return PAP_DOI;
-
-    if (token == "counts" ) return COUNTS;
-    if (token == "countsformat") return COUNTSFORMAT;
-    if (token == "stat") return ERR_STAT;
-    if (token == "syst") return ERR_SYST;
-    if (token == "process") return PROCESS;
-
     
     if (uppercase_token == "PARTICLE" || uppercase_token == "CANDIDATE") return PARTICLE_KEYWORD; // keyword that allows definitions to be of particles and not functions
     if (uppercase_token == "EXTERN" || uppercase_token  == "EXTERNAL") return EXTERNAL; // keyword that allows arbitrary external functions to be included
@@ -134,7 +123,6 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "LBNO") return LB_NO;
     if (token == "OME") return OME;
 
-    if (uppercase_token == "USE") return USE;
     if (uppercase_token == "PRINT") return PRINT;
     if (uppercase_token == "IF") return IF;
     if (uppercase_token == "THEN") return THEN;
@@ -162,11 +150,8 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "JET") return JET;
     if (uppercase_token == "FJET"|| uppercase_token == "FATJET") return FJET;
     if (uppercase_token == "QGJET") return QGJET;
-    if (token == "NUMET") return NUMET;
     if (token == "MET" || token == "METLV") return METLV;
-    if (token == "LEP") return LEPTON;
-    if (uppercase_token == "HLT") return HLT;
-    if (token == "BJET") return BJET;
+
 
     // Within-object block helper
     if (uppercase_token == "THIS") return THIS;
@@ -176,18 +161,9 @@ Token_type Lexer::identify_token(std::string &token) {
     if (token == "daughters" || token == "constituents") return CONSTITUENTS;
 
 
-
-    if (uppercase_token == "INDEX") return IDX;
-
-if (uppercase_token == "BIN") return BIN;
+    if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "BINS") return BINS;
 
-    if (uppercase_token == "METSIG") return METSIGNIF;
-
-    // 
-    if (token == "applyHM") return APPLY_HM;
-    if (token == "applyPTF" || token == "scalePT" ) return APPLY_PTF;
-    if (token == "applyEF" || token == "scaleE" ) return APPLY_EF;
     if (token == "genPartIdx") return GENPART_IDX;
 
 
@@ -211,20 +187,11 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "ISMEDIUM") return IS_MEDIUM;
     if (uppercase_token == "ISLOOSE" ) return IS_LOOSE;
 
-    if (token == "fmegajets") return FMEGAJETS;
-    if (token == "fhemisphere") return FHEMISPHERE;
-    if (token == "fMR") return FMR;
-    if (token == "fMTR") return FMTR;
-    if (token == "fMT2") return FMT2;
-    if (token == "fMTauTau") return FMTAUTAU;
     if (uppercase_token == "MINIISO") return MINI_ISO;
     if (uppercase_token == "ABSISO") return ABS_ISO;
 
     if (token == "dxy"||uppercase_token == "D0") return DXY;
     if (token == "dz") return DZ;
-
-    if (token == "m_HF_Classification") return HF_CLASSIFICATION; // generalize event variables.
-    if (token == "fTTrr") return TTBAR_NNLOREC;
 
     if (uppercase_token == "PHI") return PHI;//functions
     if (uppercase_token == "ETA") return ETA;
@@ -236,6 +203,7 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "MSOFTDROP") return MSOFTDROP;
 
     if (uppercase_token == "THETA") return THETA;
+
     if (uppercase_token == "PT") return PT;
     if (uppercase_token == "PZ") return PZ;
     if (uppercase_token == "DR" || uppercase_token == "DELTAR") return DR;
@@ -247,14 +215,6 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "DPHIHADAMARD" || uppercase_token == "DELTAPHIHADAMARD") return DPHI_HADAMARD;
 
     if (uppercase_token == "SIZE" || uppercase_token == "COUNT" || uppercase_token == "NUMOF") return NUMOF;//no arg funcs 
-    if (uppercase_token == "FHT") return HT; // attention
-    if (token == "fAplanarity") return APLANARITY;
-    if (token == "fSphericity") return SPHERICITY;
-
-    // Built-in scale factors
-    if (token == "LEPsf") return LEP_SF;
-    if (token == "bTagSF") return BTAGS_SF;
-    if (token == "XSLumiCorrSF") return XSLUMICORR_SF;
 
     // Global analysis tokens
     if (uppercase_token == "ALL") return ALL;
@@ -269,8 +229,6 @@ if (uppercase_token == "BIN") return BIN;
     if (token == ">="|| uppercase_token == "GE") return GE;
     if (token == "<"|| uppercase_token == "LT") return LT;
     if (token == ">"|| uppercase_token == "GT") return GT;
-    if (token == "[]") return IRG;
-    if (token == "][") return ERG;
 
     // Logical operators
     if (uppercase_token == "AND" || token == "&&") return AND;
@@ -339,8 +297,6 @@ if (uppercase_token == "BIN") return BIN;
     if (uppercase_token == "FIRST") return FIRST;
     if (uppercase_token == "SECOND") return SECOND;
     if (token == "+-"|| token == "-+") return PM;
-    if (token == ">>") return BWR;
-    if (token == "<<") return BWL;
 
     if (token == ",") return COMMA;
 
@@ -385,8 +341,6 @@ std::string token_type_to_string(Token_type type) {
         case REJEC: return "REJEC";
         case OBJ: return "OBJ";
         case ALGO: return "ALGO";
-        case TRGE: return "TRGE";
-        case TRGM: return "TRGM";
 
         case HISTOLIST: return "HISTOLIST";
 
@@ -405,12 +359,6 @@ std::string token_type_to_string(Token_type type) {
         case EXTERNAL: return "EXTERNAL";
         case CORRECTIONLIB: return "CORRECTIONLIB";
 
-        case COUNTS: return "COUNTS";
-        case COUNTSFORMAT: return "COUNTSFORMAT";
-        case ERR_STAT: return "ERR_STAT";
-        case ERR_SYST: return "ERR_SYST";
-        case PROCESS: return "PROCESS";
-
         case SYSTEMATIC: return "SYSTEMATIC";
         case SYST_TTREE: return "SYST_TTREE";
         case SYST_WEIGHT_MC: return "SYST_WEIGHT_MC";
@@ -426,7 +374,6 @@ std::string token_type_to_string(Token_type type) {
         case LB_NO: return "LB_NO";
         case OME: return "OME";
 
-        case USE: return "USE";
         case IF: return "IF";
         case THEN: return "THEN";
         case ELSE: return "ELSE";
@@ -457,17 +404,8 @@ std::string token_type_to_string(Token_type type) {
         case BINS: return "BINS";
         case CONSTITUENTS: return "CONSTITUENTS";
 
-        case NUMET: return "NUMET";
         case METLV: return "METLV";
-        case LEPTON: return "LEPTON";
-        case HLT: return "HLT";
-        case BJET: return "BJET";
-        case IDX: return "IDX";
 
-        case METSIGNIF: return "METSIGNIF";
-        case APPLY_HM: return "APPLY_HM";
-        case APPLY_PTF: return "APPLY_PTF";
-        case APPLY_EF: return "APPLY_EF";
         case GENPART_IDX: return "GENPART_IDX";
 
         case UNION: return "UNION";
@@ -487,21 +425,11 @@ std::string token_type_to_string(Token_type type) {
         case IS_MEDIUM: return "IS_MEDIUM";
         case IS_LOOSE: return "IS_LOOSE";
 
-        case FMEGAJETS: return "FMEGAJETS";
-        case FHEMISPHERE: return "FHEMISPHERE";
-        case FMR: return "FMR";
-        case FMTR: return "FMTR";
-        case FMT2: return "FMT2";
-        case FMTAUTAU: return "FMTAUTAU";
-
         case MINI_ISO: return "MINI_ISO";
         case ABS_ISO: return "ABS_ISO";
 
         case DXY: return "DXY";
         case DZ: return "DZ";
-
-        case HF_CLASSIFICATION: return "HF_CLASSIFICATION";
-        case TTBAR_NNLOREC: return "TTBAR_NNLOREC";
 
         case PHI: return "PHI";
         case ETA: return "ETA";
@@ -525,13 +453,6 @@ std::string token_type_to_string(Token_type type) {
         case DETA_HADAMARD: return "DETA_HADAMARD";
 
         case NUMOF: return "NUMOF";
-        case HT: return "HT";
-
-        case APLANARITY: return "APLANARITY";
-        case SPHERICITY: return "SPHERICITY";
-        case LEP_SF: return "LEP_SF";
-        case BTAGS_SF: return "BTAGS_SF";
-        case XSLUMICORR_SF: return "XSLUMICORR_SF";
 
         case ANYOF: return "ANYOF";
         case ALLOF: return "ALLOF";
@@ -550,8 +471,6 @@ std::string token_type_to_string(Token_type type) {
         case GE: return "GE";
         case LT: return "LT";
         case GT: return "GT";
-        case IRG: return "IRG";
-        case ERG: return "ERG";
         case AND: return "AND";
         case OR: return "OR";
         case NOT: return "NOT";
@@ -603,8 +522,6 @@ std::string token_type_to_string(Token_type type) {
         case MIN: return "MIN";
         case MAX: return "MAX";
         case PM: return "PM";
-        case BWR: return "BWR";
-        case BWL: return "BWL";
 
         case COMMA: return "COMMA";
         case UNDERSCORE: return "UNDERSCORE";

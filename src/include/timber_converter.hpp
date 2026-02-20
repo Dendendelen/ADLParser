@@ -16,7 +16,6 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::unordered_map<std::string, std::string> var_mappings;
         std::unordered_map<std::string, std::vector<std::string>> region_groups;
 
-        std::unordered_set<std::string> needs_btag;
         std::unordered_set<std::string> empty_union_names;
         std::unordered_set<std::string> is_lorentz_vector;
         std::unordered_set<std::string> comb_already_made;

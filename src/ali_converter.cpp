@@ -9,6 +9,7 @@
 #include <sstream>
 #include <iostream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 
@@ -203,16 +204,10 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "ADD_PART_TAU"; 
         case ADD_PART_TRACK:
             return "ADD_PART_TRACK"; 
-        case ADD_PART_LEPTON:
-            return "ADD_PART_LEPTON"; 
         case ADD_PART_PHOTON:
             return "ADD_PART_PHOTON"; 
-        case ADD_PART_BJET:
-            return "ADD_PART_BJET"; 
         case ADD_PART_QGJET:
             return "ADD_PART_QGJET"; 
-        case ADD_PART_NUMET:
-            return "ADD_PART_NUMET"; 
         case ADD_PART_METLV:
             return "ADD_PART_METLV"; 
         case ADD_PART_GEN:
@@ -231,16 +226,10 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "SUB_PART_TAU"; 
         case SUB_PART_TRACK:
             return "SUB_PART_TRACK"; 
-        case SUB_PART_LEPTON:
-            return "SUB_PART_LEPTON"; 
         case SUB_PART_PHOTON:
             return "SUB_PART_PHOTON"; 
-        case SUB_PART_BJET:
-            return "SUB_PART_BJET"; 
         case SUB_PART_QGJET:
             return "SUB_PART_QGJET"; 
-        case SUB_PART_NUMET:
-            return "SUB_PART_NUMET"; 
         case SUB_PART_METLV:
             return "SUB_PART_METLV"; 
         case SUB_PART_GEN:
@@ -311,16 +300,10 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "ADD_TAU_TO_UNION";
         case ADD_TRACK_TO_UNION:
             return "ADD_TRACK_TO_UNION"; 
-        case ADD_LEPTON_TO_UNION:
-            return "ADD_LEPTON_TO_UNION"; 
         case ADD_PHOTON_TO_UNION:
             return "ADD_PHOTON_TO_UNION"; 
-        case ADD_BJET_TO_UNION:
-            return "ADD_BJET_TO_UNION"; 
         case ADD_QGJET_TO_UNION:
             return "ADD_QGJET_TO_UNION"; 
-        case ADD_NUMET_TO_UNION:
-            return "ADD_NUMET_TO_UNION"; 
         case ADD_METLV_TO_UNION:
             return "ADD_METLV_TO_UNION"; 
         case ADD_GEN_TO_UNION:
@@ -342,16 +325,10 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "ADD_TAU_TO_COMB";
         case ADD_TRACK_TO_COMB:
             return "ADD_TRACK_TO_COMB"; 
-        case ADD_LEPTON_TO_COMB:
-            return "ADD_LEPTON_TO_COMB"; 
         case ADD_PHOTON_TO_COMB:
             return "ADD_PHOTON_TO_COMB"; 
-        case ADD_BJET_TO_COMB:
-            return "ADD_BJET_TO_COMB"; 
         case ADD_QGJET_TO_COMB:
             return "ADD_QGJET_TO_COMB"; 
-        case ADD_NUMET_TO_COMB:
-            return "ADD_NUMET_TO_COMB"; 
         case ADD_METLV_TO_COMB:
             return "ADD_METLV_TO_COMB"; 
         case ADD_GEN_TO_COMB:
@@ -369,8 +346,6 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "FUNC_PDG_ID";
         case FUNC_JET_ID:
             return "FUNC_JET_ID";
-        case FUNC_IDX:
-            return "FUNC_IDX";
         case FUNC_TAUTAG:
             return "FUNC_TAUTAG";
         case FUNC_CTAG:
@@ -411,13 +386,6 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "FUNC_CHARGE";
         case FUNC_RAPIDITY:
             return "FUNC_RAPIDITY";
-        case FUNC_FMT2:
-            return "FUNC_FMT2";
-        case FUNC_TAUTAU:
-            return "FUNC_TAUTAU";
-        case FUNC_APLANARITY:
-            return "FUNC_APLANARITY";
-
         case EXPR_WITHIN_EXCLUSIVE:
             return "EXPR_WITHIN_EXCLUSIVE";
         case EXPR_WITHIN_LEFT_EXCLUSIVE:
@@ -438,16 +406,10 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "ADD_TAU_TO_DISJOINT";
         case ADD_TRACK_TO_DISJOINT:
             return "ADD_TRACK_TO_DISJOINT";
-        case ADD_LEPTON_TO_DISJOINT:
-            return "ADD_LEPTON_TO_DISJOINT";
         case ADD_PHOTON_TO_DISJOINT:
             return "ADD_PHOTON_TO_DISJOINT";
-        case ADD_BJET_TO_DISJOINT:
-            return "ADD_BJET_TO_DISJOINT";
         case ADD_QGJET_TO_DISJOINT:
             return "ADD_QGJET_TO_DISJOINT";
-        case ADD_NUMET_TO_DISJOINT:
-            return "ADD_NUMET_TO_DISJOINT";
         case ADD_METLV_TO_DISJOINT:
             return "ADD_METLV_TO_DISJOINT";
         case ADD_GEN_TO_DISJOINT:
@@ -550,16 +512,10 @@ std::string ALILConverter::handle_particle(PNode node, std::string last_part) {
                 inst = SUB_PART_TAU; break;
             case TRACK: 
                 inst = SUB_PART_TRACK; break;
-            case LEPTON: 
-                inst = SUB_PART_LEPTON; break;
             case PHOTON:  
                 inst = SUB_PART_PHOTON; break;
-            case BJET: 
-                inst = SUB_PART_BJET; break;
             case QGJET: 
                 inst = SUB_PART_QGJET; break;
-            case NUMET: 
-                inst = SUB_PART_NUMET; break;
             case METLV:
                 inst = SUB_PART_METLV; break;
             case GEN: 
@@ -588,16 +544,10 @@ std::string ALILConverter::handle_particle(PNode node, std::string last_part) {
                 inst = ADD_PART_TAU; break;
             case TRACK: 
                 inst = ADD_PART_TRACK; break;
-            case LEPTON: 
-                inst = ADD_PART_LEPTON; break;
             case PHOTON:  
                 inst = ADD_PART_PHOTON; break;
-            case BJET: 
-                inst = ADD_PART_BJET; break;
             case QGJET: 
                 inst = ADD_PART_QGJET; break;
-            case NUMET: 
-                inst = ADD_PART_NUMET; break;
             case METLV:
                 inst = ADD_PART_METLV; break;
             case GEN: 
@@ -738,8 +688,6 @@ std::string ALILConverter::particle_list_function(PNode node) {
             inst = FUNC_PDG_ID; break;
         case JET_ID:
             inst = FUNC_JET_ID; break;
-        case IDX: 
-            inst = FUNC_IDX; break;
         case IS_TAUTAG: 
             inst = FUNC_TAUTAG; break;
         case IS_CTAG: 
@@ -784,16 +732,6 @@ std::string ALILConverter::particle_list_function(PNode node) {
             inst = FUNC_DETA_HADAMARD; break;
         case NUMOF:
             inst = FUNC_SIZE; break;
-        case FMT2: 
-            inst = FUNC_FMT2; break;
-        case FMTAUTAU:
-            inst = FUNC_TAUTAU; break;
-        case HT:
-            inst = FUNC_HT; break;
-        case SPHERICITY:
-            inst = FUNC_SPHERICITY; break;
-        case APLANARITY:
-            inst = FUNC_APLANARITY; break;
 
         default:
             raise_analysis_conversion_exception("Undefined particle function", function_node->get_token());
@@ -1054,12 +992,12 @@ std::string ALILConverter::function_handler(PNode node) {
 
     switch (type) {
         case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: case CHARGE: case MASS:
-        case FLAVOR: case CONSTITUENTS: case PDG_ID: case IDX: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
+        case FLAVOR: case CONSTITUENTS: case PDG_ID: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
         case DXY: case DZ:
         case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case THETA: 
         case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
         case  MSOFTDROP: case JET_ID:
-        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY: case FIRST: case SECOND:
+        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: case FIRST: case SECOND:
             return particle_list_function(node);
 
         case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX: case ANYOCCURRENCES:
@@ -1172,19 +1110,19 @@ std::string ALILConverter::handle_expression(PNode node) {
     switch(node->get_token()->get_token_type()) {
         case GT: case LT: case LE: case GE:
             return comparison_operator(node);
-        case BWL: case BWR: case RAISED_TO_POWER: case MULTIPLY: case DIVIDE: case PLUS: case MINUS: case IRG: case ERG: case MAXIMIZE: case MINIMIZE:  case EQ: case NE: case AMPERSAND: case PIPE: case AND: case OR: case ARROW_INDEX:
+        case RAISED_TO_POWER: case MULTIPLY: case DIVIDE: case PLUS: case MINUS: case MAXIMIZE: case MINIMIZE:  case EQ: case NE: case AMPERSAND: case PIPE: case AND: case OR: case ARROW_INDEX:
             return binary_operator(node);
         case WITHIN: case OUTSIDE:
             return interval_operator(node);
         case NOT:
             return unary_operator(node);
         case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: case CHARGE: case MASS:
-        case FLAVOR: case CONSTITUENTS: case PDG_ID: case IDX: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
+        case FLAVOR: case CONSTITUENTS: case PDG_ID: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
         case DXY: case DZ:
         case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case THETA: 
         case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
         case  MSOFTDROP: case JET_ID:
-        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: case FMT2: case FMTAUTAU: case HT: case APLANARITY: case SPHERICITY: case FIRST: case SECOND:
+        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: case FIRST: case SECOND:
         case DOT_INDEX:
             return function_handler(node);
         case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX: case ANYOCCURRENCES:
@@ -1232,19 +1170,33 @@ void ALILConverter::visit_if(PNode node) {
 }
 
 void ALILConverter::visit_sort(PNode node) {
-    std::string to_be_sorted = handle_expression(node->get_children()[0]);
+
+    std::string name = node->get_children()[0]->get_token()->get_lexeme();
+
+    PNode sort = node->get_children()[1];
+
+    std::string sort_condition = handle_expression(sort->get_children()[1]);
     AnalysisLevelInstruction which_way;
-    if (node->get_children()[1]->get_token()->get_token_type() == ASCEND) {
+    if (sort->get_children().size() < 3 || sort->get_children()[2]->get_token()->get_token_type() == ASCEND) {
         which_way = SORT_ASCEND;
     } else {
         which_way = SORT_DESCEND;
     }
 
-    AnalysisCommand sort(which_way, node->get_children()[1]->get_token());
-    sort.add_dest_argument(reserve_scoped_value_name());
-    sort.add_source_argument(to_be_sorted);
+    AnalysisCommand sort_cmd(which_way, sort->get_children()[1]->get_token());
+    sort_cmd.add_dest_argument(name);
 
-    command_list.push_back(sort);
+    AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
+    std::string empty_name = reserve_scoped_value_name();
+    make_empty.add_dest_argument(empty_name);
+    command_list.push_back(make_empty);
+
+    std::string source_name = handle_particle(sort->get_children()[0], empty_name);
+
+    sort_cmd.add_source_argument(source_name);
+    sort_cmd.add_source_argument(sort_condition);
+
+    command_list.push_back(sort_cmd);
 }
 
 void ALILConverter::visit_histo_use(PNode node) {
@@ -1429,16 +1381,10 @@ std::string ALILConverter::comb_list(PNode node, std::string prev, bool is_comb)
             inst = is_comb ? ADD_TAU_TO_COMB : ADD_TAU_TO_DISJOINT; break;
         case TRACK:
             inst = is_comb ? ADD_TRACK_TO_COMB : ADD_TRACK_TO_DISJOINT; break;
-        case LEPTON:
-            inst = is_comb ? ADD_LEPTON_TO_COMB : ADD_LEPTON_TO_DISJOINT; break;
         case PHOTON:
             inst = is_comb ? ADD_PHOTON_TO_COMB : ADD_PHOTON_TO_DISJOINT; break;
-        case BJET:
-            inst = is_comb ? ADD_BJET_TO_COMB : ADD_BJET_TO_DISJOINT; break;
         case QGJET:
             inst = is_comb ? ADD_QGJET_TO_COMB : ADD_QGJET_TO_DISJOINT; break;
-        case NUMET:
-            inst = is_comb ? ADD_NUMET_TO_COMB : ADD_NUMET_TO_DISJOINT; break;
         case METLV:
             inst = is_comb ? ADD_METLV_TO_COMB : ADD_METLV_TO_DISJOINT; break;
         case GEN:
@@ -1479,16 +1425,10 @@ std::string ALILConverter::union_list(PNode node, std::string prev) {
             inst = ADD_TAU_TO_UNION; break;
         case TRACK:
             inst = ADD_TRACK_TO_UNION; break;
-        case LEPTON:
-            inst = ADD_LEPTON_TO_UNION; break;
         case PHOTON:
             inst = ADD_PHOTON_TO_UNION; break;
-        case BJET:
-            inst = ADD_BJET_TO_UNION; break;
         case QGJET:
             inst = ADD_QGJET_TO_UNION; break;
-        case NUMET:
-            inst = ADD_NUMET_TO_UNION; break;
         case METLV:
             inst = ADD_METLV_TO_UNION; break;
         case GEN:
@@ -1702,8 +1642,11 @@ void ALILConverter::visit_object(PNode node) {
     PNode name = node->get_children()[0];
     PNode source = node->get_children()[1];
 
-    if (source->get_token()->get_token_type() == UNION) {
 
+    if (source->get_ast_type() == SORT_CMD) {
+        visit_sort(node);
+        return;
+    } else if (source->get_token()->get_token_type() == UNION) {
         visit_union_type(node);
         return;
     } else if (source->get_token()->get_token_type() == COMB || source->get_token()->get_token_type() == DISJOINT) {

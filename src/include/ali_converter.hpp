@@ -108,12 +108,6 @@ enum AnalysisLevelInstruction {
 
     FUNC_SIZE,
 
-    FUNC_FMT2,
-    FUNC_TAUTAU,
-    FUNC_HT,
-    FUNC_SPHERICITY,
-    FUNC_APLANARITY,
-
     FUNC_ANYOF, 
     FUNC_ALLOF, 
 
@@ -143,10 +137,12 @@ enum AnalysisLevelInstruction {
 
     FUNC_FLAVOR,
     FUNC_CONSTITUENTS,
+
     FUNC_PDG_ID,
     FUNC_JET_ID,
-    FUNC_IDX,
+
     FUNC_TAUTAG,
+
     FUNC_CTAG,
     FUNC_DXY,
     FUNC_DZ,
@@ -165,11 +161,8 @@ enum AnalysisLevelInstruction {
     ADD_MUON_TO_UNION,
     ADD_TAU_TO_UNION,
     ADD_TRACK_TO_UNION,
-    ADD_LEPTON_TO_UNION,
     ADD_PHOTON_TO_UNION,
-    ADD_BJET_TO_UNION,
     ADD_QGJET_TO_UNION,
-    ADD_NUMET_TO_UNION,
     ADD_METLV_TO_UNION,
     ADD_GEN_TO_UNION,
     ADD_JET_TO_UNION,
@@ -181,11 +174,8 @@ enum AnalysisLevelInstruction {
     ADD_MUON_TO_COMB,
     ADD_TAU_TO_COMB,
     ADD_TRACK_TO_COMB,
-    ADD_LEPTON_TO_COMB,
     ADD_PHOTON_TO_COMB,
-    ADD_BJET_TO_COMB,
     ADD_QGJET_TO_COMB,
-    ADD_NUMET_TO_COMB,
     ADD_METLV_TO_COMB,
     ADD_GEN_TO_COMB,
     ADD_JET_TO_COMB,
@@ -199,11 +189,8 @@ enum AnalysisLevelInstruction {
     ADD_MUON_TO_DISJOINT,
     ADD_TAU_TO_DISJOINT,
     ADD_TRACK_TO_DISJOINT,
-    ADD_LEPTON_TO_DISJOINT,
     ADD_PHOTON_TO_DISJOINT,
-    ADD_BJET_TO_DISJOINT,
     ADD_QGJET_TO_DISJOINT,
-    ADD_NUMET_TO_DISJOINT,
     ADD_METLV_TO_DISJOINT,
     ADD_GEN_TO_DISJOINT,
     ADD_JET_TO_DISJOINT,
@@ -215,11 +202,8 @@ enum AnalysisLevelInstruction {
     ADD_PART_MUON,
     ADD_PART_TAU,
     ADD_PART_TRACK,
-    ADD_PART_LEPTON,
     ADD_PART_PHOTON,
-    ADD_PART_BJET,
     ADD_PART_QGJET,
-    ADD_PART_NUMET, 
     ADD_PART_METLV,
     ADD_PART_GEN,
     ADD_PART_JET,
@@ -230,11 +214,8 @@ enum AnalysisLevelInstruction {
     SUB_PART_MUON,
     SUB_PART_TAU,
     SUB_PART_TRACK,
-    SUB_PART_LEPTON,
     SUB_PART_PHOTON,
-    SUB_PART_BJET,
     SUB_PART_QGJET,
-    SUB_PART_NUMET, 
     SUB_PART_METLV,
     SUB_PART_GEN,
     SUB_PART_JET,
@@ -305,6 +286,7 @@ class ALILConverter : ASTVisitor {
         std::string reserve_scoped_region_name();
 
         void visit_object_first_second(PNode node);
+        void visit_sort(PNode node);
         void visit_union_type(PNode node); 
         void visit_comb_type(PNode node); 
 
@@ -329,7 +311,6 @@ class ALILConverter : ASTVisitor {
     protected:
         void visit_object(PNode node) override;
         void visit_if(PNode node) override;
-        void visit_sort(PNode node) override;
         void visit_object_select(PNode node) override;
         void visit_object_reject(PNode node) override;
         void visit_region_select(PNode node) override;

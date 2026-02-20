@@ -15,8 +15,6 @@ void ASTVisitor::visit(PNode node) {
             return visit_condition(node);
         case IF_STATEMENT:
             return visit_if(node);
-        case SORT_CMD:
-            return visit_sort(node);
         case OBJECT_SELECT:
             return visit_object_select(node);
         case OBJECT_REJECT:
