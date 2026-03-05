@@ -314,16 +314,25 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << "\n_cutflow_node_" << command.get_argument(0) << " = a.Apply(" << get_mapping_if_exists(command.get_argument(0)) << "[0])";
             command_text << "\n_cutflow_node_" << command.get_argument(0) << " = a.AddCorrections(" << get_mapping_if_exists(command.get_argument(0)) << "[1])";
             
-            command_text << "\nprint('\\n---\\nBeginning cutflow report for region ";
+            command_text << "\nprint('\\n---\\n \\\\begin{tabular}{c c c c} \\\\multicolumn{4}{c}{Cutflow report for region ";
             {
-                std::regex e(".*REGw");
+                std::regex e(".*REG");
                 std::string clean_name = std::regex_replace(command.get_argument(0), e, "");
                 command_text << clean_name;
             }
-            command_text << "')";
+            command_text << "}\\\\\\\\ \\\\hline Cut & Events left & Eff from previous & Eff from initial \\\\\\\\ \\\\hline')\n";
 
-            command_text << "\nfor _cutflow_k, _cutflow_v in CutflowDict(_cutflow_node_" << command.get_argument(0) << ").items():\n    print('After cut ' + _cutflow_k + ', ' + str(_cutflow_v) + ' remain')";
-            command_text << "\nprint('\\n---\\n')";
+
+            command_text << "\nfor _cutflow_k, _cutflow_v in CutflowDict(_cutflow_node_" << command.get_argument(0) << ").items():\n";
+            command_text << "    _this_name = _cutflow_k\n";
+            command_text << "    if _this_name != 'Initial':\n";
+            command_text << "        _this_name = " << get_mapping_if_exists(command.get_argument(0)) << "[0].items[_cutflow_k]\n";
+            command_text << "        _this_name = re.sub('[A-Za-z0-9]*UNION','',_this_name)\n";
+            command_text << "    else:\n";
+            command_text << "        _init = _cutflow_v\n        _prev = _init\n";
+            command_text << "    print('\\\\verb`' + _this_name + '` & ' + str(_cutflow_v) + ' & ' + f'{(_cutflow_v/_prev):.2%}'[:-1] + '\\\\% & ' + f'{(_cutflow_v/_init):.4%}'[:-1] + '\\\\%\\\\\\\\')\n";
+            command_text << "    _prev = _cutflow_v\n";
+            command_text << "\nprint('\\\\end{tabular} \\n---\\n')";
             command_text << "\na.SetActiveNode(_old_node)\n";
             return command_text.str();
         case DO_EVENTLIST_ON_REGION:            
@@ -333,7 +342,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             
             command_text << "\nprint('\\n---\\nBeginning event list for region ";
             {
-                std::regex e(".*REGx");
+                std::regex e(".*REG");
                 std::string clean_name = std::regex_replace(command.get_argument(0), e, "");
                 command_text << clean_name;
             }
@@ -1035,7 +1044,7 @@ void TimberConverter::print_timber() {
     std::stringstream preliminary;
     // import our needed TIMBER and other python functions
     preliminary << 
-        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os\n";
+        "from TIMBER.Analyzer import *\nfrom TIMBER.Tools.Common import *\nimport ROOT\nimport sys, os, re\n";
         
     // add the path to the python helper file as an import, regardless of its location
     preliminary << 
