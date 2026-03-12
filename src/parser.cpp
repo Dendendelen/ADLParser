@@ -1258,7 +1258,7 @@ void Parser::parse_named_particle_list(PNode parent) {
     
     PARTICLE -> second(PARTICLE)
 
-    PARTICLE -> ID arrow_index ID
+    PARTICLE -> ID arrow_index ID INDEX
 
     PARTICLE -> gen constituents
 
@@ -1363,14 +1363,16 @@ PNode Parser::parse_particle(PNode parent) {
                 return minus;
             }
 
-        // PARTICLE -> ID arrow_index ID
+        // PARTICLE -> ID arrow_index ID INDEX
         // PARTICLE -> ID INDEX
         default:
             {
+                PNode particle;
                 if (lexer->peek(1)->get_token_type() == ARROW_INDEX) {
-                    return precedence_climber(parent, 0);
+                    particle = precedence_climber(parent, 0);
+                } else {
+                    particle = parse_id(parent);
                 }
-                PNode particle = parse_id(parent);
                 particle->add_child(parse_index(particle));
                 return particle;
             }
@@ -1384,6 +1386,8 @@ PNode Parser::parse_particle(PNode parent) {
     INDEX -> [integer]
 
     INDEX -> [integer:integer]
+
+    INDEX -> [:integer]
     
     INDEX -> epsilon
 
@@ -1401,15 +1405,15 @@ PNode Parser::parse_index(PNode parent) {
             lexer->next();
             PNode index(std::make_shared<Node>(INDEX, parent));
             auto next = lexer->next();
-            if (next->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
+            if (next->get_token_type() != INTEGER && next->get_token_type() != COLON) raise_parsing_exception("Only integers are allowed to be used as indices", next);
             index->add_child(make_terminal(index, next));
             
             // INDEX -> [integer:integer]
-            if (lexer->peek(0)->get_token_type() == COLON) {
-                lexer->expect_and_consume(COLON);
+            if (next->get_token_type() == COLON || lexer->peek(0)->get_token_type() == COLON) {
+                if (lexer->peek(0)->get_token_type() == COLON) lexer->expect_and_consume(COLON);
 
                 auto next2 = lexer->next();
-                if (next->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
+                if (next2->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
 
                 index->add_child(make_terminal(index, next2));
             }
@@ -1756,7 +1760,7 @@ PNode Parser::parse_primary_expression(PNode parent) {
         case STRING: case VARNAME:
         {
             // here, we are met with a token that isn't any other known form. If it is immediately followed by parentheses, then this is probably some external function. 
-            if (lexer->peek(1)->get_token_type() == OPEN_PAREN) {
+            if (lexer->peek(0)->get_token_type() == OPEN_PAREN) {
                 PNode func(std::make_shared<Node>(USER_FUNCTION, parent));
                 node->set_parent(func);
 

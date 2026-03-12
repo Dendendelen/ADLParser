@@ -150,7 +150,7 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "JET") return JET;
     if (uppercase_token == "FJET"|| uppercase_token == "FATJET") return FJET;
     if (uppercase_token == "QGJET") return QGJET;
-    if (token == "MET" || token == "METLV") return METLV;
+    if (uppercase_token == "MET" || uppercase_token == "METLV") return METLV;
 
 
     // Within-object block helper
@@ -171,14 +171,14 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "ALIAS") return ALIAS;
 
     // Tagging functions
-    if (uppercase_token == "BTAG") return IS_BTAG;
-    if (uppercase_token == "CTAG") return IS_CTAG;
-    if (uppercase_token == "TAUTAG") return IS_TAUTAG;
-    if (uppercase_token == "FLAVOR" | uppercase_token == "BTAGGER") return FLAVOR;
+    // if (uppercase_token == "BTAG") return IS_BTAG;
+    // if (uppercase_token == "CTAG") return IS_CTAG;
+    // if (uppercase_token == "TAUTAG") return IS_TAUTAG;
+    // if (uppercase_token == "FLAVOR" | uppercase_token == "BTAGGER") return FLAVOR;
 
     // Id functions
     if (uppercase_token == "PDGID" || uppercase_token == "PDG_ID") return PDG_ID;
-    if (uppercase_token == "JETID") return JET_ID;
+    // if (uppercase_token == "JETID") return JET_ID;
 
 
     if (uppercase_token == "STATUSFLAGS") return STATUS_FLAGS;
@@ -411,12 +411,12 @@ std::string token_type_to_string(Token_type type) {
         case UNION: return "UNION";
         case ALIAS: return "ALIAS";
 
-        case IS_BTAG: return "IS_BTAG";
-        case IS_CTAG: return "IS_CTAG";
-        case IS_TAUTAG: return "IS_TAUTAG";
+        // case IS_BTAG: return "IS_BTAG";
+        // case IS_CTAG: return "IS_CTAG";
+        // case IS_TAUTAG: return "IS_TAUTAG";
 
         case PDG_ID: return "PDG_ID";
-        case JET_ID: return "JET_ID";
+        // case JET_ID: return "JET_ID";
         case STATUS_FLAGS: return "STATUS_FLAGS";
 
         case FLAVOR: return "FLAVOR";

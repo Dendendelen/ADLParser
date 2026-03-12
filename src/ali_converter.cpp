@@ -573,10 +573,22 @@ std::string ALILConverter::handle_particle(PNode node, std::string last_part) {
 
     next_part.add_source_argument(last_part);
 
-    if (node->get_children().size() > 0 && node->get_children()[0]->get_ast_type() == INDEX) {
-        next_part.add_source_argument(node->get_children()[0]->get_children()[0]->get_token()->get_lexeme());
+    // check if we have either 1) an index attached straight to the node or 2) an index as the last child of the node (in the case of the arrow index)
+    bool has_initial_index = node->get_children().size() > 0 && node->get_children()[0]->get_ast_type() == INDEX;
+    bool has_later_index = node->get_children().size() > 2 && node->get_children()[2] ->get_ast_type() == INDEX;
+
+    if (has_initial_index || has_later_index) {
+
+        auto relevant_node = has_initial_index ? node->get_children()[0] : node->get_children()[2];
+
+        // add the indexing part to the argument
+        std::string first_index = relevant_node->get_children()[0]->get_token()->get_lexeme();
+        if (first_index == ":") first_index = "0";
+        next_part.add_source_argument(first_index);
+
+        // if we have two parts to the index, add both to the function
         if (node->get_children()[0]->get_children().size() > 1) {
-            next_part.add_source_argument(node->get_children()[0]->get_children()[1]->get_token()->get_lexeme());
+            next_part.add_source_argument(relevant_node->get_children()[1]->get_token()->get_lexeme());
         }
     }
 
@@ -749,7 +761,6 @@ std::string ALILConverter::particle_list_function(PNode node) {
     if (node->get_token()->get_token_type() == DOT_INDEX) {
         // in this case we definitely have only one particle here by the nature of a dot attribute.
         auto child_node = node->get_children()[0];
-        bool needs_numeric_index = node->get_children().size() > 0 && node->get_children()[0]->get_ast_type() == INDEX;
 
         //TODO: improve this
         // make an empty particle structure
@@ -766,8 +777,6 @@ std::string ALILConverter::particle_list_function(PNode node) {
             
         PNode particle_list_node = node->get_children()[0];
         for (auto it = particle_list_node->get_children().begin(); it != particle_list_node->get_children().end(); ++it) {
-
-            bool needs_numeric_index = ((*it)->get_children().size() > 0) && ((*it)->get_children()[0]->get_ast_type() == INDEX);
 
             // make an empty particle structure
             AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
