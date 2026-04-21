@@ -56,6 +56,8 @@ RVec<float> union_merge(RVec<float> val1, RVec<float> val2) {
 
 RVec<float> index_get(RVec<float> value, int start, int end) {
     RVec<int> indices;
+
+    if (end == 0) end = value.size();
     for (int i = start; i != end; i++) {
         indices.push_back(i);
     }

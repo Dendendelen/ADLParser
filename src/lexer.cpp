@@ -264,7 +264,7 @@ Token_type Lexer::identify_token(std::string &token) {
 
 
     // Purely mathematical functions
-    if (uppercase_token == "DESCEND") return DESCEND;
+    if (uppercase_token == "DESCEND" || uppercase_token == "DESCENDING" || uppercase_token == "DECREASING") return DESCEND;
     if (uppercase_token == "TAN") return TAN;
     if (uppercase_token == "SIN") return SIN;
     if (uppercase_token == "COS") return COS;
@@ -285,13 +285,14 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "ANY" || uppercase_token == "ANYOF") return ANYOF;
     if (uppercase_token == "ALLOF" || uppercase_token ==  "ALL") return ALLOF;
 
-    if (uppercase_token == "ASCEND") return ASCEND;
-
+    if (uppercase_token == "ASCEND" || uppercase_token == "ASCENDING" || uppercase_token == "INCREASING") return ASCEND;
+ 
     if (uppercase_token == "ANYOCCURRENCES") return ANYOCCURRENCES;
     
     if (uppercase_token == "SORT") return SORT;
-    if (uppercase_token == "COMB") return COMB;
+    if (uppercase_token == "COMB" || uppercase_token=="CARTESIAN") return COMB;
     if (uppercase_token == "DISJOINT") return DISJOINT;
+    if (uppercase_token == "DIRECT") return DIRECT;
     if (uppercase_token == "MIN") return MIN;
     if (uppercase_token == "MAX") return MAX;
     if (uppercase_token == "FIRST") return FIRST;
@@ -519,6 +520,7 @@ std::string token_type_to_string(Token_type type) {
         case SORT: return "SORT";
         case COMB: return "COMB";
         case DISJOINT: return "DISJOINT";
+        case DIRECT: return "DIRECT";
         case MIN: return "MIN";
         case MAX: return "MAX";
         case PM: return "PM";

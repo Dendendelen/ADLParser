@@ -139,22 +139,29 @@ std::string TimberConverter::existing_definitions_string() {
     return defs.str();
 }
 
-/**
-    Adds an index tag to a particle, as NanoAOD handles 4-vector indices in this way
-*/
 std::string TimberConverter::index_particle(AnalysisCommand command, bool is_named, std::string part_text) {
     std::stringstream idx_text;
     
-    std::regex e ("\x1d"); 
-    part_text = std::regex_replace(part_text, e, "");
+    // std::regex e ("\x1d"); 
+    // part_text = std::regex_replace(part_text, e, "");
 
     if (command.get_num_arguments() - is_named >= 4) {
-        idx_text << "index_get(" << part_text << '\x1d' << " ," << command.get_argument(2+is_named) << "," << command.get_argument(3+is_named) << ")";\
+        std::regex e ("\x1d"); 
+        part_text = std::regex_replace(part_text, e, "");
+        std::string former_index = command.get_argument(2+is_named);
+        std::string latter_index = command.get_argument(3+is_named);
+
+        if (former_index == ":") former_index = "0";
+        if (latter_index == "]") latter_index = "0";
+        idx_text << "index_get(" << part_text << '\x1d' << "," << former_index << "," << latter_index << ")";\
     } else if (command.get_num_arguments() - is_named >= 3) {
         // idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << ")";
+        std::regex e ("\x1d"); 
+        part_text = std::regex_replace(part_text, e, "");
         idx_text << part_text << '\x1d' << "[" << command.get_argument(2+is_named) << "]";   
     } else {
-        idx_text << part_text << '\x1d';
+        idx_text << part_text;
+        // idx_text << part_text << '\x1d';
     }
     return idx_text.str();
 }
@@ -283,7 +290,7 @@ void TimberConverter::append_4vector_label(AnalysisCommand command, std::string 
 
 std::string TimberConverter::binary_command(AnalysisCommand command, std::string op) {
     std::stringstream text;
-    text << var_mappings[command.get_argument(1)] << op << var_mappings[command.get_argument(2)];
+    text << get_mapping_if_exists(command.get_argument(1)) << op << get_mapping_if_exists(command.get_argument(2));
     return text.str();
 }
 
@@ -330,7 +337,7 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << "        _this_name = re.sub('[A-Za-z0-9]*UNION','',_this_name)\n";
             command_text << "    else:\n";
             command_text << "        _init = _cutflow_v\n        _prev = _init\n";
-            command_text << "    print('\\\\verb`' + _this_name + '` & ' + str(_cutflow_v) + ' & ' + f'{(_cutflow_v/_prev):.2%}'[:-1] + '\\\\% & ' + f'{(_cutflow_v/_init):.4%}'[:-1] + '\\\\%\\\\\\\\')\n";
+            command_text << "    print('\\\\verb`' + _this_name + '` & ' + str(_cutflow_v) + ' & ' + f'{(_cutflow_v/(_prev+1e-9)):.2%}'[:-1] + '\\\\% & ' + f'{(_cutflow_v/_init):.4%}'[:-1] + '\\\\%\\\\\\\\')\n";
             command_text << "    _prev = _cutflow_v\n";
             command_text << "\nprint('\\\\end{tabular} \\n---\\n')";
             command_text << "\na.SetActiveNode(_old_node)\n";
@@ -458,8 +465,8 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return command_text.str();
         }
         case SORT_ASCEND:
-            command_text << "\na.SubCollection('" << command.get_argument(0) << "', ";
-            command_text << get_mapping_if_exists(command.get_argument(1));
+            command_text << "\na.SubCollection('" << command.get_argument(0) << "', '";
+            command_text << generate_4vector_label(get_mapping_if_exists(command.get_argument(1)), "");
             command_text << "', 'ROOT::VecOps::Argsort(" << get_mapping_if_exists(command.get_argument(2));
             command_text << ")', useTake=True)\n";
 
@@ -467,8 +474,8 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
 
         case SORT_DESCEND:
 
-            command_text << "\na.SubCollection('" << command.get_argument(0) << "', ";
-            command_text << get_mapping_if_exists(command.get_argument(1));
+            command_text << "\na.SubCollection('" << command.get_argument(0) << "', '";
+            command_text << generate_4vector_label(get_mapping_if_exists(command.get_argument(1)), "");
             command_text << "', 'ROOT::VecOps::Reverse(ROOT::VecOps::Argsort(" << get_mapping_if_exists(command.get_argument(2));
             command_text << "))', useTake=True)\n";
 
@@ -1065,10 +1072,15 @@ void TimberConverter::print_timber() {
     std::cout << preliminary.str() << std::endl;
 
     std::stringstream definitions;
+    definitions << "\na.Define('METV_pt','RVec<float> {" << met_name << "_pt}')";
+
+    met_name = "METV";
+
     definitions <<
         "\na.Define('" << met_name << "_eta','" << met_name << "_pt - " << met_name << "_pt')\na.Define('" << met_name << "_mass', '" << met_name << "_eta')";
 
     std::cout << definitions.str() << std::endl;
+
 
     while (alil->clear_to_next()) {
         std::string out = command_convert(alil->next_command());

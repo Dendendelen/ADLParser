@@ -289,6 +289,7 @@ class ALILConverter : ASTVisitor {
         void visit_sort(PNode node);
         void visit_union_type(PNode node); 
         void visit_comb_type(PNode node); 
+        void visit_direct_combiner(PNode node);
 
         std::string last_condition_name;
         std::string last_value_name;

@@ -605,6 +605,7 @@ PNode Parser::parse_def_rvalue(PNode parent) {
 
     COMPOSITE_RVALUE -> comb ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
     COMPOSITE_RVALUE -> dijoint ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
+    COMPOSITE_RVALUE -> direct ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA//TODO: implement direct union like this
 
 ---
 */
@@ -615,10 +616,11 @@ void Parser::parse_composite_rvalue(PNode parent) {
 
     switch(tok->get_token_type()) {
 
-        // OBJ_RVALUE -> comb ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
+        // COMPOSITE_RVALUE -> comb ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
         // COMPOSITE_RVALUE -> disjoint ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
+        // COMPOSITE_RVALUE -> direct ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
 
-        case COMB: case DISJOINT:
+        case COMB: case DISJOINT: case DIRECT:
         {
             PNode comb_type = make_terminal(parent, lexer->next());
 
@@ -683,7 +685,6 @@ void Parser::parse_obj_rvalue(PNode parent) {
         // OBJ_RVALUE -> sort (PARTICLE, EXPRESSION, ascend)
         // OBJ_RVALUE -> sort (PARTICLE, EXPRESSION, descend)
         // OBJ_RVALUE -> sort (PARTICLE, EXPRESSION)
-        // REGION_COMMAND -> sort EXPRESSION descend
         case SORT:
         {
             lexer->expect_and_consume(SORT);
@@ -1388,6 +1389,8 @@ PNode Parser::parse_particle(PNode parent) {
     INDEX -> [integer:integer]
 
     INDEX -> [:integer]
+
+    INDEX -> [integer:]
     
     INDEX -> epsilon
 
@@ -1413,11 +1416,11 @@ PNode Parser::parse_index(PNode parent) {
                 if (lexer->peek(0)->get_token_type() == COLON) lexer->expect_and_consume(COLON);
 
                 auto next2 = lexer->next();
-                if (next2->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to be used as indices", next);
+                if (next2->get_token_type() != INTEGER && next2->get_token_type() != CLOSE_SQUARE_BRACE) raise_parsing_exception("Only integers are allowed to be used as indices", next2);
 
                 index->add_child(make_terminal(index, next2));
             }
-            if (tok->get_token_type() == OPEN_SQUARE_BRACE) {
+            if (lexer->peek(0)->get_token_type() == CLOSE_SQUARE_BRACE) {
                 lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
             }
             return index;

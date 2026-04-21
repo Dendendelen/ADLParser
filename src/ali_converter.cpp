@@ -1413,7 +1413,14 @@ std::string ALILConverter::comb_list(PNode node, std::string prev, bool is_comb)
     combine.add_source_argument(prev);
 
     if (inst == ADD_NAMED_TO_COMB || inst == ADD_NAMED_TO_DISJOINT) {
-        combine.add_source_argument(node->get_token()->get_lexeme());
+        // add the name of this particle
+        std::string lexeme = node->get_token()->get_lexeme();
+
+        if (node->get_token()->get_token_type() == ARROW_INDEX) {
+            lexeme = binary_operator(node);
+        }
+
+        combine.add_source_argument(lexeme);
     }
 
     command_list.push_back(combine);
@@ -1498,9 +1505,41 @@ void ALILConverter::visit_union_type(PNode node) {
 
 }
 
-void ALILConverter::visit_comb_type(PNode node) {
-
+void ALILConverter::visit_direct_combiner(PNode node) {
     current_defined_variables_within_comb.clear();
+
+    PNode names_node = node->get_children()[1]->get_children()[0];
+
+    for (auto it = names_node->get_children().begin(); it != names_node->get_children().end(); ++it) {
+        
+        AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
+        std::string empty_name = reserve_scoped_value_name();
+        make_empty.add_dest_argument(empty_name);
+        command_list.push_back(make_empty);
+
+        // make a new particle containing only this
+        std::string source_name = handle_particle(*it, empty_name);
+    
+        // advance another step to get to the name
+        ++it;
+
+        // make an alias to the name of the relevant thing
+        AnalysisCommand name_comb_arg(ADD_ALIAS);
+        std::string dest_comb = (*it)->get_token()->get_lexeme();
+
+        name_comb_arg.add_dest_argument(dest_comb);
+        name_comb_arg.add_source_argument(source_name);
+
+        current_defined_variables_within_comb.push_back(dest_comb);
+        command_list.push_back(name_comb_arg);
+    }
+}
+
+void ALILConverter::visit_comb_type(PNode node) {
+ 
+    current_defined_variables_within_comb.clear();
+
+    // Token_type comb_type = node->get_children()[1]->get_token()->get_token_type();
 
     bool is_comb = node->get_children()[1]->get_token()->get_token_type() == COMB;
 
@@ -1532,10 +1571,8 @@ void ALILConverter::visit_comb_type(PNode node) {
     command_list.push_back(finalize_comb);
 
     // give names to all the arguments of the comb
-    PNode names_node = node->get_children()[1]->get_children()[0];
-
     int i = 0;
-    for (auto it = names_node->get_children().begin(); it != names_node->get_children().end(); ++it) {
+    for (auto it = comb_node->get_children().begin(); it != comb_node->get_children().end(); ++it) {
         // ignore even children, as those are particles
         ++it;
         AnalysisCommand name_comb_arg(is_comb ? NAME_ELEMENT_OF_COMB : NAME_ELEMENT_OF_DISJOINT);
@@ -1586,11 +1623,18 @@ void ALILConverter::visit_composite(PNode node) {
 
     current_defined_variables_within_comb.clear();
 
-    if (!(source->get_token()->get_token_type() == COMB) && !(source->get_token()->get_token_type() == DISJOINT)) {
+    Token_type comb_type = source->get_token()->get_token_type();
+
+    if ((comb_type != COMB) && (comb_type != DISJOINT) && (comb_type != DIRECT)) {
         raise_analysis_conversion_exception("Invalid operation to create a composite", source->get_token());
     }
 
-    visit_comb_type(node);
+    if (comb_type == DIRECT) {
+        visit_direct_combiner(node);
+    } else {
+        visit_comb_type(node);
+    }
+
     std::string name_lexeme = name->get_token()->get_lexeme();
     std::string source_lexeme = current_defined_variables_within_comb[0];
 
@@ -1705,7 +1749,7 @@ void ALILConverter::visit_object(PNode node) {
 
     apply_mask.add_dest_argument(name_lexeme);
     apply_mask.add_source_argument(current_limit);
-    apply_mask.add_source_argument(source_lexeme);
+    apply_mask.add_source_argument(source_name);
 
     command_list.push_back(apply_mask);
     current_scope_name = prev_name;

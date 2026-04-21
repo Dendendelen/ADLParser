@@ -209,6 +209,7 @@ enum Token_type {
     ANYOCCURRENCES,
     COMB,
     DISJOINT,
+    DIRECT,
     MIN,
     MAX,
     FIRST,
