@@ -181,9 +181,12 @@ std::string TimberConverter::lorentzify(std::string name) {
     return command_text.str();
 }
 
-void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
+std::string TimberConverter::add_particle(AnalysisCommand command, std::string name, bool negative) {
     bool is_named = false;
-    if (command.get_instruction() == ADD_PART_NAMED) is_named = true;
+    if (command.get_instruction() == ADD_PART_NAMED || command.get_instruction() == SUB_PART_NAMED) is_named = true;
+
+    std::string symbol = negative ? " - " : " + ";
+
     std::stringstream command_text;
 
     std::string indexed_if_needed = index_particle(command, is_named, name);
@@ -202,7 +205,7 @@ void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
 
         std::regex e ("\x1d"); 
         command_text << std::regex_replace (source,e,"");
-        command_text << " + ";
+        command_text << symbol;
         command_text << lorentzify(indexed_if_needed);
         command_text << ")";
         command_text << '\x1d';
@@ -213,7 +216,7 @@ void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
         // the source is not a 4-vector but is also non-empty. This implies that we need to create a 4-vector out of it, and proceed to add it to the new particle
         command_text << "(";
         command_text << lorentzify(source);
-        command_text << " + ";
+        command_text << symbol;
         command_text << lorentzify(indexed_if_needed);
         command_text << ")";
         command_text << '\x1d';
@@ -224,15 +227,22 @@ void TimberConverter::add_particle(AnalysisCommand command, std::string name) {
     }
     
     var_mappings[command.get_argument(0)] = command_text.str();
+
+
+    // we add an index that simply enumerates the particle here. This is not useful per se, but if new collections are made from it, you can discriminate them through this
+    if (!is_named && particle_already_has_provenance.count(name) == 0) {
+        std::stringstream prov_cmd;
+        prov_cmd << "\na.Define('" << name << "_provenance', 'ROOT::VecOps::Enumerate(" << name << "_pt)')\n";
+        particle_already_has_provenance.emplace(name);
+
+        return prov_cmd.str();
+    }
+    return "";
+
 }  
 
-void TimberConverter::sub_particle(AnalysisCommand command, std::string name) {
-    bool is_named = false;
-    if (command.get_instruction() == ADD_PART_NAMED) is_named = true;
-    std::stringstream command_text;
-
-    std::string indexed_if_needed = index_particle(command, is_named, name);
-    command_text << var_mappings[command.get_argument(1+is_named)] << " - " << indexed_if_needed;
+std::string TimberConverter::sub_particle(AnalysisCommand command, std::string name) {
+    return add_particle(command, name, true);
 }
 
 std::string TimberConverter::generate_4vector_label(std::string input, std::string prefix, std::string suffix) {
@@ -290,8 +300,16 @@ void TimberConverter::append_4vector_label(AnalysisCommand command, std::string 
 
 std::string TimberConverter::binary_command(AnalysisCommand command, std::string op) {
     std::stringstream text;
-    text << get_mapping_if_exists(command.get_argument(1)) << op << get_mapping_if_exists(command.get_argument(2));
-    return text.str();
+    text << "(" << get_mapping_if_exists(command.get_argument(1)) << ")" << op << "("<< get_mapping_if_exists(command.get_argument(2)) << ")";
+    var_mappings[command.get_argument(0)] = text.str();
+    return "";
+}
+
+std::string TimberConverter::one_argument_function(AnalysisCommand command, std::string function_name) {
+    std::stringstream text;
+    text << function_name << "(" << var_mappings[command.get_argument(1)] << ")";
+    var_mappings[command.get_argument(0)] = text.str();
+    return "";
 }
 
 std::string TimberConverter::command_convert(AnalysisCommand command) {
@@ -574,47 +592,34 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = command_text.str();
             return "";
         case EXPR_MULTIPLY:
-            var_mappings[command.get_argument(0)] = binary_command(command, "*");
-            return "";
+            return binary_command(command, "*");
         case EXPR_DIVIDE:
-            var_mappings[command.get_argument(0)] = binary_command(command, "/");
-            return "";
+            return binary_command(command, "/");
         case EXPR_ADD:
-            var_mappings[command.get_argument(0)] = binary_command(command, "+");
-            return "";
+            return binary_command(command, "+");
         case EXPR_SUBTRACT:
-            var_mappings[command.get_argument(0)] = binary_command(command, "-");
-            return "";
+            return binary_command(command, "-");
         case EXPR_LT:
-            var_mappings[command.get_argument(0)] = binary_command(command, "<");
-            return "";
+            return binary_command(command, "<");
         case EXPR_LE:
-            var_mappings[command.get_argument(0)] = binary_command(command, "<=");
-            return "";
+            return binary_command(command, "<=");
         case EXPR_GT:
-            var_mappings[command.get_argument(0)] = binary_command(command, ">");
-            return "";
+            return binary_command(command, ">");
         case EXPR_GE:
-            var_mappings[command.get_argument(0)] = binary_command(command, ">=");
-            return "";
+            return binary_command(command, ">=");
         case EXPR_EQ:
-            var_mappings[command.get_argument(0)] = binary_command(command, "==");
-            return "";
+            return binary_command(command, "==");
         case EXPR_NE:
-            var_mappings[command.get_argument(0)] = binary_command(command, "!=");
-            return "";
+            return binary_command(command, "!=");
         case EXPR_AMPERSAND:
-            var_mappings[command.get_argument(0)] = binary_command(command, "&");
-            return "";
+            return binary_command(command, "&");
         case EXPR_PIPE:
-            var_mappings[command.get_argument(0)] = binary_command(command, "|");
-            return "";
+            return binary_command(command, "|");
         case EXPR_AND:
-            var_mappings[command.get_argument(0)] = binary_command(command, "&&");
-            return "";
+            return binary_command(command, "&&");
         case EXPR_OR:
-            var_mappings[command.get_argument(0)] = binary_command(command, "||");
-            return "";
+            return binary_command(command, "||");
+
         case EXPR_WITHIN:
             command_text << "((" << var_mappings[command.get_argument(1)] << ">=" << var_mappings[command.get_argument(2)] << ")&&(" << var_mappings[command.get_argument(1)] << "<=" << var_mappings[command.get_argument(3)] << "))";
             var_mappings[command.get_argument(0)] = command_text.str();
@@ -623,14 +628,11 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             command_text << "((" << var_mappings[command.get_argument(1)] << "<=" << var_mappings[command.get_argument(2)] << ")||(" << var_mappings[command.get_argument(1)] << ">=" << var_mappings[command.get_argument(3)] << "))";
             var_mappings[command.get_argument(0)] = command_text.str();           
             return "";
+
         case EXPR_NEGATE:
-            command_text << "-(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "-");
         case EXPR_LOGICAL_NOT:
-            command_text << "!(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "!");
 
         case FUNC_BTAG:
         {
@@ -675,127 +677,78 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "";
         }
         case ADD_PART_ELECTRON:
-            add_particle(command, "Electron");
-            return "";
+            return add_particle(command, "Electron");
         case ADD_PART_MUON:
-            add_particle(command, "Muon");
-            return "";
+            return add_particle(command, "Muon");
         case ADD_PART_TAU:
-            add_particle(command, "Tau");
-            return "";
+            return add_particle(command, "Tau");
         case ADD_PART_TRACK:
-            add_particle(command, "IsoTrack");
-            return "";
+            return add_particle(command, "IsoTrack");
         case ADD_PART_PHOTON:
-            add_particle(command, "Photon"); 
-            return "";
+            return add_particle(command, "Photon"); 
         case ADD_PART_QGJET:
-            add_particle(command, "QGJet"); //TODO: change?
-            return "";
+            return add_particle(command, "QGJet"); //TODO: change?
         case ADD_PART_METLV:
-            add_particle(command, met_name);
-            return "";
+            return add_particle(command, met_name);
         case ADD_PART_GEN:
-            add_particle(command, "GenPart");
-            return "";
+            return add_particle(command, "GenPart");
         case ADD_PART_JET:
-            add_particle(command, "Jet");
-            return "";
+            return add_particle(command, "Jet");
         case ADD_PART_FJET:
-            add_particle(command, "FatJet");
-            return "";
+            return add_particle(command, "FatJet");
         case ADD_PART_NAMED:
-            add_particle(command, get_mapping_if_exists(command.get_argument(1)));
-            return "";
+            return add_particle(command, get_mapping_if_exists(command.get_argument(1)));
         case SUB_PART_ELECTRON:
-            sub_particle(command, "Electron");
-            return "";
+            return sub_particle(command, "Electron");
         case SUB_PART_MUON:
-            sub_particle(command, "Muon");
-            return "";
+            return sub_particle(command, "Muon");
         case SUB_PART_TAU:
-            sub_particle(command, "Tau");
-            return "";
+            return sub_particle(command, "Tau");
         case SUB_PART_TRACK:
-            sub_particle(command, "IsoTrack");
-            return "";
+            return sub_particle(command, "IsoTrack");
         case SUB_PART_PHOTON:
-            sub_particle(command, "Photon");
-            return "";
+            return sub_particle(command, "Photon");
         case SUB_PART_QGJET:
-            sub_particle(command, "QGJet");
-            return "";
+            return sub_particle(command, "QGJet");
         case SUB_PART_METLV:
-            sub_particle(command, met_name);
-            return "";
+            return sub_particle(command, met_name);
         case SUB_PART_GEN:
-            sub_particle(command, "GenPart");
-            return "";
+            return sub_particle(command, "GenPart");
         case SUB_PART_JET:
-            sub_particle(command, "Jet");
-            return "";
+            return sub_particle(command, "Jet");
         case SUB_PART_FJET:
-            sub_particle(command, "FatJet");
-            return "";
+            return sub_particle(command, "FatJet");
         case SUB_PART_NAMED:
-            sub_particle(command, command.get_argument(1));
-            return "";
+            return sub_particle(command, command.get_argument(1));
+
         case FUNC_ANYOF:
-            command_text << "AnyOf(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "AnyOf");
         case FUNC_ALLOF:
-            command_text << "AllOf(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "AllOf");
         case FUNC_SQRT:
-            command_text << "sqrt(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "sqrt");
         case FUNC_ABS:
-            command_text << "abs(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "abs");
         case FUNC_COS:
-            command_text << "cos(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "cos");
         case FUNC_SIN:
-            command_text << "sin(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "sin");
         case FUNC_TAN:
-            command_text << "tan(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "tan");
         case FUNC_SINH:
-            command_text << "sinh(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "sinh");
         case FUNC_COSH:
-            command_text << "cosh(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "cosh");
         case FUNC_TANH:
-            command_text << "tanh(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "tanh");
         case FUNC_EXP:
-            command_text << "exp(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "exp");
         case FUNC_LOG:
-            command_text << "log(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "log");
         case FUNC_AVE:
-            command_text << "ROOT::VecOps::Mean(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "ROOT::VecOps::Mean");
         case FUNC_SUM:
-            command_text << "ROOT::VecOps::Sum(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "ROOT::VecOps::Sum");
 
         case FUNC_ANYOCCURRENCES:
             command_text << "AnyOccurrences(" << var_mappings[command.get_argument(1)] << "," << var_mappings[command.get_argument(2)] << ")";
@@ -803,13 +756,9 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "";
             
         case FUNC_MIN:
-            command_text << "ROOT::VecOps::Min(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "ROOT::VecOps::Min");
         case FUNC_MAX:
-            command_text << "ROOT::VecOps::Max(" << var_mappings[command.get_argument(1)] << ")";
-            var_mappings[command.get_argument(0)] = command_text.str();
-            return "";
+            return one_argument_function(command, "ROOT::VecOps::Max");
 
         case FUNC_MAX_LIST:
             command_text << "std::max(" << var_mappings[command.get_argument(1)] << "," << var_mappings[command.get_argument(2)] << ")";
@@ -826,15 +775,18 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_SECOND:
             append_4vector_label(command, "xsecond\x1d");
             return "";
+            
         case FUNC_SORT_ASCEND:
-            command_text << "ROOT::VecOps::Sort(" << command.get_argument(1) << ")";
-            var_mappings[command.get_argument(0)] = command_text.str(); return "";
+            return one_argument_function(command, "ROOT::VecOps::Sort");
+
         case FUNC_SORT_DESCEND:
             command_text << "ROOT::VecOps::Reverse(ROOT::VecOps::Sort(" << command.get_argument(1) << "))";
             var_mappings[command.get_argument(0)] = command_text.str(); return "";
+
         case FUNC_NAMED:
             raise_non_implemented_conversion_exception("FUNC_NAMED");
             return "FUNC_NAMED";
+
         case MAKE_EMPTY_UNION:
             // command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
             var_mappings[command.get_argument(0)] = command.get_argument(0);
@@ -995,6 +947,9 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case FUNC_MINI_ISO:
             raise_non_implemented_conversion_exception("FUNC_MINI_ISO");
             return "FUNC_MINI_ISO";
+        case FUNC_DISTINCT:
+            command_text << "(" << generate_4vector_label(command.get_argument(1), "_provenance") << "!=" << generate_4vector_label(command.get_argument(2), "_provenance") << ")";
+            var_mappings[command.get_argument(0)] = command_text.str();
         case FUNC_DR:
             command_text << "LVDeltaR(" << lorentzify(get_mapping_if_exists(command.get_argument(1))) << ", " << lorentzify(get_mapping_if_exists(command.get_argument(2))) << ")";
             var_mappings[command.get_argument(0)] = command_text.str();

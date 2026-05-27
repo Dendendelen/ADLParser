@@ -142,6 +142,8 @@ enum Token_type {
     DPHI_HADAMARD,
     DETA_HADAMARD,
 
+    DISTINCT,
+
     ANYOF,
     ALLOF,
     ALL,

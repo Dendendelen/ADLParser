@@ -210,6 +210,8 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "DPHI" || uppercase_token == "DELTAPHI") return DPHI;
     if (uppercase_token == "DETA" || uppercase_token == "DELTAETA") return DETA;
 
+    if (uppercase_token == "DISTINCT") return DISTINCT;
+
     if (uppercase_token == "DRHADAMARD" || uppercase_token == "DELTARHADAMARD") return DR_HADAMARD;
     if (uppercase_token == "DETAHADAMARD" || uppercase_token == "DELTAETAHADAMARD") return DETA_HADAMARD;
     if (uppercase_token == "DPHIHADAMARD" || uppercase_token == "DELTAPHIHADAMARD") return DPHI_HADAMARD;

@@ -742,6 +742,8 @@ std::string ALILConverter::particle_list_function(PNode node) {
             inst = FUNC_DPHI_HADAMARD; break;
         case DETA_HADAMARD:
             inst = FUNC_DETA_HADAMARD; break;
+        case DISTINCT:
+            inst = FUNC_DISTINCT; break;
         case NUMOF:
             inst = FUNC_SIZE; break;
 

@@ -19,6 +19,7 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::unordered_set<std::string> empty_union_names;
         std::unordered_set<std::string> is_lorentz_vector;
         std::unordered_set<std::string> comb_already_made;
+        std::unordered_set<std::string> particle_already_has_provenance;
         std::unordered_set<std::string> already_applied_globally;
 
         std::unordered_map<std::string, std::vector<std::string>> comb_map;
@@ -37,8 +38,9 @@ class TimberConverter : public ALILToFrameworkCompiler {
         void append_4vector_label(AnalysisCommand command, std::string suffix, std::string suffix_if_lv = "");
         void append_4vector_label(AnalysisCommand command, std::string prefix, std::string suffix, std::string prefix_if_lv, std::string suffix_if_lv);
 
-        void sub_particle(AnalysisCommand command, std::string name);
-        void add_particle(AnalysisCommand command, std::string name);
+        std::string one_argument_function(AnalysisCommand command, std::string function_name);
+        std::string sub_particle(AnalysisCommand command, std::string name);
+        std::string add_particle(AnalysisCommand command, std::string name, bool negative = false);
         std::string index_particle(AnalysisCommand command, bool is_named, std::string part_text);
         std::string existing_definitions_string();
         std::string add_all_relevant_tags_for_object(AnalysisCommand command);

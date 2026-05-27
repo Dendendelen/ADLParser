@@ -98,6 +98,8 @@ enum AnalysisLevelInstruction {
     FUNC_ABS_ISO,
     FUNC_MINI_ISO,
 
+    FUNC_DISTINCT,
+
     FUNC_DR,
     FUNC_DPHI,
     FUNC_DETA,

@@ -1737,7 +1737,7 @@ PNode Parser::parse_primary_expression(PNode parent) {
         case DXY: case DZ:
         case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case MSOFTDROP: case THETA: 
         case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
-        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: 
+        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: case DISTINCT:
         {
             if (lexer->peek(0)->get_token_type() != OPEN_PAREN) {
                 // the next token is not an open parenthesis - this is not a function call per se, so either the argument is implicit or this is being used in reverse order in some way. That's not our problem here, so we just save that token.
