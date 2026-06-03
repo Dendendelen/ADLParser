@@ -84,6 +84,8 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "ADD_ALIAS";
         case ADD_EXTERNAL:
             return "ADD_EXTERNAL";
+        case ADD_EXTERN_ATTR:
+            return "ADD_EXTERN_ATTR";
         case ADD_CORRECTIONLIB:
             return "ADD_CORRECTIONLIB";
         case CREATE_MASK:
@@ -179,6 +181,8 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "EXPR_NEGATE";
         case EXPR_LOGICAL_NOT:
             return "EXPR_LOGICAL_NOT";
+        case EXPR_INDEX:
+            return "EXPR_INDEX";
 
         case FUNC_BTAG:
             return "FUNC_BTAG"; 
@@ -386,6 +390,10 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
             return "FUNC_CHARGE";
         case FUNC_RAPIDITY:
             return "FUNC_RAPIDITY";
+
+        case FUNC_DISTINCT:
+            return "FUNC_DISTINCT";
+
         case EXPR_WITHIN_EXCLUSIVE:
             return "EXPR_WITHIN_EXCLUSIVE";
         case EXPR_WITHIN_LEFT_EXCLUSIVE:
@@ -653,13 +661,19 @@ void ALILConverter::visit_weight(PNode node) {
     command_list.push_back(weight_apply);
 }
 
-std::string ALILConverter::handle_particle_list(PNode node) {
-
+std::string ALILConverter::empty_particle_create() {
     AnalysisCommand start(MAKE_EMPTY_PARTICLE);
 
     std::string last_part = reserve_scoped_value_name();
     start.add_dest_argument(last_part);
     command_list.push_back(start);
+
+    return last_part;
+}
+
+std::string ALILConverter::handle_particle_list(PNode node) {
+
+    std::string last_part = empty_particle_create();
 
     for (auto it = node->get_children().begin(); it != node->get_children().end(); ++it) {
 
@@ -764,12 +778,8 @@ std::string ALILConverter::particle_list_function(PNode node) {
         // in this case we definitely have only one particle here by the nature of a dot attribute.
         auto child_node = node->get_children()[0];
 
-        //TODO: improve this
         // make an empty particle structure
-        AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
-        std::string empty_name = reserve_scoped_value_name();
-        make_empty.add_dest_argument(empty_name);
-        command_list.push_back(make_empty);
+        std::string empty_name = empty_particle_create();
 
         std::string name_of_particle_variable = handle_particle(child_node, empty_name);
         
@@ -781,10 +791,7 @@ std::string ALILConverter::particle_list_function(PNode node) {
         for (auto it = particle_list_node->get_children().begin(); it != particle_list_node->get_children().end(); ++it) {
 
             // make an empty particle structure
-            AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
-            std::string empty_name = reserve_scoped_value_name();
-            make_empty.add_dest_argument(empty_name);
-            command_list.push_back(make_empty);
+            std::string empty_name = empty_particle_create();
 
             std::string name_of_particle_variable = handle_particle(*it, empty_name);
             
@@ -857,11 +864,20 @@ std::string ALILConverter::interval_operator(PNode node) {
 
 std::string ALILConverter::comparison_operator(PNode node) {
 
-    Token_type lhs_tok = node->get_children()[0]->get_token()->get_token_type();
-    Token_type rhs_tok = node->get_children()[1]->get_token()->get_token_type();
+    bool lhs_is_comparator = false;
+    bool rhs_is_comparator = false;
 
-    bool lhs_is_comparator = lhs_tok == GT || lhs_tok == LT || lhs_tok == LE || lhs_tok == GE;
-    bool rhs_is_comparator = rhs_tok == GT || rhs_tok == LT || rhs_tok == LE || rhs_tok == GE;
+
+    if (node->get_children()[0]->get_ast_type() == TERMINAL) {
+        Token_type lhs_tok = node->get_children()[0]->get_token()->get_token_type();
+        lhs_is_comparator = lhs_tok == GT || lhs_tok == LT || lhs_tok == LE || lhs_tok == GE;
+    }
+
+    if (node->get_children()[0]->get_ast_type() == TERMINAL) {
+        Token_type rhs_tok = node->get_children()[1]->get_token()->get_token_type();
+        rhs_is_comparator = rhs_tok == GT || rhs_tok == LT || rhs_tok == LE || rhs_tok == GE;
+    }
+
 
     // in case of normal comparison with non-comparator inputs, proceed as normal
     if (!lhs_is_comparator && !rhs_is_comparator) {
@@ -990,6 +1006,30 @@ std::string ALILConverter::literal_value(PNode node) {
 
     command_list.push_back(assign);
 
+    if (node->get_children().size() > 0 && node->get_children()[0]->get_ast_type() == INDEX) {
+
+        auto child = node->get_children()[0];
+
+        // if we have an index attached, we add an indexing command
+        AnalysisCommand index(EXPR_INDEX, child->get_token());
+        std::string dest2 = reserve_scoped_value_name();
+        index.add_dest_argument(dest2);
+        index.add_source_argument(dest);
+
+        std::string first_index = child->get_children()[0]->get_token()->get_lexeme();
+        if (first_index == ":") first_index = "0";
+        index.add_source_argument(first_index);
+
+        // if we have two parts to the index, add both to the function
+        if (child->get_children().size() > 1) {
+            index.add_source_argument(child->get_children()[1]->get_token()->get_lexeme());
+        }
+
+        command_list.push_back(index);
+        return dest2;
+
+    }
+
     return dest;
 }
 
@@ -1104,14 +1144,15 @@ void ALILConverter::visit_expression(PNode node) {
 std::string ALILConverter::handle_expression(PNode node) {
 
     if (node->get_ast_type() == USER_FUNCTION) {
-        std::string source = handle_expression(node->get_children()[0]);
+        std::string source = handle_expression(node->get_children()[0]->get_children()[0]);
         std::string dest = reserve_scoped_limit_name();
         AnalysisCommand func(FUNC_NAMED);
         func.add_dest_argument(dest);
         func.add_source_argument(source);
-        func.add_source_argument(node->get_children()[1]->get_token()->get_lexeme());
+        func.add_source_argument(node->get_children()[0]->get_token()->get_lexeme());
 
         command_list.push_back(func);
+        return dest;
     } else if (node->get_ast_type() == NEGATE) {
         return unary_operator(node);
     } else if (node->get_ast_type() == EXPRESSION) {
@@ -1138,6 +1179,12 @@ std::string ALILConverter::handle_expression(PNode node) {
             return function_handler(node);
         case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX: case ANYOCCURRENCES:
             return function_handler(node);
+        case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case PHOTON: 
+        case JET: case FJET: case QGJET: case METLV: case THIS:
+            {
+                std::string empty = empty_particle_create();
+                return handle_particle(node, empty);
+            }
         default:
             return literal_value(node);
     }
@@ -1197,10 +1244,7 @@ void ALILConverter::visit_sort(PNode node) {
     AnalysisCommand sort_cmd(which_way, sort->get_children()[1]->get_token());
     sort_cmd.add_dest_argument(name);
 
-    AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
-    std::string empty_name = reserve_scoped_value_name();
-    make_empty.add_dest_argument(empty_name);
-    command_list.push_back(make_empty);
+    std::string empty_name = empty_particle_create();
 
     std::string source_name = handle_particle(sort->get_children()[0], empty_name);
 
@@ -1514,10 +1558,7 @@ void ALILConverter::visit_direct_combiner(PNode node) {
 
     for (auto it = names_node->get_children().begin(); it != names_node->get_children().end(); ++it) {
         
-        AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
-        std::string empty_name = reserve_scoped_value_name();
-        make_empty.add_dest_argument(empty_name);
-        command_list.push_back(make_empty);
+        std::string empty_name = empty_particle_create();
 
         // make a new particle containing only this
         std::string source_name = handle_particle(*it, empty_name);
@@ -1715,11 +1756,7 @@ void ALILConverter::visit_object(PNode node) {
     std::string name_lexeme = name->get_token()->get_lexeme();
     std::string source_lexeme = source->get_token()->get_lexeme();
 
-
-    AnalysisCommand make_empty(MAKE_EMPTY_PARTICLE);
-    std::string empty_name = reserve_scoped_value_name();
-    make_empty.add_dest_argument(empty_name);
-    command_list.push_back(make_empty);
+    std::string empty_name = empty_particle_create();
 
     std::string source_name = handle_particle(source, empty_name);
 
@@ -1876,17 +1913,28 @@ void ALILConverter::visit_definition(PNode node) {
 
     current_scope_name = def_name.str();
 
+    PNode def_stem = node->get_children()[1];
 
-    if (node->get_children()[1]->get_ast_type() == TERMINAL && node->get_children()[1]->get_token()->get_token_type() == EXTERNAL) {
-        PNode func = node->get_children()[1]->get_children()[0];
+    if (def_stem->get_ast_type() == TERMINAL && def_stem->get_token()->get_token_type() == EXTERNAL) {
+
+        PNode func;
+        bool is_attr = false;
+        
+        if (def_stem->get_children()[0]->get_token()->get_token_type() == ATTRIBUTE) {
+            func = def_stem->get_children()[1];
+            is_attr = true;
+        } else {
+            func = def_stem->get_children()[0];
+        }
+
         std::string func_name = func->get_token()->get_lexeme();
 
-        AnalysisCommand add_extern_name(ADD_EXTERNAL, node->get_children()[0]->get_token());
+        AnalysisCommand add_extern_name(is_attr ? ADD_EXTERN_ATTR : ADD_EXTERNAL, name->get_token());
         add_extern_name.add_dest_argument(name_lexeme);
         add_extern_name.add_source_argument(func_name);
 
         command_list.push_back(add_extern_name);
-    } else if (node->get_children()[1]->get_ast_type() == TERMINAL && node->get_children()[1]->get_token()->get_token_type() == CORRECTIONLIB) {
+    } else if (def_stem->get_ast_type() == TERMINAL && def_stem->get_token()->get_token_type() == CORRECTIONLIB) {
         PNode filename_node = node->get_children()[1]->get_children()[0];
         std::string filename = filename_node->get_token()->get_lexeme();
 

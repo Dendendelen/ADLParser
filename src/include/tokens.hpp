@@ -40,6 +40,7 @@ enum Token_type {
 
     PARTICLE_KEYWORD,
     EXTERNAL,
+    ATTRIBUTE,
     CORRECTIONLIB,
     
     SYSTEMATIC,

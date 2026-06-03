@@ -158,7 +158,7 @@ std::string TimberConverter::index_particle(AnalysisCommand command, bool is_nam
         // idx_text << "index_get(" << part_text << " ," << command.get_argument(2+is_named) << ")";
         std::regex e ("\x1d"); 
         part_text = std::regex_replace(part_text, e, "");
-        idx_text << part_text << '\x1d' << "[" << command.get_argument(2+is_named) << "]";   
+        idx_text << "(" << part_text << '\x1d' << ")[" << command.get_argument(2+is_named) << "]";   
     } else {
         idx_text << part_text;
         // idx_text << part_text << '\x1d';
@@ -462,6 +462,14 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             }
             return "";
         }
+        case ADD_EXTERN_ATTR:
+        {
+            std::string fn_name_with_quotes = command.get_argument(1);
+            std::string fn_name_wo_quotes = fn_name_with_quotes.substr(1,fn_name_with_quotes.size()-2);
+            var_mappings[command.get_argument(0)] = fn_name_wo_quotes;
+            is_attribute.emplace(fn_name_wo_quotes);
+            return "";
+        }
         case ADD_EXTERNAL:
         {
             std::string fn_name_with_quotes = command.get_argument(1);
@@ -634,6 +642,14 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
         case EXPR_LOGICAL_NOT:
             return one_argument_function(command, "!");
 
+        case EXPR_INDEX:
+        {
+            std::string indexed_if_needed = index_particle(command, false, get_mapping_if_exists(command.get_argument(1)));
+            std::regex e ("\x1d"); 
+            indexed_if_needed = std::regex_replace(indexed_if_needed, e, "");
+            var_mappings[command.get_argument(0)] = indexed_if_needed;
+            return "";
+        }
         case FUNC_BTAG:
         {
             append_4vector_label(command, "_btagDeepFlavB");
@@ -784,8 +800,14 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             var_mappings[command.get_argument(0)] = command_text.str(); return "";
 
         case FUNC_NAMED:
-            raise_non_implemented_conversion_exception("FUNC_NAMED");
-            return "FUNC_NAMED";
+            if (is_attribute.count(get_mapping_if_exists(command.get_argument(2))) == 1) {
+                command_text << "_" << get_mapping_if_exists(command.get_argument(2));
+                append_4vector_label(command, command_text.str());
+                return "";
+            } else {
+                command_text << "(" << get_mapping_if_exists(command.get_argument(2)) << "(" << get_mapping_if_exists(command.get_argument(1)) << "))";
+                var_mappings[command.get_argument(0)] = command_text.str(); return "";
+            }
 
         case MAKE_EMPTY_UNION:
             // command_text << "\n" << command.get_argument(0) << " = VarGroup('" << command.get_argument(0) << "')\n"; 
@@ -1029,6 +1051,7 @@ void TimberConverter::print_timber() {
     std::stringstream definitions;
     definitions << "\na.Define('METV_pt','RVec<float> {" << met_name << "_pt}')";
 
+    met_name.clear();
     met_name = "METV";
 
     definitions <<

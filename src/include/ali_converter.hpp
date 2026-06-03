@@ -17,6 +17,7 @@ enum AnalysisLevelInstruction {
 
     ADD_ALIAS,
     ADD_EXTERNAL,
+    ADD_EXTERN_ATTR,
     ADD_CORRECTIONLIB,
 
     CREATE_MASK,
@@ -79,6 +80,8 @@ enum AnalysisLevelInstruction {
 
     EXPR_NEGATE,
     EXPR_LOGICAL_NOT,
+
+    EXPR_INDEX,
 
     FUNC_GEN_PART_IDX,
 
@@ -265,6 +268,8 @@ class ALILConverter : ASTVisitor {
         std::string handle_expression(PNode node);
 
         std::string if_operator(PNode node);
+
+        std::string empty_particle_create();
 
         std::string handle_particle_list(PNode node);
         std::string handle_particle(PNode node, std::string last_part);

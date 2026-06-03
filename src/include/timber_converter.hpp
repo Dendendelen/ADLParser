@@ -21,6 +21,7 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::unordered_set<std::string> comb_already_made;
         std::unordered_set<std::string> particle_already_has_provenance;
         std::unordered_set<std::string> already_applied_globally;
+        std::unordered_set<std::string> is_attribute;
 
         std::unordered_map<std::string, std::vector<std::string>> comb_map;
 

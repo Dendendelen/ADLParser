@@ -71,5 +71,6 @@ void Config::read_config_file(std::string filename) {
 }
 
 std::string Config::get_argument(std::string in) {
-    return config_entries[in];
+    std::string config = config_entries[in];
+    return config;
 }

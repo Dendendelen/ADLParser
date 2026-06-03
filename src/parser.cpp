@@ -539,9 +539,13 @@ PNode Parser::parse_def_rvalue(PNode parent) {
         }
 
         // DEF_RVALUE -> external STRING
+        // DEF_RVALUE -> external attribute STRING 
         case EXTERNAL:
         {
             auto external_func = make_terminal(parent, lexer->next());
+            if (lexer->peek(0)->get_token_type() == ATTRIBUTE) {
+                external_func->add_child(make_terminal(external_func, lexer->next()));
+            }
 
             if (lexer->peek(0)->get_token_type() != STRING) raise_parsing_exception("External functions must be given an explicit code string to run", external_func->get_token());
 
@@ -1338,18 +1342,12 @@ PNode Parser::parse_particle(PNode parent) {
         // PARTICLE -> gen INDEX
         // PARTICLE -> jet INDEX
         // PARTICLE -> fjet INDEX
-        // PARTICLE -> gen INDEX
         // PARTICLE -> electron INDEX
         // PARTICLE -> muon INDEX
         // PARTICLE -> tau INDE
         // PARTICLE -> track INDEX
-        // PARTICLE -> lepton INDEX
         // PARTICLE -> photon INDEX
-        // PARTICLE -> jet INDEX
-        // PARTICLE -> bjet INDEX
-        // PARTICLE -> fjet INDEX
         // PARTICLE -> qgjet INDEX
-        // PARTICLE -> numet INDEX
         // PARTICLE -> metlv INDEX
         case ELECTRON: case MUON: case TAU: case TRACK: case PHOTON: case QGJET: case METLV:
             {
@@ -1674,6 +1672,13 @@ PNode Parser::parse_primary_expression(PNode parent) {
         {
             PNode subexpression = precedence_climber(parent, 0);
             lexer->expect_and_consume(CLOSE_PAREN);
+
+            // allow a subexpression to be indexed with a square bracket
+            if (lexer->peek(0)->get_token_type() == OPEN_SQUARE_BRACE) {
+                parent->add_child(parse_index(parent));
+            }
+            
+
             return subexpression;
         }
 
@@ -1698,7 +1703,8 @@ PNode Parser::parse_primary_expression(PNode parent) {
             if (lexer->peek(0)->get_token_type() == COMMA) lexer->expect_and_consume(COMMA);
             interval->add_child(parse_primary_expression(interval));
             lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
-            return interval;
+            return interval; 
+
         }
 
         case SORT:
@@ -1756,7 +1762,10 @@ PNode Parser::parse_primary_expression(PNode parent) {
         
 
         case ALL: case NONE: case EVENT_NO: case RUN_NO: case LB_NO: case MC_CHANNEL_NUMBER: case RUNYEAR:
-        {
+        // allow all particles to be a token per se - this will usually not be valid in cases other than externally defined attributes
+        case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case PHOTON: 
+        case JET: case FJET: case QGJET: case METLV: case THIS:
+       {
             return node;
         }
 
@@ -1765,6 +1774,7 @@ PNode Parser::parse_primary_expression(PNode parent) {
             // here, we are met with a token that isn't any other known form. If it is immediately followed by parentheses, then this is probably some external function. 
             if (lexer->peek(0)->get_token_type() == OPEN_PAREN) {
                 PNode func(std::make_shared<Node>(USER_FUNCTION, parent));
+                func->add_child(node);
                 node->set_parent(func);
 
                 lexer->expect_and_consume(OPEN_PAREN);
@@ -1772,6 +1782,12 @@ PNode Parser::parse_primary_expression(PNode parent) {
                 lexer->expect_and_consume(CLOSE_PAREN);
                 return func;
             }
+            // check if this is a variable name that has an index
+            if (lexer->peek(0)->get_token_type() == OPEN_SQUARE_BRACE) {
+                node->add_child(parse_index(parent));
+                return node;
+            }
+            
             // otherwise, it is unclear what this is other than just some variable name - we will leave it like that
             return node;
         }
