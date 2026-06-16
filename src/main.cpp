@@ -4,6 +4,7 @@
 #include "lexer.hpp"
 #include "parser.hpp"
 #include "timber_converter.hpp"
+#include "type_checker.hpp"
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -49,6 +50,12 @@ int main(int argc, char** argv) {
 
     if (argument == "alil") {
         alil->print_commands();
+        return 0;
+    }
+
+    if (argument == "type") {
+        auto typer = std::make_unique<Typer>(alil.release(), config);
+        typer->print();
         return 0;
     }
 

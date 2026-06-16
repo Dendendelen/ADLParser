@@ -11,31 +11,45 @@
 
 
 enum AnalysisLevelInstruction {
-    CREATE_REGION,
-    MERGE_REGIONS,
-    CUT_REGION,
 
-    ADD_ALIAS,
-    ADD_EXTERNAL,
-    ADD_EXTERN_ATTR,
-    ADD_CORRECTIONLIB,
+    // Types:
+    // Region,
+    // Cond,
+    // Mask
+    // String
+    // List<>
+    // Number < Numeric, 
+    // NumberList = List<Number> < Numeric,
+    // NumberMatrix = List<List<Number>> < Numeric
+    // ParticleInstance < Particlelike
+    // Particle = List<ParticleInstance> < Particlelike
+    // Error
 
-    CREATE_MASK,
-    LIMIT_MASK,
-    APPLY_MASK,
+    CREATE_REGION,  // () -> Region
+    MERGE_REGIONS,  // Region, Region -> Region
+    CUT_REGION,     // Region, Cond -> Region
 
-    CREATE_HIST_LIST,
+    ADD_ALIAS,      // `a -> `a
+    ADD_EXTERNAL,   // String -> `a
+    ADD_EXTERN_ATTR, // String -> (`b <<: ParticleInstance -> `a)
+    ADD_CORRECTIONLIB, //TODO:
+
+    CREATE_MASK, // Particle -> Mask
+    LIMIT_MASK, // Mask, Cond -> Mask
+    APPLY_MASK, // Mask, Particle -> Particle
+
+    CREATE_HIST_LIST, 
     ADD_HIST_TO_LIST,
     USE_HIST,
     USE_HIST_LIST,
 
-    HIST_1D,
-    HIST_2D,
+    HIST_1D, // Non-typed
+    HIST_2D, // Non-typed
 
-    WEIGHT_APPLY,
+    WEIGHT_APPLY, // Region, Number -> Region
 
-    DO_CUTFLOW_ON_REGION,
-    DO_EVENTLIST_ON_REGION,
+    DO_CUTFLOW_ON_REGION, // Non-typed
+    DO_EVENTLIST_ON_REGION, // Non-typed
 
     CREATE_BIN,
 
@@ -46,21 +60,21 @@ enum AnalysisLevelInstruction {
     APPEND_TO_TABLE,
     FINISH_TABLE,
 
-    BEGIN_EXPRESSION,
-    END_EXPRESSION,
+    BEGIN_EXPRESSION, // () -> `a
+    END_EXPRESSION, // `a -> `a
 
-    BEGIN_IF,
+    BEGIN_IF, 
     END_IF,
 
-    SORT_ASCEND,
-    SORT_DESCEND,
+    SORT_ASCEND,    // Particle, NumberList -> Particle
+    SORT_DESCEND,   // Particle, NumberList -> Particle
 
-    EXPR_RAISE,
-    EXPR_MULTIPLY,
+    EXPR_RAISE, // `a <<: Number, Number -> `a
+    EXPR_MULTIPLY, // `a <<: Number, `b <<: Number -> {if `a = `b then `a else if `a = Number then `b else if `b = Number then `a else Error}
     EXPR_DIVIDE,
     EXPR_ADD,
     EXPR_SUBTRACT,
-    EXPR_LT,
+    EXPR_LT, // 
     EXPR_LE,
     EXPR_GT,
     EXPR_GE,
@@ -81,15 +95,15 @@ enum AnalysisLevelInstruction {
     EXPR_NEGATE,
     EXPR_LOGICAL_NOT,
 
-    EXPR_INDEX,
+    EXPR_INDEX, // NumberList, Number -> Number
 
     FUNC_GEN_PART_IDX,
 
     FUNC_CHARGE,
 
     FUNC_BTAG,
-    FUNC_PT,
-    FUNC_ETA,
+    FUNC_PT,    // `a <<: ParticleInstance -> {if `a < ParticleInstance then Number else NumberList}
+    FUNC_ETA,   
     FUNC_RAPIDITY,
     FUNC_PHI,
     FUNC_MASS,
@@ -101,23 +115,23 @@ enum AnalysisLevelInstruction {
     FUNC_ABS_ISO,
     FUNC_MINI_ISO,
 
-    FUNC_DISTINCT,
+    FUNC_DISTINCT,  // `a Particlelike, `b ParticleLike -> {}
 
-    FUNC_DR,
+    FUNC_DR,    // `a Particlelike, `b Particlelike -> {If `a < ParticleInstance then `b else if `b < ParticleInstance then `a else if `a < Particle and `b < Particle then ParticleMatrix else Error}
     FUNC_DPHI,
     FUNC_DETA,
 
-    FUNC_DR_HADAMARD,
+    FUNC_DR_HADAMARD,   // Particle, Particle -> NumberList
     FUNC_DPHI_HADAMARD,
     FUNC_DETA_HADAMARD,
 
-    FUNC_SIZE,
+    FUNC_SIZE,  // Particle -> Number
 
     FUNC_ANYOF, 
     FUNC_ALLOF, 
 
-    FUNC_SQRT, 
-    FUNC_ABS, 
+    FUNC_SQRT, // `a <<: Number -> `a
+    FUNC_ABS, // `a Numeric -> `a Numeric
     FUNC_COS,  
     FUNC_SIN, 
     FUNC_TAN, 
@@ -126,15 +140,16 @@ enum AnalysisLevelInstruction {
     FUNC_TANH, 
     FUNC_EXP, 
     FUNC_LOG, 
-    FUNC_AVE, 
+
+    FUNC_AVE,  // List<`a <<: Number > -> `a
     FUNC_SUM, 
     FUNC_MIN,
     FUNC_MAX,
 
-    FUNC_MAX_LIST,
+    FUNC_MAX_LIST,  // `a <<: Number, `a -> `a
     FUNC_MIN_LIST,
 
-    FUNC_ANYOCCURRENCES,
+    FUNC_ANYOCCURRENCES, 
     FUNC_FIRST,
     FUNC_SECOND,
     FUNC_SORT_ASCEND,
@@ -156,13 +171,13 @@ enum AnalysisLevelInstruction {
     FUNC_IS_MEDIUM,
     FUNC_IS_LOOSE,
 
-    FUNC_NAMED,
+    FUNC_NAMED, // `a<`c, (`c -> `b) -> `b
 
-    MAKE_EMPTY_PARTICLE,
+    MAKE_EMPTY_PARTICLE,    // () -> Particle
 
-    MAKE_EMPTY_UNION,
-    ADD_NAMED_TO_UNION,
-    ADD_ELECTRON_TO_UNION,
+    MAKE_EMPTY_UNION,   // () -> Union
+    ADD_NAMED_TO_UNION, // Union, Particle -> Union
+    ADD_ELECTRON_TO_UNION,  // Union -> Union
     ADD_MUON_TO_UNION,
     ADD_TAU_TO_UNION,
     ADD_TRACK_TO_UNION,
@@ -173,9 +188,9 @@ enum AnalysisLevelInstruction {
     ADD_JET_TO_UNION,
     ADD_FJET_TO_UNION,
 
-    MAKE_EMPTY_COMB,
-    ADD_NAMED_TO_COMB,
-    ADD_ELECTRON_TO_COMB,
+    MAKE_EMPTY_COMB,    // () -> Comb
+    ADD_NAMED_TO_COMB,  // Comb, Particle -> Comb
+    ADD_ELECTRON_TO_COMB, // Comb -> Comb
     ADD_MUON_TO_COMB,
     ADD_TAU_TO_COMB,
     ADD_TRACK_TO_COMB,
@@ -186,7 +201,7 @@ enum AnalysisLevelInstruction {
     ADD_JET_TO_COMB,
     ADD_FJET_TO_COMB,
 
-    NAME_ELEMENT_OF_COMB,
+    NAME_ELEMENT_OF_COMB,   // Comb, Number -> Particle
 
     MAKE_EMPTY_DISJOINT,
     ADD_NAMED_TO_DISJOINT,
@@ -215,7 +230,7 @@ enum AnalysisLevelInstruction {
     ADD_PART_FJET,
     ADD_PART_NAMED,
 
-    SUB_PART_ELECTRON,
+    SUB_PART_ELECTRON, // Particle -> Particle
     SUB_PART_MUON,
     SUB_PART_TAU,
     SUB_PART_TRACK,
@@ -225,7 +240,7 @@ enum AnalysisLevelInstruction {
     SUB_PART_GEN,
     SUB_PART_JET,
     SUB_PART_FJET,
-    SUB_PART_NAMED
+    SUB_PART_NAMED // Particle, Particle -> Particle
 
 };
 
@@ -259,11 +274,19 @@ class AnalysisCommand {
         std::string static instruction_to_text(AnalysisLevelInstruction inst);
 };
 
-class ALILConverter : ASTVisitor {
-    private:
-        std::vector<AnalysisCommand> command_list;
+class ALILEmitter {
+    protected:
+        std::vector<AnalysisCommand> command_list;  
+        int iter_command;
+    public:
+        ALILEmitter();
+        void print_commands();
+        AnalysisCommand next_command();
+        bool clear_to_next();
+};
 
-        void clean_command_list();
+class ALILConverter : ASTVisitor, public ALILEmitter {
+    private:
 
         std::string handle_expression(PNode node);
 
@@ -312,8 +335,6 @@ class ALILConverter : ASTVisitor {
 
         int highest_var_val;
 
-        int iter_command;
-
         Config &config;
 
     protected:
@@ -342,12 +363,8 @@ class ALILConverter : ASTVisitor {
 
     public:
         ALILConverter(Config &conf);
-
+        void clean_command_list();
         void visitation(PNode root);
-        void print_commands();
-
-        AnalysisCommand next_command();
-        bool clear_to_next();
 };
 
 
@@ -361,5 +378,20 @@ class ALILToFrameworkCompiler {
         virtual ~ALILToFrameworkCompiler() = default;
         virtual void print() = 0;
 };
+
+
+class ALILToALILCompiler : ALILEmitter {
+    protected:
+        std::unique_ptr<ALILEmitter> alil;
+        Config &config;
+
+    public:
+        ALILToALILCompiler(ALILEmitter *alil_in, Config &conf);
+        virtual ~ALILToALILCompiler() = default;
+};
+
+
+
+
 
 #endif

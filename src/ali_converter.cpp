@@ -1,4 +1,5 @@
 #include "ali_converter.hpp"
+#include "config.hpp"
 #include "lexer.hpp"
 #include "node.hpp"
 #include "tokens.hpp"
@@ -1307,7 +1308,7 @@ void ALILConverter::visit_histogram(PNode node) {
 
     AnalysisCommand hist(inst, node->get_children()[0]->get_token());
 
-    hist.add_source_argument(node->get_children()[0]->get_token()->get_lexeme());
+    hist.add_dest_argument(histo_name);
     
     hist.add_source_argument(node->get_children()[1]->get_token()->get_lexeme());
 
@@ -2089,7 +2090,7 @@ void ALILConverter::visitation(PNode root) {
     clean_command_list();
 }
 
-void ALILConverter::print_commands() {
+void ALILEmitter::print_commands() {
 
     int top_size_of_dest = 0;
     int top_size_of_inst = 0;
@@ -2106,15 +2107,20 @@ void ALILConverter::print_commands() {
     }
 }
 
-bool ALILConverter::clear_to_next() {
+bool ALILEmitter::clear_to_next() {
     if (iter_command >= command_list.size()) return false;
     return true;
 }
 
-AnalysisCommand ALILConverter::next_command() {
+AnalysisCommand ALILEmitter::next_command() {
     return command_list[iter_command++];
 }
 
-ALILConverter::ALILConverter(Config &conf): highest_var_val(0), iter_command(0),  config(conf){}
+ALILEmitter::ALILEmitter(): iter_command(0) {}
+
+ALILConverter::ALILConverter(Config &conf): highest_var_val(0),  config(conf), ALILEmitter() {}
+
+ALILToALILCompiler::ALILToALILCompiler(ALILEmitter *alil_in, Config &conf): alil(alil_in), config(conf), ALILEmitter() {}
 
 ALILToFrameworkCompiler::ALILToFrameworkCompiler(ALILConverter *alil_in, Config &conf): alil(alil_in), config(conf) {}
+
