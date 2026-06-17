@@ -1019,6 +1019,7 @@ void TimberConverter::print_timber() {
 
     met_name = config.get_argument("MET");
     std::string in_file = config.get_argument("infile");
+    std::string out_file = config.get_argument("outfile");
 
     // get the path for our helper functions, relying on the "ROOT DIR" macro which we set during compile time
     std::filesystem::path abs_path = std::filesystem::absolute(ROOT_DIR);
@@ -1044,7 +1045,7 @@ void TimberConverter::print_timber() {
         
     // open up the input file and an output file
     preliminary << 
-        "a = analyzer('" << in_file << "')\nout = ROOT.TFile.Open('adl_out.root','UPDATE')";
+        "a = analyzer('" << in_file << "')\nout = ROOT.TFile.Open('" << out_file << "','UPDATE')";
 
     std::cout << preliminary.str() << std::endl;
 

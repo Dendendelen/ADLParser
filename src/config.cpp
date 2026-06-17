@@ -11,6 +11,7 @@
 Config::Config(std::string filename): default_entries({
         {"MET", "PuppiMET"}, 
         {"infile", "infile.root"},
+        {"outfile", "outfile.root"},
         {"cutflow", "all"},
         {"eventlist", "none"}
     }) {
