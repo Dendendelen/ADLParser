@@ -323,7 +323,7 @@ RVec<RVec<unsigned long>> GeneralDisjoint(RVec<RVec<float>> input_particles) {
         assert(it->size() == particle_size);
     }
 
-    return ROOT::VecOps::Combinations(input_particles, count);
+    return ROOT::VecOps::Combinations(input_particles[0], count);
 }
 
 // turns a table into a useable correction function
