@@ -9,6 +9,7 @@
 #include <memory>
 #include <sstream>
 #include <iostream>
+#include <stack>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -200,51 +201,122 @@ std::string AnalysisCommand::instruction_to_text(AnalysisLevelInstruction inst) 
         case FUNC_ENERGY:
             return "FUNC_E"; 
         case MAKE_EMPTY_PARTICLE:
-            return "MAKE_EMPTY_PARTICLE"; 
+            return "MAKE_EMPTY_PARTICLE";
+
         case ADD_PART_ELECTRON:
             return "ADD_PART_ELECTRON"; 
+        case ADD_PART_ELECTRON_INDEXED:
+            return "ADD_PART_ELECTRON_INDEXED"; 
+        case ADD_PART_ELECTRON_RANGE:
+            return "ADD_PART_ELECTRON_RANGE"; 
+
         case ADD_PART_MUON:
             return "ADD_PART_MUON"; 
+        case ADD_PART_MUON_INDEXED:
+            return "ADD_PART_MUON_INDEXED"; 
+        case ADD_PART_MUON_RANGE:
+            return "ADD_PART_MUON_RANGE"; 
+
         case ADD_PART_TAU:
             return "ADD_PART_TAU"; 
+        case ADD_PART_TAU_INDEXED:
+            return "ADD_PART_TAU_INDEXED"; 
+        case ADD_PART_TAU_RANGE:
+            return "ADD_PART_TAU_RANGE"; 
+
         case ADD_PART_TRACK:
             return "ADD_PART_TRACK"; 
+        case ADD_PART_TRACK_INDEXED:
+            return "ADD_PART_TRACK_INDEXED"; 
+        case ADD_PART_TRACK_RANGE:
+            return "ADD_PART_TRACK_RANGE"; 
+
         case ADD_PART_PHOTON:
             return "ADD_PART_PHOTON"; 
+        case ADD_PART_PHOTON_INDEXED:
+            return "ADD_PART_PHOTON_INDEXED"; 
+        case ADD_PART_PHOTON_RANGE:
+            return "ADD_PART_PHOTON_RANGE"; 
+
         case ADD_PART_QGJET:
             return "ADD_PART_QGJET"; 
+        case ADD_PART_QGJET_INDEXED:
+            return "ADD_PART_QGJET_INDEXED"; 
+        case ADD_PART_QGJET_RANGE:
+            return "ADD_PART_QGJET_RANGE"; 
+
         case ADD_PART_METLV:
             return "ADD_PART_METLV"; 
+        case ADD_PART_METLV_INDEXED:
+            return "ADD_PART_METLV_INDEXED"; 
+        case ADD_PART_METLV_RANGE:
+            return "ADD_PART_METLV_RANGE"; 
+
         case ADD_PART_GEN:
             return "ADD_PART_GEN"; 
+        case ADD_PART_GEN_INDEXED:
+            return "ADD_PART_GEN_INDEXED"; 
+        case ADD_PART_GEN_RANGE:
+            return "ADD_PART_GEN_RANGE"; 
+
         case ADD_PART_JET:
             return "ADD_PART_JET"; 
+        case ADD_PART_JET_INDEXED:
+            return "ADD_PART_JET_INDEXED"; 
+        case ADD_PART_JET_RANGE:
+            return "ADD_PART_JET_RANGE"; 
+
         case ADD_PART_FJET:
             return "ADD_PART_FJET"; 
+        case ADD_PART_FJET_INDEXED:
+            return "ADD_PART_FJET_INDEXED"; 
+        case ADD_PART_FJET_RANGE:
+            return "ADD_PART_FJET_RANGE"; 
+
         case ADD_PART_NAMED:
             return "ADD_PART_NAMED"; 
+        case ADD_PART_NAMED_INDEXED:
+            return "ADD_PART_NAMED_INDEXED"; 
+        case ADD_PART_NAMED_RANGE:
+            return "ADD_PART_NAMED_RANGE"; 
+
         case SUB_PART_ELECTRON:
             return "SUB_PART_ELECTRON"; 
+        case SUB_PART_ELECTRON_INDEXED:
+            return "SUB_PART_ELECTRON_INDEXED"; 
+        case SUB_PART_ELECTRON_RANGE:
+            return "SUB_PART_ELECTRON_RANGE"; 
+
         case SUB_PART_MUON:
             return "SUB_PART_MUON"; 
+        case SUB_PART_MUON_INDEXED:
+            return "SUB_PART_MUON_INDEXED"; 
+        case SUB_PART_MUON_RANGE:
+            return "SUB_PART_MUON_RANGE"; 
+
         case SUB_PART_TAU:
             return "SUB_PART_TAU"; 
+        case SUB_PART_TAU_INDEXED:
+            return "SUB_PART_TAU_INDEXED"; 
+        case SUB_PART_TAU_RANGE:
+            return "SUB_PART_TAU_RANGE"; 
+
         case SUB_PART_TRACK:
             return "SUB_PART_TRACK"; 
+        case SUB_PART_TRACK_INDEXED:
+            return "SUB_PART_TRACK_INDEXED"; 
+        case SUB_PART_TRACK_RANGE:
+            return "SUB_PART_TRACK_RANGE"; 
+
         case SUB_PART_PHOTON:
             return "SUB_PART_PHOTON"; 
+        case SUB_PART_PHOTON_INDEXED:
+            return "SUB_PART_PHOTON_INDEXED"; 
+        case SUB_PART_PHOTON_RANGE:
+            return "SUB_PART_PHOTON_RANGE"; 
+
         case SUB_PART_QGJET:
-            return "SUB_PART_QGJET"; 
-        case SUB_PART_METLV:
-            return "SUB_PART_METLV"; 
-        case SUB_PART_GEN:
-            return "SUB_PART_GEN"; 
-        case SUB_PART_JET:
-            return "SUB_PART_JET"; 
-        case SUB_PART_FJET:
-            return "SUB_PART_FJET"; 
-        case SUB_PART_NAMED:
-            return "SUB_PART_NAMED";
+            return "SUB_PART_QGJET";
         case FUNC_ANYOF:
             return "FUNC_ANYOF";
         case FUNC_ALLOF:
@@ -501,6 +573,14 @@ std::string ALILConverter::handle_particle(PNode node, std::string last_part) {
         lexeme = binary_operator(node);
     }
 
+    // check if we have either 1) an index attached straight to the node or 2) an index as the last child of the node (in the case of the arrow index)
+    bool has_initial_index = node->get_children().size() > 0 && node->get_children()[0]->get_ast_type() == INDEX;
+    bool has_later_index = node->get_children().size() > 2 && node->get_children()[2] ->get_ast_type() == INDEX;
+
+    bool two_indices = has_initial_index && node->get_children()[0]->get_children().size() > 1;
+    
+
+
     if (tok->get_token_type() == MINUS) {
         node = node->get_children()[0];
         tok = node->get_token();
@@ -511,30 +591,81 @@ std::string ALILConverter::handle_particle(PNode node, std::string last_part) {
             tok_type = current_object_token;
             lexeme = current_object_particle_if_named;
         }
-
-        switch(tok_type) {
-            case ELECTRON: 
-                inst = SUB_PART_ELECTRON; break;
-            case MUON: 
-                inst = SUB_PART_MUON; break;
-            case TAU: 
-                inst = SUB_PART_TAU; break;
-            case TRACK: 
-                inst = SUB_PART_TRACK; break;
-            case PHOTON:  
-                inst = SUB_PART_PHOTON; break;
-            case QGJET: 
-                inst = SUB_PART_QGJET; break;
-            case METLV:
-                inst = SUB_PART_METLV; break;
-            case GEN: 
-                inst = SUB_PART_GEN; break;
-            case JET: 
-                inst = SUB_PART_JET; break;
-            case FJET:
-                inst = SUB_PART_FJET; break;
-            default: 
-                inst = SUB_PART_NAMED; break;
+        if (two_indices) {
+            switch(tok_type) {
+                case ELECTRON: 
+                    inst = SUB_PART_ELECTRON_RANGE; break;
+                case MUON: 
+                    inst = SUB_PART_MUON_RANGE; break;
+                case TAU: 
+                    inst = SUB_PART_TAU_RANGE; break;
+                case TRACK: 
+                    inst = SUB_PART_TRACK_RANGE; break;
+                case PHOTON:  
+                    inst = SUB_PART_PHOTON_RANGE; break;
+                case QGJET: 
+                    inst = SUB_PART_QGJET_RANGE; break;
+                case METLV:
+                    inst = SUB_PART_METLV_RANGE; break;
+                case GEN: 
+                    inst = SUB_PART_GEN_RANGE; break;
+                case JET: 
+                    inst = SUB_PART_JET_RANGE; break;
+                case FJET:
+                    inst = SUB_PART_FJET_RANGE; break;
+                default: 
+                    inst = SUB_PART_NAMED_RANGE; break;
+            }
+        } else if (has_initial_index || has_later_index) {
+            switch(tok_type) {
+                case ELECTRON: 
+                    inst = SUB_PART_ELECTRON_INDEXED; break;
+                case MUON: 
+                    inst = SUB_PART_MUON_INDEXED; break;
+                case TAU: 
+                    inst = SUB_PART_TAU_INDEXED; break;
+                case TRACK: 
+                    inst = SUB_PART_TRACK_INDEXED; break;
+                case PHOTON:  
+                    inst = SUB_PART_PHOTON_INDEXED; break;
+                case QGJET: 
+                    inst = SUB_PART_QGJET_INDEXED; break;
+                case METLV:
+                    inst = SUB_PART_METLV_INDEXED; break;
+                case GEN: 
+                    inst = SUB_PART_GEN_INDEXED; break;
+                case JET: 
+                    inst = SUB_PART_JET_INDEXED; break;
+                case FJET:
+                    inst = SUB_PART_FJET_INDEXED; break;
+                default: 
+                    inst = SUB_PART_NAMED_INDEXED; break;
+            }
+        } else {
+            switch(tok_type) {
+                case ELECTRON: 
+                    inst = SUB_PART_ELECTRON; break;
+                case MUON: 
+                    inst = SUB_PART_MUON; break;
+                case TAU: 
+                    inst = SUB_PART_TAU; break;
+                case TRACK: 
+                    inst = SUB_PART_TRACK; break;
+                case PHOTON:  
+                    inst = SUB_PART_PHOTON; break;
+                case QGJET: 
+                    inst = SUB_PART_QGJET; break;
+                case METLV:
+                    inst = SUB_PART_METLV; break;
+                case GEN: 
+                    inst = SUB_PART_GEN; break;
+                case JET: 
+                    inst = SUB_PART_JET; break;
+                case FJET:
+                    inst = SUB_PART_FJET; break;
+                default: 
+                    inst = SUB_PART_NAMED; break;
+            }
         }
     } else {
 
@@ -543,30 +674,81 @@ std::string ALILConverter::handle_particle(PNode node, std::string last_part) {
             tok_type = current_object_token;
             lexeme = current_object_particle_if_named;
         }
-
-        switch(tok_type) {
-            case ELECTRON: 
-                inst = ADD_PART_ELECTRON; break;
-            case MUON: 
-                inst = ADD_PART_MUON; break;
-            case TAU: 
-                inst = ADD_PART_TAU; break;
-            case TRACK: 
-                inst = ADD_PART_TRACK; break;
-            case PHOTON:  
-                inst = ADD_PART_PHOTON; break;
-            case QGJET: 
-                inst = ADD_PART_QGJET; break;
-            case METLV:
-                inst = ADD_PART_METLV; break;
-            case GEN: 
-                inst = ADD_PART_GEN; break;
-            case JET: 
-                inst = ADD_PART_JET; break;
-            case FJET:
-                inst = ADD_PART_FJET; break;
-            default: 
-                inst = ADD_PART_NAMED; break;
+        if (two_indices) {
+            switch(tok_type) {
+                case ELECTRON: 
+                    inst = ADD_PART_ELECTRON_RANGE; break;
+                case MUON: 
+                    inst = ADD_PART_MUON_RANGE; break;
+                case TAU: 
+                    inst = ADD_PART_TAU_RANGE; break;
+                case TRACK: 
+                    inst = ADD_PART_TRACK_RANGE; break;
+                case PHOTON:  
+                    inst = ADD_PART_PHOTON_RANGE; break;
+                case QGJET: 
+                    inst = ADD_PART_QGJET_RANGE; break;
+                case METLV:
+                    inst = ADD_PART_METLV_RANGE; break;
+                case GEN: 
+                    inst = ADD_PART_GEN_RANGE; break;
+                case JET: 
+                    inst = ADD_PART_JET_RANGE; break;
+                case FJET:
+                    inst = ADD_PART_FJET_RANGE; break;
+                default: 
+                    inst = ADD_PART_NAMED_RANGE; break;
+            }
+        } else if (has_initial_index || has_later_index) {
+            switch(tok_type) {
+                case ELECTRON: 
+                    inst = ADD_PART_ELECTRON_INDEXED; break;
+                case MUON: 
+                    inst = ADD_PART_MUON_INDEXED; break;
+                case TAU: 
+                    inst = ADD_PART_TAU_INDEXED; break;
+                case TRACK: 
+                    inst = ADD_PART_TRACK_INDEXED; break;
+                case PHOTON:  
+                    inst = ADD_PART_PHOTON_INDEXED; break;
+                case QGJET: 
+                    inst = ADD_PART_QGJET_INDEXED; break;
+                case METLV:
+                    inst = ADD_PART_METLV_INDEXED; break;
+                case GEN: 
+                    inst = ADD_PART_GEN_INDEXED; break;
+                case JET: 
+                    inst = ADD_PART_JET_INDEXED; break;
+                case FJET:
+                    inst = ADD_PART_FJET_INDEXED; break;
+                default: 
+                    inst = ADD_PART_NAMED_INDEXED; break;
+            }
+        } else {
+            switch(tok_type) {
+                case ELECTRON: 
+                    inst = ADD_PART_ELECTRON; break;
+                case MUON: 
+                    inst = ADD_PART_MUON; break;
+                case TAU: 
+                    inst = ADD_PART_TAU; break;
+                case TRACK: 
+                    inst = ADD_PART_TRACK; break;
+                case PHOTON:  
+                    inst = ADD_PART_PHOTON; break;
+                case QGJET: 
+                    inst = ADD_PART_QGJET; break;
+                case METLV:
+                    inst = ADD_PART_METLV; break;
+                case GEN: 
+                    inst = ADD_PART_GEN; break;
+                case JET: 
+                    inst = ADD_PART_JET; break;
+                case FJET:
+                    inst = ADD_PART_FJET; break;
+                default: 
+                    inst = ADD_PART_NAMED; break;
+            }
         }
     }
 
@@ -582,9 +764,6 @@ std::string ALILConverter::handle_particle(PNode node, std::string last_part) {
 
     next_part.add_source_argument(last_part);
 
-    // check if we have either 1) an index attached straight to the node or 2) an index as the last child of the node (in the case of the arrow index)
-    bool has_initial_index = node->get_children().size() > 0 && node->get_children()[0]->get_ast_type() == INDEX;
-    bool has_later_index = node->get_children().size() > 2 && node->get_children()[2] ->get_ast_type() == INDEX;
 
     if (has_initial_index || has_later_index) {
 
@@ -597,7 +776,9 @@ std::string ALILConverter::handle_particle(PNode node, std::string last_part) {
 
         // if we have two parts to the index, add both to the function
         if (node->get_children()[0]->get_children().size() > 1) {
-            next_part.add_source_argument(relevant_node->get_children()[1]->get_token()->get_lexeme());
+            std::string last_index = relevant_node->get_children()[1]->get_token()->get_lexeme();
+            if (last_index == "]") last_index = "0";
+            next_part.add_source_argument(last_index);
         }
     }
 
@@ -2122,5 +2303,38 @@ ALILConverter::ALILConverter(Config &conf): highest_var_val(0),  config(conf), A
 
 ALILToALILCompiler::ALILToALILCompiler(ALILEmitter *alil_in, Config &conf): alil(alil_in), config(conf), ALILEmitter() {}
 
-ALILToFrameworkCompiler::ALILToFrameworkCompiler(ALILConverter *alil_in, Config &conf): alil(alil_in), config(conf) {}
+ALILToFrameworkCompiler::ALILToFrameworkCompiler(ALILEmitter *alil_in, Config &conf): alil(alil_in), config(conf) {}
+
+void RedundancyEliminator::eliminate() {
+
+    std::stack<AnalysisCommand> alil_first_stack;
+
+    while(alil->clear_to_next()) {
+        alil_first_stack.push(alil->next_command());
+    }
+
+    std::stack<AnalysisCommand> alil_second_stack;
+
+    while (!alil_first_stack.empty()) {
+        auto cmd = alil_first_stack.top();
+        alil_first_stack.pop();
+
+        if (cmd.has_dest_argument() && needed.count(cmd.get_dest_argument()) == 0) {
+            std::cout << "Eliminating " << cmd.get_dest_argument() << "\n"; 
+            continue;
+        }
+
+        for (int i = 0; i < (cmd.has_dest_argument() ? cmd.get_num_arguments() - 1 : cmd.get_num_arguments()); ++i) {
+            needed.emplace(cmd.get_source_argument(i));
+        }
+
+        alil_second_stack.push(cmd);
+    }
+    std::cout << std::endl;
+
+    while (!alil_second_stack.empty()) {
+        command_list.push_back(alil_second_stack.top());
+        alil_second_stack.pop();
+    }
+}
 

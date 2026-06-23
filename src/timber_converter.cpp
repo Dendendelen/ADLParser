@@ -183,7 +183,8 @@ std::string TimberConverter::lorentzify(std::string name) {
 
 std::string TimberConverter::add_particle(AnalysisCommand command, std::string name, bool negative) {
     bool is_named = false;
-    if (command.get_instruction() == ADD_PART_NAMED || command.get_instruction() == SUB_PART_NAMED) is_named = true;
+    auto inst = command.get_instruction();
+    if (inst == ADD_PART_NAMED || inst == SUB_PART_NAMED|| inst == ADD_PART_NAMED_INDEXED || inst == SUB_PART_NAMED_INDEXED || inst == ADD_PART_NAMED_RANGE || inst == SUB_PART_NAMED_RANGE) is_named = true;
 
     std::string symbol = negative ? " - " : " + ";
 
@@ -693,48 +694,113 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
             return "";
         }
         case ADD_PART_ELECTRON:
+        case ADD_PART_ELECTRON_INDEXED:
+        case ADD_PART_ELECTRON_RANGE:
             return add_particle(command, "Electron");
+
         case ADD_PART_MUON:
+        case ADD_PART_MUON_INDEXED:
+        case ADD_PART_MUON_RANGE:
             return add_particle(command, "Muon");
+
         case ADD_PART_TAU:
+        case ADD_PART_TAU_INDEXED:
+        case ADD_PART_TAU_RANGE:
             return add_particle(command, "Tau");
+
         case ADD_PART_TRACK:
+        case ADD_PART_TRACK_INDEXED:
+        case ADD_PART_TRACK_RANGE:
             return add_particle(command, "IsoTrack");
+
         case ADD_PART_PHOTON:
+        case ADD_PART_PHOTON_INDEXED:
+        case ADD_PART_PHOTON_RANGE:
             return add_particle(command, "Photon"); 
+
         case ADD_PART_QGJET:
-            return add_particle(command, "QGJet"); //TODO: change?
+        case ADD_PART_QGJET_INDEXED:
+        case ADD_PART_QGJET_RANGE:
+            return add_particle(command, "QGJet"); // TODO: change?
+
         case ADD_PART_METLV:
+        case ADD_PART_METLV_INDEXED:
+        case ADD_PART_METLV_RANGE:
             return add_particle(command, met_name);
+
         case ADD_PART_GEN:
+        case ADD_PART_GEN_INDEXED:
+        case ADD_PART_GEN_RANGE:
             return add_particle(command, "GenPart");
+
         case ADD_PART_JET:
+        case ADD_PART_JET_INDEXED:
+        case ADD_PART_JET_RANGE:
             return add_particle(command, "Jet");
+
         case ADD_PART_FJET:
+        case ADD_PART_FJET_INDEXED:
+        case ADD_PART_FJET_RANGE:
             return add_particle(command, "FatJet");
+
         case ADD_PART_NAMED:
+        case ADD_PART_NAMED_INDEXED:
+        case ADD_PART_NAMED_RANGE:
             return add_particle(command, get_mapping_if_exists(command.get_argument(1)));
+
         case SUB_PART_ELECTRON:
+        case SUB_PART_ELECTRON_INDEXED:
+        case SUB_PART_ELECTRON_RANGE:
             return sub_particle(command, "Electron");
+
         case SUB_PART_MUON:
+        case SUB_PART_MUON_INDEXED:
+        case SUB_PART_MUON_RANGE:
             return sub_particle(command, "Muon");
+
         case SUB_PART_TAU:
+        case SUB_PART_TAU_INDEXED:
+        case SUB_PART_TAU_RANGE:
             return sub_particle(command, "Tau");
+
         case SUB_PART_TRACK:
+        case SUB_PART_TRACK_INDEXED:
+        case SUB_PART_TRACK_RANGE:
             return sub_particle(command, "IsoTrack");
+
         case SUB_PART_PHOTON:
+        case SUB_PART_PHOTON_INDEXED:
+        case SUB_PART_PHOTON_RANGE:
             return sub_particle(command, "Photon");
+
         case SUB_PART_QGJET:
+        case SUB_PART_QGJET_INDEXED:
+        case SUB_PART_QGJET_RANGE:
             return sub_particle(command, "QGJet");
+
         case SUB_PART_METLV:
+        case SUB_PART_METLV_INDEXED:
+        case SUB_PART_METLV_RANGE:
             return sub_particle(command, met_name);
+
         case SUB_PART_GEN:
+        case SUB_PART_GEN_INDEXED:
+        case SUB_PART_GEN_RANGE:
             return sub_particle(command, "GenPart");
+
         case SUB_PART_JET:
+        case SUB_PART_JET_INDEXED:
+        case SUB_PART_JET_RANGE:
             return sub_particle(command, "Jet");
+
         case SUB_PART_FJET:
+        case SUB_PART_FJET_INDEXED:
+        case SUB_PART_FJET_RANGE:
             return sub_particle(command, "FatJet");
+
         case SUB_PART_NAMED:
+        case SUB_PART_NAMED_INDEXED:
+        case SUB_PART_NAMED_RANGE:
             return sub_particle(command, command.get_argument(1));
 
         case FUNC_ANYOF:

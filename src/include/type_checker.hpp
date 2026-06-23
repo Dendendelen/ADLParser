@@ -5,7 +5,9 @@
 #include "ali_converter.hpp"
 #include <memory>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
+
 
 
 enum BaseType {
@@ -40,6 +42,8 @@ class Statement;
 class Constraint;
 class Type;
 
+typedef std::shared_ptr<Type> PType;
+
 
 enum StatementForm {
     STATEMENT_EQUALITY, // a = b
@@ -57,12 +61,16 @@ enum StatementForm {
 class Statement {
     private:
         StatementForm form;
-        std::shared_ptr<Type> lhs;
-        std::shared_ptr<Type> rhs;
+        PType lhs;
+        PType rhs;
         std::string get_infix_string();
     public:
-        Statement(StatementForm, std::shared_ptr<Type>, std::shared_ptr<Type>);
+        Statement(StatementForm, PType, PType);
         
+        PType get_lhs();
+        PType get_rhs();
+        StatementForm get_form();
+
         void print();
 
 };
@@ -74,46 +82,74 @@ class Constraint {
     public:
         void add_premise(Statement);
         void add_conclusion(Statement);
+
+        std::vector<Statement> &get_premises();
+        std::vector<Statement> &get_conclusions();
+
         void print();
 };
 
 
 class Type : public std::enable_shared_from_this<Type>{
+
+    
     private:
         BaseType this_type;
-        std::vector<std::shared_ptr<Type>> source_types;
-        std::shared_ptr<Type> dest_type;
+        std::vector<PType> source_types;
+        PType dest_type;
         std::vector<Constraint> constraints;
         bool has_dest_type;
 
         std::string get_name_string();
 
-        static std::unordered_map<BaseType, std::shared_ptr<Type>> base_type_instances_map;
+        static std::unordered_map<BaseType, PType> base_type_instances_map;
     public:
-        static std::unordered_map<std::shared_ptr<Type>, int> generic_map;
+        static std::unordered_map<PType, int> generic_map;
         static int highest_mapped_generic;
 
         Type(BaseType);
         BaseType get_base_type();
-        void add_source_type(std::shared_ptr<Type>);
+
+        bool is_fundamental_type();
+
+        void add_source_type(PType);
         void add_source_type(BaseType);
-        void add_dest_type(std::shared_ptr<Type>);
+        void add_dest_type(PType);
         void add_dest_type(BaseType);
         void add_constraint(Constraint);
 
+        std::vector<Constraint> &get_constraints();
+        PType get_dest_type();
+        PType get_source_type(int);
+        int get_num_of_sources();
+
         void print();
+        void print(std::unordered_map<PType, PType> &);
         
-        static std::shared_ptr<Type> fundamental_type_instance(BaseType);
+        static PType fundamental_type_instance(BaseType);
 
 };
-
 
 class Typer : public ALILToFrameworkCompiler {
     private:
 
-        std::shared_ptr<Type> command_handle(AnalysisCommand);
+        PType command_handle(AnalysisCommand);
+        void equality_of_types(std::unordered_map<PType, PType> &, PType, PType);
+
+
+        std::vector<Constraint> running_valid_constraints;
+        std::unordered_map<std::string, PType> types_of_variables;
+        std::vector<std::string> order_of_variables;
+
+        std::unordered_set<std::string> used_variables;
+
     public:
         using ALILToFrameworkCompiler::ALILToFrameworkCompiler;
+
+    
+        void collect_existing_constraints();
+        void resolve_constraints();
+
         void print() override;
 };
 

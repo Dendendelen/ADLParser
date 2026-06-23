@@ -4,12 +4,15 @@
 #include "node.hpp"
 #include <cassert>
 #include <iostream>
+#include <map>
 #include <memory>
+#include <regex>
 #include <unordered_map>
+#include <vector>
 
 
-std::unordered_map<BaseType, std::shared_ptr<Type>> Type::base_type_instances_map;
-std::unordered_map<std::shared_ptr<Type>, int> Type::generic_map;
+std::unordered_map<BaseType, PType> Type::base_type_instances_map;
+std::unordered_map<PType, int> Type::generic_map;
 int Type::highest_mapped_generic;
 
 
@@ -19,6 +22,15 @@ void Constraint::add_premise(Statement statement) {
 void Constraint::add_conclusion(Statement statement) {
     conclusions.push_back(statement);
 }
+
+std::vector<Statement> &Constraint::get_premises() {
+    return premises;
+}
+
+std::vector<Statement> &Constraint::get_conclusions() {
+    return conclusions;
+}
+
 
 void Constraint::print() {
     bool has_premises = false;
@@ -47,9 +59,9 @@ void Constraint::print() {
     }
 }
 
-Statement::Statement(StatementForm form_in, std::shared_ptr<Type> type1, std::shared_ptr<Type> type2) : form(form_in), lhs(type1), rhs(type2) {}
+Statement::Statement(StatementForm form_in, PType type1, PType type2) : form(form_in), lhs(type1), rhs(type2) {}
 
-std::shared_ptr<Type> Type::fundamental_type_instance(BaseType bt) {
+PType Type::fundamental_type_instance(BaseType bt) {
     // no non-fundamental-types should have this be called on it - lists, functions always have children, and generic is not a single type
     assert(bt != TYPE_GENERIC);
     assert(bt != TYPE_FUNCTION);
@@ -61,6 +73,18 @@ std::shared_ptr<Type> Type::fundamental_type_instance(BaseType bt) {
     return base_type_instances_map[bt];
 }
 
+
+PType Statement::get_lhs() {
+    return lhs;
+}
+
+PType Statement::get_rhs() {
+    return rhs;
+}
+
+StatementForm Statement::get_form() {
+    return form;
+}
 
 std::string Statement::get_infix_string() {
     switch (form) {
@@ -99,7 +123,11 @@ BaseType Type::get_base_type() {
     return this_type;
 }
 
-void Type::add_source_type(std::shared_ptr<Type> type) {
+bool Type::is_fundamental_type() {
+    return (this_type != TYPE_FUNCTION && this_type != TYPE_GENERIC && this_type != TYPE_LIST);
+}
+
+void Type::add_source_type(PType type) {
     if (this_type != TYPE_FUNCTION) {
         assert(false);
     }
@@ -115,7 +143,7 @@ void Type::add_source_type(BaseType type) {
     }
 }
 
-void Type::add_dest_type(std::shared_ptr<Type> type) {
+void Type::add_dest_type(PType type) {
     if (this_type != TYPE_FUNCTION && this_type != TYPE_LIST) {
         assert(false);
     }
@@ -139,6 +167,24 @@ void Type::add_dest_type(BaseType type) {
 
 void Type::add_constraint(Constraint con) {
     constraints.push_back(con);
+}
+
+std::vector<Constraint> &Type::get_constraints() {
+    return constraints;
+}
+
+int Type::get_num_of_sources() {
+    assert(this_type == TYPE_FUNCTION);
+    return source_types.size();
+}
+
+PType Type::get_source_type(int index) {
+    assert(index < source_types.size());
+    return source_types[index];
+}
+
+PType Type::get_dest_type() {
+    return dest_type;
 }
 
 std::string Type::get_name_string() {
@@ -176,7 +222,14 @@ std::string Type::get_name_string() {
     
 }
 
-void Type::print() {
+
+void Type::print(std::unordered_map<PType, PType> &substitutions) {
+
+
+    if (substitutions.count(shared_from_this()) != 0) {
+        substitutions[shared_from_this()]->print(substitutions);
+        return;
+    }
 
     if (this_type != TYPE_GENERIC) {
         std::cout << get_name_string();
@@ -201,14 +254,14 @@ void Type::print() {
             } else {
                 first = false;
             }
-            it->print();
+            it->print(substitutions);
         }
         std::cout << " -> ";
-        dest_type->print();
+        dest_type->print(substitutions);
         std::cout << ")";
     } else if (this_type == TYPE_LIST) {
         std::cout << "<";
-        dest_type->print();
+        dest_type->print(substitutions);
         std::cout << ">";
     }
 
@@ -224,11 +277,16 @@ void Type::print() {
     }
 }
 
-std::shared_ptr<Type> Typer::command_handle(AnalysisCommand in) {
+void Type::print() {
+    std::unordered_map<PType, PType> dummy_sub_map;
+    print(dummy_sub_map); 
+}
+
+PType Typer::command_handle(AnalysisCommand in) {
 
     in.print_instruction();
 
-    std::shared_ptr<Type> fun(std::make_shared<Type>(TYPE_FUNCTION));
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
     switch (in.get_instruction()) {
 
     case CREATE_REGION:
@@ -249,18 +307,18 @@ std::shared_ptr<Type> Typer::command_handle(AnalysisCommand in) {
         break;
     case ADD_ALIAS: case END_EXPRESSION:
     {
-        // `a -> `b
+        // `a -> `a
         auto source_type = std::make_shared<Type>(TYPE_GENERIC);
         auto dest_type = std::make_shared<Type>(TYPE_GENERIC);
 
         fun->add_source_type(source_type);
-        fun->add_dest_type(dest_type);
+        fun->add_dest_type(source_type);
 
-        // | `a = `b
-        Constraint equality;
-        equality.add_conclusion(Statement(STATEMENT_EQUALITY, source_type, dest_type));
+        // // | `a = `b
+        // Constraint equality;
+        // equality.add_conclusion(Statement(STATEMENT_EQUALITY, source_type, dest_type));
 
-        fun->add_constraint(equality);
+        // fun->add_constraint(equality);
         break;
 
     }
@@ -381,7 +439,7 @@ std::shared_ptr<Type> Typer::command_handle(AnalysisCommand in) {
         assert(false);
     case SORT_ASCEND: case SORT_DESCEND:
         {
-        // List<ParticleInstance> x List<Number> -> List<ParticleInstance
+        // List<ParticleInstance> x List<Number> -> List<ParticleInstance>
         auto source_part_list = std::make_shared<Type>(TYPE_LIST);
         source_part_list->add_dest_type(TYPE_PARTICLEINSTANCE);
         fun->add_source_type(source_part_list);
@@ -403,13 +461,13 @@ std::shared_ptr<Type> Typer::command_handle(AnalysisCommand in) {
 
         fun->add_source_type(source_type);
         fun->add_source_type(TYPE_NUMBER);
-        fun->add_dest_type(dest_type);
+        fun->add_dest_type(source_type);
 
         // | `a = `b
-        Constraint equality;
-        equality.add_conclusion(Statement(STATEMENT_EQUALITY, source_type, dest_type));
+        // Constraint equality;
+        // equality.add_conclusion(Statement(STATEMENT_EQUALITY, source_type, dest_type));
 
-        fun->add_constraint(equality);
+        // fun->add_constraint(equality);
 
         // | `a <<: Number
         Constraint numeric;
@@ -492,12 +550,13 @@ std::shared_ptr<Type> Typer::command_handle(AnalysisCommand in) {
 
     case EXPR_INDEX:
     {
-        // List<`a> -> `a
+        // List<`a> x Number -> `a
         auto element_type = std::make_shared<Type>(TYPE_GENERIC);
         auto source_list = std::make_shared<Type>(TYPE_LIST);
         source_list->add_dest_type(element_type);
 
         fun->add_source_type(source_list);
+        fun->add_source_type(Type::fundamental_type_instance(TYPE_NUMBER));
         fun->add_dest_type(element_type);
         break;
     }
@@ -776,10 +835,14 @@ std::shared_ptr<Type> Typer::command_handle(AnalysisCommand in) {
         fun->add_source_type(func_type);
         fun->add_dest_type(dest_type_d);
 
-        // | `a <: `c
-        Constraint subtype;
-        subtype.add_conclusion(Statement(STATEMENT_SUBTYPE, source_type_a, type_c));
-        fun->add_constraint(subtype);
+        // // | `a <: `c
+        // Constraint subtype;
+        // subtype.add_conclusion(Statement(STATEMENT_SUBTYPE, source_type_a, type_c));
+        // fun->add_constraint(subtype);
+
+        Constraint subtype_fake_as_equality; //TODO: once subtyping is implemented, change
+        subtype_fake_as_equality.add_conclusion(Statement(STATEMENT_EQUALITY, source_type_a, type_c));
+        fun->add_constraint(subtype_fake_as_equality);
 
         // | `d = `b
         Constraint equality;
@@ -928,9 +991,130 @@ std::shared_ptr<Type> Typer::command_handle(AnalysisCommand in) {
         fun->add_constraint(particlelike);
         break;
     }
-    
-    
-    
+
+    case ADD_PART_ELECTRON_INDEXED:
+    case ADD_PART_MUON_INDEXED:
+    case ADD_PART_TAU_INDEXED:
+    case ADD_PART_TRACK_INDEXED:
+    case ADD_PART_PHOTON_INDEXED:
+    case ADD_PART_QGJET_INDEXED:
+    case ADD_PART_METLV_INDEXED:
+    case ADD_PART_GEN_INDEXED:
+    case ADD_PART_JET_INDEXED:
+    case ADD_PART_FJET_INDEXED:
+
+    case SUB_PART_ELECTRON_INDEXED:
+    case SUB_PART_MUON_INDEXED:
+    case SUB_PART_TAU_INDEXED:
+    case SUB_PART_TRACK_INDEXED:
+    case SUB_PART_PHOTON_INDEXED:
+    case SUB_PART_QGJET_INDEXED:
+    case SUB_PART_METLV_INDEXED:
+    case SUB_PART_GEN_INDEXED:
+    case SUB_PART_JET_INDEXED:
+    case SUB_PART_FJET_INDEXED:
+    {
+        // `a x Number -> `a where `a <<: ParticleInstance
+        auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+
+        fun->add_source_type(source_type);
+        fun->add_source_type(TYPE_NUMBER);
+        fun->add_dest_type(source_type);
+
+        // | `a <<: ParticleInstance
+        Constraint particlelike;
+        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+        fun->add_constraint(particlelike);
+        break;
+    }
+
+    case ADD_PART_NAMED_INDEXED:
+    case SUB_PART_NAMED_INDEXED:
+    {
+        // `b x `a x Number -> `a where `a <<: ParticleInstance and `b <<: ParticleInstance
+        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
+        auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+
+        fun->add_source_type(source_type_b);
+        fun->add_source_type(source_type_a);
+        fun->add_source_type(TYPE_NUMBER);
+        fun->add_dest_type(source_type_a);
+
+        // | `a <<: ParticleInstance
+        Constraint particlelike_a;
+        particlelike_a.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+        fun->add_constraint(particlelike_a);
+
+        // | `b <<: ParticleInstance
+        Constraint particlelike_b;
+        particlelike_b.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+        fun->add_constraint(particlelike_b);
+        break;
+    }
+
+    case ADD_PART_ELECTRON_RANGE:
+    case ADD_PART_MUON_RANGE:
+    case ADD_PART_TAU_RANGE:
+    case ADD_PART_TRACK_RANGE:
+    case ADD_PART_PHOTON_RANGE:
+    case ADD_PART_QGJET_RANGE:
+    case ADD_PART_METLV_RANGE:
+    case ADD_PART_GEN_RANGE:
+    case ADD_PART_JET_RANGE:
+    case ADD_PART_FJET_RANGE:
+
+    case SUB_PART_ELECTRON_RANGE:
+    case SUB_PART_MUON_RANGE:
+    case SUB_PART_TAU_RANGE:
+    case SUB_PART_TRACK_RANGE:
+    case SUB_PART_PHOTON_RANGE:
+    case SUB_PART_QGJET_RANGE:
+    case SUB_PART_METLV_RANGE:
+    case SUB_PART_GEN_RANGE:
+    case SUB_PART_JET_RANGE:
+    case SUB_PART_FJET_RANGE:
+    {
+        // `a x Number x Number -> `a where `a <<: ParticleInstance
+        auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+
+        fun->add_source_type(source_type);
+        fun->add_source_type(TYPE_NUMBER);
+        fun->add_source_type(TYPE_NUMBER);
+        fun->add_dest_type(source_type);
+
+        // | `a <<: ParticleInstance
+        Constraint particlelike;
+        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+        fun->add_constraint(particlelike);
+        break;
+    }
+
+    case ADD_PART_NAMED_RANGE:
+    case SUB_PART_NAMED_RANGE:
+    { 
+        // `b x `a x Number x Number -> `a where `a <<: ParticleInstance and `b <<: ParticleInstance
+        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
+        auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+
+        fun->add_source_type(source_type_b);
+        fun->add_source_type(source_type_a);
+        fun->add_source_type(TYPE_NUMBER);
+        fun->add_source_type(TYPE_NUMBER);
+        fun->add_dest_type(source_type_a);
+
+        // | `a <<: ParticleInstance
+        Constraint particlelike_a;
+        particlelike_a.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+        fun->add_constraint(particlelike_a);
+
+        // | `b <<: ParticleInstance
+        Constraint particlelike_b;
+        particlelike_b.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+        fun->add_constraint(particlelike_b);
+        break;
+    }
+
+
     }
 
     return fun;
@@ -939,17 +1123,197 @@ std::shared_ptr<Type> Typer::command_handle(AnalysisCommand in) {
 
 
 
-void Typer::print() {
+void Typer::equality_of_types(std::unordered_map<PType, PType> &equalities, PType first, PType second) {
 
-        Type::highest_mapped_generic = 0;
-        Type::generic_map.clear();
+    if (first->get_base_type() != TYPE_GENERIC && second->get_base_type() != TYPE_GENERIC) {
+        if (first->get_base_type() != second->get_base_type()) {
+            assert(false);
+        } else if (first->get_base_type() == TYPE_FUNCTION) {
+            for (int i = 0; i < first->get_num_of_sources(); i++) {
+                equality_of_types(equalities, first->get_source_type(i), second->get_source_type(i));
+            }
+        }  
 
-        while (alil->clear_to_next()) {
-        auto out = command_handle(alil->next_command());
-        out->print();
-        std::cout << std::endl;
+        if (first->get_base_type() == TYPE_FUNCTION || first->get_base_type() == TYPE_LIST) {
+            equality_of_types(equalities, first->get_dest_type(), second->get_dest_type());
+        }
+
+    } else if (first->get_base_type() != TYPE_GENERIC) {
+            equalities.emplace(second, first);
+    } else if (second->get_base_type() != TYPE_GENERIC) {
+            equalities.emplace(first, second);
+    } else {
+        if (equalities.count(second) != 0) {
+            equalities.emplace(first, equalities[second]);
+        } else if (equalities.count(first) != 0) {
+            equalities.emplace(second, equalities[first]);
+        } else {
+            equalities.emplace(second, first);
+        }
+
+    }
+}
+
+
+void transitive_closure_equality() {
+    
+}
+
+void Typer::resolve_constraints() {
+    std::unordered_map<PType, PType> equalities;
+
+    std::vector<Constraint> new_running_valid_constraints;
+
+    for (auto constraint : running_valid_constraints) {
+        bool has_true_premises = true;
+        for (auto premise : constraint.get_premises()) {
+            auto first = premise.get_lhs();
+            auto second = premise.get_rhs();
+
+            auto true_first = equalities.count(first) != 0 ? equalities[first] : first;
+            auto true_second = equalities.count(second) != 0 ? equalities[second] : second;
+ 
+            if (true_first->is_fundamental_type() && true_second->is_fundamental_type()) {
+                if (true_first->get_base_type() != true_second->get_base_type()) has_true_premises = false;
+            } else if (true_first != true_second) {
+            // this has failed for a reason that is not fully determined - add it back to the constraints list
+                has_true_premises = false;
+                new_running_valid_constraints.push_back(constraint);
+            }
+            
+
+        }
+
+        if (!has_true_premises) continue;
+
+        for (auto conclusion : constraint.get_conclusions()) {
+
+            auto first = conclusion.get_lhs();
+            auto second = conclusion.get_rhs();
+
+            if (conclusion.get_form() == STATEMENT_EQUALITY) {
+                equality_of_types(equalities, first, second);
+            } else {
+                new_running_valid_constraints.push_back(constraint);
+            }
+
+        }
+    }
+
+    for (auto variable : order_of_variables) {
+        auto type_of_var = types_of_variables[variable];
+
+        if (used_variables.count(variable) == 0) {
+            std::cout << "UNUSED ";
+        }
+
+        std::cout << variable << " : ";
+
+        while (equalities.count(type_of_var) != 0) {
+            type_of_var = equalities[type_of_var];
+            // equalities[type_of_var]->print();    
+        } 
+            type_of_var->print(equalities);
+        
+        std::cout << "\n";
+    }
+    std::cout << std::endl;
+
+    for (auto constraint : new_running_valid_constraints) {
+        constraint.print();
+        std::cout << "\n";
+    }
+
+}
+
+void Typer::collect_existing_constraints() {
+
+    std::regex reg_string;
+    std::regex reg_number;
+
+    reg_number = std::regex("-{0,1}[0-9]*\\.{0,1}[0-9]*([Ee][-+]{0,1}[0-9]+){0,1}");
+    reg_string= std::regex("\"[^\"]*\"");
+
+    while (alil->clear_to_next()) {
+        AnalysisCommand command = alil->next_command();
+
+        auto type_of_function = command_handle(command);
+        type_of_function->print();
+
+        // all the constraints this type comes with, we add to ours
+        for (auto constraint : type_of_function->get_constraints()) {
+            running_valid_constraints.push_back(constraint);
+        }
+
+        // generate a series of constraints for the inputs to match with the 
+        for (int i = 0; i < command.get_num_arguments() - (command.has_dest_argument() ? 1 : 0); i++) {
+            std::string arg = command.get_source_argument(i);
+
+            used_variables.emplace(arg);
+
+            PType type_of_arg;
+            if (types_of_variables.count(arg) == 0) {
+                if (std::regex_match(arg, reg_string)) {
+                    type_of_arg = Type::fundamental_type_instance(TYPE_STRING);
+                } else if (std::regex_match(arg, reg_number)) {
+                    type_of_arg = Type::fundamental_type_instance(TYPE_NUMBER);
+                } else {
+                    // TODO:error condition - variable is undefined
+                    std::cerr << arg << std::endl;
+                    assert(false);
+                }
+            } else {
+                type_of_arg = types_of_variables[arg];
+            }
+            Constraint equality_of_input;
+            if (type_of_function->get_num_of_sources() <= i) {
+                std::cerr << type_of_function->get_num_of_sources();
+                //TODO: real error;
+                assert(false);
+            } 
+            equality_of_input.add_conclusion(Statement(STATEMENT_EQUALITY, type_of_arg, type_of_function->get_source_type(i)));
+            running_valid_constraints.push_back(equality_of_input);
+        }
+
+
+        if (command.has_dest_argument()) {
+            // the destination necessarily has the type of the codomain of the function in question
+            order_of_variables.push_back(command.get_dest_argument());
+            types_of_variables.emplace(command.get_dest_argument(), type_of_function->get_dest_type());
+        }
 
         
+
+        // out->print();
+        std::cout << std::endl;
+
     }
+
+    for (auto constraint : running_valid_constraints) {
+        constraint.print();
+        std::cout << "\n";
+    }
+    std::cout << std::endl;
+}
+
+
+void Typer::print() {
+
+    Type::highest_mapped_generic = 0;
+    Type::generic_map.clear();
+    types_of_variables.clear();
+
+    collect_existing_constraints();
+
+    resolve_constraints();
+    // resolve_constraints();
+
+    // while (alil->clear_to_next()) {
+    //     auto out = command_handle(alil->next_command());
+    //     out->print();
+    //     std::cout << std::endl;
+
+        
+    // }
 }
 
