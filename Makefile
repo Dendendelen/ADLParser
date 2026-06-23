@@ -1,12 +1,12 @@
-# CFLAGS2 = -g -fsanitize=address
+CFLAGS2 = -g -fsanitize=address
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-CFLAGS = -std=c++17 -g -Isrc/include -D'ROOT_DIR="$(ROOT_DIR)"'
+CFLAGS = -std=c++17 -g -Isrc/include -D'ROOT_DIR="$(ROOT_DIR)"' $(CFLAGS2)
 SRCDIR = src/
 INCDIR = src/include/
 ODIR = out/
 
 main: $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o $(ODIR)type_checker.o $(ODIR)config.o
-	g++ $(CFLAGS) -g -o main $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o $(ODIR)type_checker.o $(ODIR)config.o
+	g++ $(CFLAGS) -g -o main $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o $(ODIR)type_checker.o $(ODIR)config.o 
 	./main _ genconfig
 
 $(ODIR)main.o: $(SRCDIR)main.cpp $(INCDIR)lexer.hpp 

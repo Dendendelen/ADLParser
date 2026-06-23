@@ -54,7 +54,10 @@ int main(int argc, char** argv) {
     }
 
     if (argument == "type") {
-        auto typer = std::make_unique<Typer>(alil.release(), config);
+        auto cleaner = std::make_unique<RedundancyEliminator>(alil.release(), config);
+        cleaner->eliminate();
+
+        auto typer = std::make_unique<Typer>(cleaner.release(), config);
         typer->print();
         return 0;
     }

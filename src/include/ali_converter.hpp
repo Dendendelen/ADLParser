@@ -4,9 +4,11 @@
 #include "ast_visitor.hpp"
 #include "config.hpp"
 #include "lexer.hpp"
+#include "node.hpp"
 #include "tokens.hpp"
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 
@@ -230,7 +232,31 @@ enum AnalysisLevelInstruction {
     ADD_PART_FJET,
     ADD_PART_NAMED,
 
-    SUB_PART_ELECTRON, // Particle -> Particle
+    ADD_PART_ELECTRON_INDEXED,
+    ADD_PART_MUON_INDEXED,
+    ADD_PART_TAU_INDEXED,
+    ADD_PART_TRACK_INDEXED,
+    ADD_PART_PHOTON_INDEXED,
+    ADD_PART_QGJET_INDEXED,
+    ADD_PART_METLV_INDEXED,
+    ADD_PART_GEN_INDEXED,
+    ADD_PART_JET_INDEXED,
+    ADD_PART_FJET_INDEXED,
+    ADD_PART_NAMED_INDEXED,
+
+    ADD_PART_ELECTRON_RANGE,
+    ADD_PART_MUON_RANGE,
+    ADD_PART_TAU_RANGE,
+    ADD_PART_TRACK_RANGE,
+    ADD_PART_PHOTON_RANGE,
+    ADD_PART_QGJET_RANGE,
+    ADD_PART_METLV_RANGE,
+    ADD_PART_GEN_RANGE,
+    ADD_PART_JET_RANGE,
+    ADD_PART_FJET_RANGE,
+    ADD_PART_NAMED_RANGE,
+
+    SUB_PART_ELECTRON,
     SUB_PART_MUON,
     SUB_PART_TAU,
     SUB_PART_TRACK,
@@ -240,7 +266,31 @@ enum AnalysisLevelInstruction {
     SUB_PART_GEN,
     SUB_PART_JET,
     SUB_PART_FJET,
-    SUB_PART_NAMED // Particle, Particle -> Particle
+    SUB_PART_NAMED,
+
+    SUB_PART_ELECTRON_INDEXED,
+    SUB_PART_MUON_INDEXED,
+    SUB_PART_TAU_INDEXED,
+    SUB_PART_TRACK_INDEXED,
+    SUB_PART_PHOTON_INDEXED,
+    SUB_PART_QGJET_INDEXED,
+    SUB_PART_METLV_INDEXED,
+    SUB_PART_GEN_INDEXED,
+    SUB_PART_JET_INDEXED,
+    SUB_PART_FJET_INDEXED,
+    SUB_PART_NAMED_INDEXED,
+
+    SUB_PART_ELECTRON_RANGE,
+    SUB_PART_MUON_RANGE,
+    SUB_PART_TAU_RANGE,
+    SUB_PART_TRACK_RANGE,
+    SUB_PART_PHOTON_RANGE,
+    SUB_PART_QGJET_RANGE,
+    SUB_PART_METLV_RANGE,
+    SUB_PART_GEN_RANGE,
+    SUB_PART_JET_RANGE,
+    SUB_PART_FJET_RANGE,
+    SUB_PART_NAMED_RANGE,
 
 };
 
@@ -280,6 +330,8 @@ class ALILEmitter {
         int iter_command;
     public:
         ALILEmitter();
+        virtual ~ALILEmitter() = default;
+
         void print_commands();
         AnalysisCommand next_command();
         bool clear_to_next();
@@ -370,17 +422,17 @@ class ALILConverter : ASTVisitor, public ALILEmitter {
 
 class ALILToFrameworkCompiler {
     protected:
-        std::unique_ptr<ALILConverter> alil;
+        std::unique_ptr<ALILEmitter> alil;
         Config &config;
 
     public:
-        ALILToFrameworkCompiler(ALILConverter *alil_in, Config &conf);
+        ALILToFrameworkCompiler(ALILEmitter *alil_in, Config &conf);
         virtual ~ALILToFrameworkCompiler() = default;
         virtual void print() = 0;
 };
 
 
-class ALILToALILCompiler : ALILEmitter {
+class ALILToALILCompiler : public ALILEmitter {
     protected:
         std::unique_ptr<ALILEmitter> alil;
         Config &config;
@@ -391,7 +443,13 @@ class ALILToALILCompiler : ALILEmitter {
 };
 
 
-
+class RedundancyEliminator : public ALILToALILCompiler {
+    private:
+        std::unordered_set<std::string> needed;
+    public:
+        using ALILToALILCompiler::ALILToALILCompiler;
+        void eliminate();
+};
 
 
 #endif
