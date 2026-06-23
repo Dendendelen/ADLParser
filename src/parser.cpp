@@ -1602,7 +1602,7 @@ int get_precedence(PToken tok, bool increase_if_left_associative = false) {
         case WITHIN: case OUTSIDE:
         return 40 + left_associative_addition;
 
-        case MAXIMIZE: case MINIMIZE:
+        case AMPERSAND: case PIPE:
         return 30 + left_associative_addition;
 
         case LT: case GT: case LE: case GE: case EQ: case NE: 
