@@ -317,12 +317,13 @@ std::string TimberConverter::command_convert(AnalysisCommand command) {
     AnalysisCommand new_command(command.get_instruction());
 
     for (int i = 0; i < command.get_num_arguments(); i++) {
+        std::regex number("-{0,1}[0-9]*\\.{0,1}[0-9]*([Ee][-+]{0,1}[0-9]+){0,1}");
         std::regex e("[_\\->]");
         std::string new_arg = command.get_argument(i);
-        if (new_arg[0] != '"') {
+        if (new_arg[0] != '"' && !std::regex_match(new_arg, number)) {
             new_arg = std::regex_replace(command.get_argument(i), e, "w");
         }
-        if (i == 0) 
+        if (i == 0 && command.has_dest_argument()) 
             new_command.add_dest_argument(new_arg);
         else
             new_command.add_source_argument(new_arg);
