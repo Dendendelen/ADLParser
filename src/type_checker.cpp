@@ -1123,6 +1123,8 @@ PType Typer::command_handle(AnalysisCommand in) {
 
 
 
+
+
 void Typer::equality_of_types(std::unordered_map<PType, PType> &equalities, PType first, PType second) {
 
     if (first->get_base_type() != TYPE_GENERIC && second->get_base_type() != TYPE_GENERIC) {
@@ -1155,9 +1157,20 @@ void Typer::equality_of_types(std::unordered_map<PType, PType> &equalities, PTyp
 }
 
 
+// create sets of equivalence classes - any one equal to any other will have their equivalence classes merged
 void transitive_closure_equality() {
     
 }
+
+// using Warshall's algorithm, we take any types that are natively subtyped from each other, and compute whether any node i is upstrean of node j (i.e. i <: j)
+void transitive_closure_hereditary_subtype() {
+
+}
+
+// we similarly compute for hereditary subtyping, using the fact that a <: b ==> a <<: b
+
+
+
 
 void Typer::resolve_constraints() {
     std::unordered_map<PType, PType> equalities;
