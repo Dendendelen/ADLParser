@@ -72,6 +72,7 @@ class Statement {
         StatementForm get_form();
 
         void print();
+        void print(std::unordered_map<PType, PType> &);
 
 };
 
@@ -79,6 +80,7 @@ class Constraint {
     private:
         std::vector<Statement> premises;
         std::vector<Statement> conclusions;
+        void internal_print(bool,std::unordered_map<PType, PType> *);
     public:
         void add_premise(Statement);
         void add_conclusion(Statement);
@@ -87,7 +89,9 @@ class Constraint {
         std::vector<Statement> &get_conclusions();
 
         void print();
+        void print(std::unordered_map<PType, PType> &);
 };
+
 
 
 class Type : public std::enable_shared_from_this<Type>{
@@ -130,11 +134,86 @@ class Type : public std::enable_shared_from_this<Type>{
 
 };
 
+class EquivalenceClasses {
+    // union-find data structure for equivalence classes
+
+    private:
+        std::unordered_map<PType, PType> parent;
+
+    public:
+        PType find_representative(PType source);
+        void union_of_classes(PType first, PType second);
+        PType resolve_higher_order(PType source);
+        std::unordered_map<PType, PType> resolve_all();
+
+};
+
+class PartialOrder {
+private:
+    std::unordered_map<PType, std::unordered_set<PType>> supertypes;
+    std::unordered_map<PType, std::unordered_set<PType>> subtypes;
+
+
+    void ensure_exists(PType);
+    bool has_path(PType, PType, std::unordered_set<PType> &);
+    
+public:
+    void add_subtype(PType sub, PType super);
+
+    bool is_subtype(PType, PType);
+    std::unordered_set<PType> get_supertypes(PType);
+    std::unordered_set<PType> get_subtypes(PType);
+
+    PType least_upper_bound(PType a, PType b);
+    PType greatest_lower_bound(PType a, PType b);
+
+    std::unordered_map<PType, std::unordered_set<PType>> get_all_supertypes();
+    std::unordered_map<PType, std::unordered_set<PType>> get_all_subtypes();
+    std::vector<PType> topological_sort();
+};
+
+
+struct Ternary {
+    enum TernaryType {
+        TERN_TRUE,
+        TERN_UNKNOWN,
+        TERN_FALSE
+    };
+
+    TernaryType val;
+
+    constexpr Ternary(TernaryType v) : val(v) {}
+
+    // allow direct reference
+    constexpr operator TernaryType() const { return val; }
+
+    // disallow coaxing to bool
+    explicit operator bool() = delete;
+
+    constexpr Ternary l_and(const Ternary &t) const {
+        if (val == TERN_FALSE || t.val == TERN_FALSE) return TERN_FALSE;
+        if (val == TERN_TRUE && t.val == TERN_TRUE) return TERN_TRUE;
+        return TERN_UNKNOWN;
+    }
+
+    void eq_land(const Ternary &t) {
+        val = this->l_and(t);
+    }
+};
+
 class Typer : public ALILToFrameworkCompiler {
     private:
 
+        EquivalenceClasses equiv;
+        PartialOrder subtyping;
+        PartialOrder hereditary_subtyping;
+
         PType command_handle(AnalysisCommand);
-        void equality_of_types(std::unordered_map<PType, PType> &, PType, PType);
+        void equality_of_types(PType, PType);
+        void subtype_of_types(PType, PType);
+        void hereditary_subtype_of_types(PType sub, PType super);
+
+        Ternary truth_of_premise(PType lhs, PType rhs, StatementForm form);
 
 
         std::vector<Constraint> running_valid_constraints;

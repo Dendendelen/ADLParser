@@ -6,6 +6,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <queue>
 #include <regex>
 #include <unordered_map>
 #include <vector>
@@ -31,8 +32,7 @@ std::vector<Statement> &Constraint::get_conclusions() {
     return conclusions;
 }
 
-
-void Constraint::print() {
+void Constraint::internal_print(bool has_map,std::unordered_map<PType, PType> *map_ptr) {
     bool has_premises = false;
     bool first = true;
     for (auto premise : premises) {
@@ -41,7 +41,7 @@ void Constraint::print() {
         } else {
             std::cout << " and ";
         }
-        premise.print();
+        has_map ? premise.print(*map_ptr) : premise.print();
         has_premises = true;
     }
     if (has_premises) {
@@ -55,8 +55,43 @@ void Constraint::print() {
         } else {
             std::cout << " and ";
         }
-        conclusion.print();
+        has_map ? conclusion.print(*map_ptr) : conclusion.print();
     }
+}
+
+// void Constraint::print() {
+//     bool has_premises = false;
+//     bool first = true;
+//     for (auto premise : premises) {
+//         if (first) {
+//             first = false;
+//         } else {
+//             std::cout << " and ";
+//         }
+//         premise.print();
+//         has_premises = true;
+//     }
+//     if (has_premises) {
+//         std::cout << " ===> ";
+//     }
+
+//     first = true;
+//     for (auto conclusion : conclusions) {
+//         if (first) {
+//             first = false;
+//         } else {
+//             std::cout << " and ";
+//         }
+//         conclusion.print();
+//     }
+// }
+
+void Constraint::print() {
+    internal_print(false, nullptr);
+}
+
+void Constraint::print(std::unordered_map<PType, PType> &substitutions) {
+    internal_print(true, &substitutions);
 }
 
 Statement::Statement(StatementForm form_in, PType type1, PType type2) : form(form_in), lhs(type1), rhs(type2) {}
@@ -115,6 +150,12 @@ void Statement::print() {
     lhs->print();
     std::cout << get_infix_string();
     rhs->print();
+}
+
+void Statement::print(std::unordered_map<PType, PType> & generic_map) {
+    lhs->print(generic_map);
+    std::cout << get_infix_string();
+    rhs->print(generic_map);
 }
 
 Type::Type(BaseType in) : this_type(in), has_dest_type(false) {}
@@ -226,7 +267,7 @@ std::string Type::get_name_string() {
 void Type::print(std::unordered_map<PType, PType> &substitutions) {
 
 
-    if (substitutions.count(shared_from_this()) != 0) {
+    if (substitutions.count(shared_from_this()) != 0 && substitutions[shared_from_this()] != shared_from_this()) {
         substitutions[shared_from_this()]->print(substitutions);
         return;
     }
@@ -350,6 +391,7 @@ PType Typer::command_handle(AnalysisCommand in) {
         break;
     }
     case ADD_CORRECTIONLIB:
+        assert(false);
     case CREATE_MASK:
     {
         // List<ParticleInstance> -> Mask
@@ -360,11 +402,16 @@ PType Typer::command_handle(AnalysisCommand in) {
         break;
     }
     case LIMIT_MASK:
-        // Mask x Cond -> Mask
+    {
+        // Mask x List<Cond> -> Mask
         fun->add_source_type(TYPE_MASK);
-        fun->add_source_type(TYPE_COND);
+
+        auto source_cond_list = std::make_shared<Type>(TYPE_LIST);
+        source_cond_list->add_dest_type(TYPE_COND);
+        fun->add_source_type(source_cond_list);
         fun->add_dest_type(TYPE_MASK);
         break;
+    }
     case APPLY_MASK:
     {
         // Mask x List<ParticleInstance> -> List<ParticleInstance>
@@ -480,17 +527,10 @@ PType Typer::command_handle(AnalysisCommand in) {
     case EXPR_DIVIDE:
     case EXPR_ADD:
     case EXPR_SUBTRACT:
-    case EXPR_LT:
-    case EXPR_LE:
-    case EXPR_GT:
-    case EXPR_GE:
-    case EXPR_EQ:
-    case EXPR_NE:
     case EXPR_AMPERSAND:
     case EXPR_PIPE:
-    case EXPR_AND:
-    case EXPR_OR:
     {
+        
         // `a <<: Number, `b <<: Number -> {if `a = `b then `a else if `a = Number then `b else if `b = Number then `a else Error}
         
 
@@ -541,6 +581,131 @@ PType Typer::command_handle(AnalysisCommand in) {
         error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
         error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
         error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+        error_condition.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
+
+        fun->add_constraint(error_condition);
+
+        break;
+    }
+
+    case EXPR_LT:
+    case EXPR_LE:
+    case EXPR_GT:
+    case EXPR_GE:
+    case EXPR_EQ:
+    case EXPR_NE:
+    {
+        // `a x `b -> `c
+        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
+        auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+
+        auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
+
+        fun->add_source_type(source_type_a);
+        fun->add_source_type(source_type_b);
+        fun->add_dest_type(dest_type_c);
+
+        // | `a <<: Number
+        // | `b <<: Number
+        Constraint numeric;
+
+        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+
+        fun->add_constraint(numeric);
+
+        // | `c <<: Cond
+
+        Constraint condition;
+        condition.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type_c, Type::fundamental_type_instance(TYPE_COND)));
+
+        fun->add_constraint(condition);
+
+        // `a = `b ==> `c ~=~ `a
+        Constraint primary_secondary_equality;
+        primary_secondary_equality.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, source_type_b));
+        primary_secondary_equality.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_a));
+
+        fun->add_constraint(primary_secondary_equality);
+
+        //`a = Number ==> `c ~=~ `b
+        Constraint primary_single_number;
+        primary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+        primary_single_number.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_b));
+
+        fun->add_constraint(primary_single_number);
+
+        // `b = Number ==> `c ~=~ `a
+        Constraint secondary_single_number;
+        secondary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+        secondary_single_number.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_a));
+        
+        fun->add_constraint(secondary_single_number);
+
+        // `a =/= `b and `a =/= Number and `b =/= Number ==> `c = Error
+        Constraint error_condition;
+        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
+        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+        error_condition.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
+
+        fun->add_constraint(error_condition);
+        break;
+    }
+
+    case EXPR_AND:
+    case EXPR_OR:
+{
+        
+        // `a <<: Cond, `b <<: Cond -> {if `a = `b then `a else if `a = Cond then `b else if `b = Cond then `a else Error}
+        
+
+        // `a x `b -> `c
+        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
+        auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+
+        auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
+
+        fun->add_source_type(source_type_a);
+        fun->add_source_type(source_type_b);
+        fun->add_dest_type(dest_type_c);
+
+        // | `a <<: Cond
+        // | `b <<: Cond
+        Constraint condition;
+
+        condition.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_COND)));
+        condition.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_COND)));
+
+        fun->add_constraint(condition);
+
+        // | `a = `b ==> `c = `a
+        Constraint primary_secondary_equality;
+        primary_secondary_equality.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, source_type_b));
+        primary_secondary_equality.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_a));
+
+        fun->add_constraint(primary_secondary_equality);
+
+        // | `a =/= `b and `a = Cond ==> `c = `b
+        Constraint primary_single_number;
+        primary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_COND)));
+        primary_single_number.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_b));
+
+        fun->add_constraint(primary_single_number);
+
+        // | `a =/= `b and `a =/= Cond and `b = Cond ==> `c = `a
+        Constraint secondary_single_number;
+        secondary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_COND)));
+        secondary_single_number.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_a));
+        
+
+        fun->add_constraint(secondary_single_number);
+
+        // | `a =/= `b and `a =/= Cond and `b =/= Cond then `c = Error
+        Constraint error_condition;
+        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
+        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_COND)));
+        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_COND)));
         error_condition.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
 
         fun->add_constraint(error_condition);
@@ -817,37 +982,39 @@ PType Typer::command_handle(AnalysisCommand in) {
         assert(false);
 
     case FUNC_NAMED:
-        // `a<`c, (`c -> `b) -> `b
 
     {
-        // `a x (`c -> `b) -> `d
+        // `a x (`b->`c) -> `d
         auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
         auto type_b = std::make_shared<Type>(TYPE_GENERIC);
         auto type_c = std::make_shared<Type>(TYPE_GENERIC);
         auto dest_type_d = std::make_shared<Type>(TYPE_GENERIC);
 
-        // (`c -> `b)
+        // (`b -> `c)
         auto func_type = std::make_shared<Type>(TYPE_FUNCTION);
-        func_type->add_source_type(type_c);
-        func_type->add_dest_type(type_b);
+        func_type->add_source_type(type_b);
+        func_type->add_dest_type(type_c);
 
         fun->add_source_type(source_type_a);
         fun->add_source_type(func_type);
         fun->add_dest_type(dest_type_d);
 
-        // // | `a <: `c
-        // Constraint subtype;
-        // subtype.add_conclusion(Statement(STATEMENT_SUBTYPE, source_type_a, type_c));
-        // fun->add_constraint(subtype);
+        Constraint subtype; 
+        subtype.add_conclusion(Statement(STATEMENT_SUBTYPE, source_type_a, type_b));
+        fun->add_constraint(subtype);
 
-        Constraint subtype_fake_as_equality; //TODO: once subtyping is implemented, change
-        subtype_fake_as_equality.add_conclusion(Statement(STATEMENT_EQUALITY, source_type_a, type_c));
-        fun->add_constraint(subtype_fake_as_equality);
+        // // | `c <: `d //
+        // Constraint second_subtype;
+        // second_subtype.add_conclusion(Statement(STATEMENT_SUBTYPE, type_c, dest_type_d));
+        // fun->add_constraint(second_subtype);
 
-        // | `d = `b
-        Constraint equality;
-        equality.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_d, type_b));
-        fun->add_constraint(equality);
+
+        // | (`a = `b => `c = `d)
+        Constraint implication_of_origin;
+        implication_of_origin.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, type_b));
+        implication_of_origin.add_conclusion(Statement(STATEMENT_EQUALITY, type_c, dest_type_d));
+        fun->add_constraint(implication_of_origin);
+
         break;
     
     }
@@ -937,20 +1104,23 @@ PType Typer::command_handle(AnalysisCommand in) {
     case ADD_PART_NAMED:
     case SUB_PART_NAMED:
     {
-        // `a x `b -> `a where `a <<: ParticleInstance and `b <<: ParticleInstance
-        auto element_type = std::make_shared<Type>(TYPE_GENERIC);
-        auto named_type = std::make_shared<Type>(TYPE_GENERIC);
+        // List<ParticleInstance> x List<ParticleInstance> -> List<ParticleInstance>
+        auto element_type = std::make_shared<Type>(TYPE_LIST);
+        // auto named_type = std::make_shared<Type>(TYPE_GENERIC);
+
+        element_type->add_dest_type(TYPE_PARTICLEINSTANCE);
 
         fun->add_source_type(element_type);
-        fun->add_source_type(named_type);
+        fun->add_source_type(element_type);
+        // fun->add_source_type(named_type);
         fun->add_dest_type(element_type);
 
-        // | `a <<: ParticleInstance
-        // | `b <<: ParticleInstance
-        Constraint particlelike;
-        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, element_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, named_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike);
+        // // | `a <<: ParticleInstance
+        // // | `b <<: ParticleInstance
+        // Constraint particlelike;
+        // particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, element_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+        // particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, named_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+        // fun->add_constraint(particlelike);
         break;        
     }
     case ADD_PART_ELECTRON:
@@ -977,8 +1147,9 @@ PType Typer::command_handle(AnalysisCommand in) {
     case SUB_PART_JET:
     case SUB_PART_FJET:
     {
-        // `a -> `a where `a <<: ParticleInstance
-        auto element_type = std::make_shared<Type>(TYPE_GENERIC);
+        // List<ParticleInstance> -> List<ParticleInstance> 
+        auto element_type = std::make_shared<Type>(TYPE_LIST);
+        element_type->add_dest_type(TYPE_PARTICLEINSTANCE);
         // auto list_type = std::make_shared<Type>(TYPE_LIST);
         // list_type->add_dest_type(element_type);
 
@@ -1014,12 +1185,14 @@ PType Typer::command_handle(AnalysisCommand in) {
     case SUB_PART_JET_INDEXED:
     case SUB_PART_FJET_INDEXED:
     {
-        // `a x Number -> `a where `a <<: ParticleInstance
-        auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+        // ParticleInstance x List<ParticleInstance> x Number -> ParticleInstance
+        auto source_type = std::make_shared<Type>(TYPE_LIST);
+        source_type->add_dest_type(TYPE_PARTICLEINSTANCE);
 
+        fun->add_source_type(TYPE_PARTICLEINSTANCE);
         fun->add_source_type(source_type);
         fun->add_source_type(TYPE_NUMBER);
-        fun->add_dest_type(source_type);
+        fun->add_dest_type(TYPE_PARTICLEINSTANCE);
 
         // | `a <<: ParticleInstance
         Constraint particlelike;
@@ -1124,80 +1297,451 @@ PType Typer::command_handle(AnalysisCommand in) {
 
 
 
+PType EquivalenceClasses::find_representative(PType source) {
+    if (parent.count(source) == 0) {
+        parent[source] = source; // self-represent an empty class
+    }
 
-void Typer::equality_of_types(std::unordered_map<PType, PType> &equalities, PType first, PType second) {
+    if (parent[source] != source) {
+        parent[source] = find_representative(parent[source]);
+    }   
+    return parent[source];
+}
 
-    if (first->get_base_type() != TYPE_GENERIC && second->get_base_type() != TYPE_GENERIC) {
-        if (first->get_base_type() != second->get_base_type()) {
-            assert(false);
-        } else if (first->get_base_type() == TYPE_FUNCTION) {
-            for (int i = 0; i < first->get_num_of_sources(); i++) {
-                equality_of_types(equalities, first->get_source_type(i), second->get_source_type(i));
-            }
-        }  
+void EquivalenceClasses::union_of_classes(PType first, PType second) {
+    PType first_representative = find_representative(first);
+    PType second_representative = find_representative(second);
 
-        if (first->get_base_type() == TYPE_FUNCTION || first->get_base_type() == TYPE_LIST) {
-            equality_of_types(equalities, first->get_dest_type(), second->get_dest_type());
-        }
+    
+    // these two classes are already the same
+    if (first_representative == second_representative) return;
 
-    } else if (first->get_base_type() != TYPE_GENERIC) {
-            equalities.emplace(second, first);
-    } else if (second->get_base_type() != TYPE_GENERIC) {
-            equalities.emplace(first, second);
+
+    // we would really like to have the class be represented by a not completely generic type
+    bool first_generic_class = (first_representative->get_base_type() == TYPE_GENERIC);
+    bool second_generic_class = (second_representative->get_base_type() == TYPE_GENERIC);
+
+    if (first_generic_class && !second_generic_class) {
+        // first class is represented by non-generic type - use it for the second as well
+        parent[first_representative] = second_representative;
+    } else if (!first_generic_class && second_generic_class) {
+        // same with second class
+        parent[second_representative] = first;
     } else {
-        if (equalities.count(second) != 0) {
-            equalities.emplace(first, equalities[second]);
-        } else if (equalities.count(first) != 0) {
-            equalities.emplace(second, equalities[first]);
-        } else {
-            equalities.emplace(second, first);
-        }
+        // either they are both non-generic or both not. Choose the first as our representative arbitrarily
+        parent[second_representative] = first;
 
+        if (!first_generic_class && !second_generic_class) {
+            //TODO: replace with exception
+            if (first_representative->get_base_type() != second_representative->get_base_type()) {
+                first_representative->print();
+                std::cout  << "---";
+                second_representative->print();
+                std::cout << std::endl;
+                assert(first_representative->get_base_type() == second_representative->get_base_type());
+            }
+
+            if (first_representative->get_base_type() == TYPE_FUNCTION) {
+                for (int i = 0; i < first_representative->get_num_of_sources(); i++) {
+                    union_of_classes(first_representative->get_source_type(i), second_representative->get_source_type(i));
+                }
+            }
+
+            if (first_representative->get_base_type() == TYPE_FUNCTION || first_representative->get_base_type() == TYPE_LIST) {
+                union_of_classes(first_representative->get_dest_type(), second_representative->get_dest_type());
+            }
+        }
+        
     }
 }
 
 
-// create sets of equivalence classes - any one equal to any other will have their equivalence classes merged
-void transitive_closure_equality() {
+
+PType EquivalenceClasses::resolve_higher_order(PType source) {
+    PType rep = find_representative(source);
+
+    if (rep->get_base_type() == TYPE_GENERIC) {
+        // the best we can do is a generic
+        return rep;
+    }
+
+    if (rep->get_base_type() == TYPE_FUNCTION) {
+        // this is represented by a function - ensure we have the most specific form of function possible as the representative type for this
+
+        PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+        for (int i = 0; i < rep->get_num_of_sources(); i++) {
+            fun->add_source_type(resolve_higher_order(rep->get_source_type(i)));
+        }
+        PType resolved_dest = resolve_higher_order(rep->get_dest_type());
+        fun->add_dest_type(resolved_dest);
+        parent[rep] = fun;
+        return fun;
+
+    }
+
+    if (rep->get_base_type() == TYPE_LIST) {
+        // similarly, this is represented by a list - ensure we have the most specific form of list
+        PType resolved_elem = resolve_higher_order(rep->get_dest_type());
+        PType list(std::make_shared<Type>(TYPE_LIST));
+        list->add_dest_type(resolved_elem);
+        parent[rep] = list;
+        return list;
+
+    }
+
+    return rep;
+}
+
+std::unordered_map<PType, PType> EquivalenceClasses::resolve_all() {
+    std::unordered_map<PType, PType> resolved_map;
     
+    // first collect all our types
+    std::vector<PType> all_types;
+    for (const auto &entry : parent) {
+        all_types.push_back(entry.first);
+    }
+
+    for (PType type : all_types) {
+        resolved_map[type] = resolve_higher_order(type);
+    }
+
+    return resolved_map;
 }
 
-// using Warshall's algorithm, we take any types that are natively subtyped from each other, and compute whether any node i is upstrean of node j (i.e. i <: j)
-void transitive_closure_hereditary_subtype() {
 
+void PartialOrder::ensure_exists(PType type) {
+        if (supertypes.find(type) == supertypes.end()) {
+            supertypes[type] = {};
+            subtypes[type] = {};
+        }
+    }
+
+bool PartialOrder::has_path(PType from, PType to, std::unordered_set<PType> &visited) {
+
+        // trivial path
+        if (from == to) return true;
+
+        // if we have looped back around to this, we have definitely not found a path
+        if (visited.count(from) != 0) return false;
+        
+        visited.insert(from);
+        
+        // check the supertypes of the LHS - if we have found a path from there, there is clearly a chain since a <: b <: c ==> a <: c
+        for (PType super : supertypes[from]) {
+            if (has_path(super, to, visited)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+void PartialOrder::add_subtype(PType sub, PType super){
+        ensure_exists(sub);
+        ensure_exists(super);
+
+        // a <: a always
+        if (sub == super) return;
+
+        bool sub_generic = sub->get_base_type() == TYPE_GENERIC;
+        bool super_generic = super->get_base_type() == TYPE_GENERIC;
+
+        if (!sub_generic && !super_generic) {
+            // both are not fully generic types - we can use more information
+            if (sub->get_base_type() == TYPE_FUNCTION && super->get_base_type() == TYPE_FUNCTION) {
+                assert(sub->get_num_of_sources() == super->get_num_of_sources());
+                
+                // functions are contravariant in arguments - add those constraints
+                for (int i = 0; i < sub->get_num_of_sources(); i++) {
+                    add_subtype(super->get_source_type(i), sub->get_source_type(i));
+                }
+                
+                // functions are also covariant in return type
+                add_subtype(sub->get_dest_type(), super->get_dest_type());
+                
+            } else if (sub->get_base_type() == TYPE_LIST && super->get_base_type() == TYPE_LIST) {
+                // lists are covariant //TODO: check this against our proofs
+                add_subtype(sub->get_dest_type(), super->get_dest_type());
+            } else {
+                // the two base types should always match if neither are directly generic
+                assert(sub->get_base_type() == super->get_base_type());
+            }
+        }
+
+        // one is now a subtype of the other
+        supertypes[sub].insert(super);
+        subtypes[super].insert(sub);
+    }
+
+
+bool PartialOrder::is_subtype(PType sub, PType super) {
+    ensure_exists(sub);
+    ensure_exists(super);
+    
+    std::unordered_set<PType> visited;
+    return has_path(sub, super, visited);
 }
 
-// we similarly compute for hereditary subtyping, using the fact that a <: b ==> a <<: b
+std::unordered_set<PType> PartialOrder::get_supertypes(PType type) {
+    ensure_exists(type);
+    
+    std::unordered_set<PType> result;
+    std::queue<PType> worklist;
+    
+    worklist.push(type);
+    
+    while (!worklist.empty()) {
+        PType current = worklist.front();
+        worklist.pop();
+        
+        for (PType super : supertypes[current]) {
+            if (result.insert(super).second) {
+                worklist.push(super);
+            }
+        }
+    }
+    
+    return result;
+}
+
+std::unordered_set<PType> PartialOrder::get_subtypes(PType type) {
+    ensure_exists(type);
+    
+    std::unordered_set<PType> result;
+    std::queue<PType> worklist;
+    
+    worklist.push(type);
+    
+    while (!worklist.empty()) {
+        PType current = worklist.front();
+        worklist.pop();
+        
+        for (PType sub : subtypes[current]) {
+            if (result.insert(sub).second) {
+                worklist.push(sub);
+            }
+        }
+    }
+    
+    return result;
+}
+
+PType PartialOrder::least_upper_bound(PType a, PType b) {
+    ensure_exists(a);
+    ensure_exists(b);
+    
+    if (is_subtype(a, b)) return b;
+    if (is_subtype(b, a)) return a;
+    
+    std::unordered_set<PType> a_supers = get_supertypes(a);
+    a_supers.insert(a);
+    
+    std::queue<PType> worklist;
+    worklist.push(b);
+    
+    while (!worklist.empty()) {
+        PType current = worklist.front();
+        worklist.pop();
+        
+        if (a_supers.count(current)) {
+            return current;
+        }
+        
+        for (PType super : supertypes[current]) {
+            worklist.push(super);
+        }
+    }
+    
+    return nullptr; // no common supertype found TODO: error here?
+}
+
+PType PartialOrder::greatest_lower_bound(PType a, PType b) {
+    ensure_exists(a);
+    ensure_exists(b);
+    
+    if (is_subtype(a, b)) return a;
+    if (is_subtype(b, a)) return b;
+    
+    std::unordered_set<PType> a_subs = get_subtypes(a);
+    a_subs.insert(a);
+    
+    std::queue<PType> worklist;
+    worklist.push(b);
+    
+    while (!worklist.empty()) {
+        PType current = worklist.front();
+        worklist.pop();
+        
+        if (a_subs.count(current)) {
+            return current;
+        }
+        
+        for (PType sub : subtypes[current]) {
+            worklist.push(sub);
+        }
+    }
+    
+    return nullptr; // no common subtype found TODO: error here?
+}
+
+std::unordered_map<PType, std::unordered_set<PType>> PartialOrder::get_all_supertypes() {
+    std::unordered_map<PType, std::unordered_set<PType>> result;
+    
+    for (const auto &entry : supertypes) {
+        result[entry.first] = get_supertypes(entry.first);
+    }
+    
+    return result;
+}
+
+std::unordered_map<PType, std::unordered_set<PType>> PartialOrder::get_all_subtypes() {
+    std::unordered_map<PType, std::unordered_set<PType>> result;
+    
+    for (const auto &entry : subtypes) {
+        result[entry.first] = get_subtypes(entry.first);
+    }
+    
+    return result;
+}
+
+std::vector<PType> PartialOrder::topological_sort() {
+    std::unordered_map<PType, int> in_degree;
+    std::vector<PType> result;
+    std::queue<PType> worklist;
+    
+    for (const auto &entry : subtypes) {
+        in_degree[entry.first] = entry.second.size();
+    }
+    
+    for (const auto &entry : in_degree) {
+        if (entry.second == 0) {
+            worklist.push(entry.first);
+        }
+    }
+    
+    while (!worklist.empty()) {
+        PType current = worklist.front();
+        worklist.pop();
+        result.push_back(current);
+        
+        for (PType super : supertypes[current]) {
+            in_degree[super]--;
+            if (in_degree[super] == 0) {
+                worklist.push(super);
+            }
+        }
+    }
+    
+    return result;
+}
 
 
 
+void Typer::equality_of_types(PType first, PType second) {
+
+    equiv.union_of_classes(first, second);
+}
+
+
+void Typer::subtype_of_types(PType sub, PType super) {
+    subtyping.add_subtype(sub, super);
+}
+
+void Typer::hereditary_subtype_of_types(PType sub, PType super) {
+    hereditary_subtyping.add_subtype(sub, super);
+}
+
+
+
+
+
+Ternary Typer::truth_of_premise(PType lhs, PType rhs, StatementForm form) {
+    switch (form) {
+        case STATEMENT_EQUALITY:
+            if (lhs == rhs) {
+                // manifestly equal - this premise is satisfied
+                return Ternary::TERN_TRUE;
+            } else if (false) {
+                // manifestly unequal - certainly unsatisfied
+                return Ternary::TERN_FALSE;
+            } else {
+                // not manifestly equal - this is unknown
+                return Ternary::TERN_UNKNOWN;
+            }
+        case STATEMENT_INEQUALITY: 
+            if (lhs == rhs) {
+                // if we have established their equality, then we certainly have violated this premise. This premise is manifestly unsatisfied.
+                return Ternary::TERN_FALSE;
+            } else if (false) {
+                // manifestly unequal from prior knowledge
+                return Ternary::TERN_TRUE;
+            } else {
+                // undeterminable
+                return Ternary::TERN_UNKNOWN;
+            }
+        case STATEMENT_SUBTYPE:
+            if (subtyping.is_subtype(lhs, rhs)) {
+                return Ternary::TERN_TRUE;
+            } else if (false) {
+                return Ternary::TERN_FALSE;
+            } else {
+                return Ternary::TERN_UNKNOWN;
+            }
+        case STATEMENT_NONSUBTYPE:
+        case STATEMENT_SUPERTYPE:
+        case STATEMENT_NONSUPERTYPE:
+            return Ternary::TERN_UNKNOWN;
+        case STATEMENT_HEREDITARY_SUBTYPE:
+            if (hereditary_subtyping.is_subtype(lhs, rhs)) {
+                return Ternary::TERN_TRUE;
+            } else if (false) {
+                return Ternary::TERN_FALSE;
+            } else {
+                return Ternary::TERN_UNKNOWN;
+            } break;            
+        case STATEMENT_HEREDITARY_SUPERTYPE:
+        case STATEMENT_EQUAL_DEPTH:
+            return Ternary::TERN_UNKNOWN;
+    }
+}
 
 void Typer::resolve_constraints() {
-    std::unordered_map<PType, PType> equalities;
+
+
+    std::cout << "\n Resolving constraints... \n";
 
     std::vector<Constraint> new_running_valid_constraints;
 
+    int i = -1;
     for (auto constraint : running_valid_constraints) {
-        bool has_true_premises = true;
+        i++;
+
+        // assume all premises are true until proven otherwise
+        Ternary has_true_premises = Ternary::TERN_TRUE;
+
         for (auto premise : constraint.get_premises()) {
             auto first = premise.get_lhs();
             auto second = premise.get_rhs();
 
-            auto true_first = equalities.count(first) != 0 ? equalities[first] : first;
-            auto true_second = equalities.count(second) != 0 ? equalities[second] : second;
+            auto true_first = equiv.find_representative(first);
+            auto true_second = equiv.find_representative(second);
  
-            if (true_first->is_fundamental_type() && true_second->is_fundamental_type()) {
-                if (true_first->get_base_type() != true_second->get_base_type()) has_true_premises = false;
-            } else if (true_first != true_second) {
-            // this has failed for a reason that is not fully determined - add it back to the constraints list
-                has_true_premises = false;
-                new_running_valid_constraints.push_back(constraint);
-            }
-            
-
+            has_true_premises.eq_land(truth_of_premise(true_first, true_second, premise.get_form()));
         }
 
-        if (!has_true_premises) continue;
+        if (has_true_premises == Ternary::TERN_FALSE) {
+            std::cout << "Rejecting a premise:" << std::endl;
+            constraint.print();
+        }
+
+        if (has_true_premises == Ternary::TERN_UNKNOWN) {
+            std::cout << "A premise is unknown:" << std::endl;
+            new_running_valid_constraints.push_back(constraint);
+        }
+
+        if (has_true_premises != Ternary::TERN_TRUE) {
+            continue;
+        }
 
         for (auto conclusion : constraint.get_conclusions()) {
 
@@ -1205,13 +1749,26 @@ void Typer::resolve_constraints() {
             auto second = conclusion.get_rhs();
 
             if (conclusion.get_form() == STATEMENT_EQUALITY) {
-                equality_of_types(equalities, first, second);
+                std::cout <<"equaling " << i <<"\n";
+                equality_of_types(first, second);
+            // } else if (conclusion.get_form() == STATEMENT_SUBTYPE) {
+            //     subtype_of_types(first, second);
+            // } else if (conclusion.get_form() == STATEMENT_HEREDITARY_SUBTYPE) {
+            //     hereditary_subtype_of_types(first, second);
             } else {
-                new_running_valid_constraints.push_back(constraint);
+                // the consequent is not something we are equipped to deal wwith yet, we add it and only it
+                // remaining constraints are constraints of exclusion - not much to be done with them at this point
+                Constraint consequent;
+                consequent.add_conclusion(conclusion);
+                new_running_valid_constraints.push_back(consequent);
             }
 
         }
     }
+
+    auto equalities = equiv.resolve_all();
+
+    std::cout << "\n Constraints resolved.\n";
 
     for (auto variable : order_of_variables) {
         auto type_of_var = types_of_variables[variable];
@@ -1222,18 +1779,15 @@ void Typer::resolve_constraints() {
 
         std::cout << variable << " : ";
 
-        while (equalities.count(type_of_var) != 0) {
-            type_of_var = equalities[type_of_var];
-            // equalities[type_of_var]->print();    
-        } 
-            type_of_var->print(equalities);
+        type_of_var = equalities[type_of_var];
+        type_of_var->print(equalities);
         
         std::cout << "\n";
     }
     std::cout << std::endl;
 
     for (auto constraint : new_running_valid_constraints) {
-        constraint.print();
+        constraint.print(equalities);
         std::cout << "\n";
     }
 
@@ -1302,7 +1856,9 @@ void Typer::collect_existing_constraints() {
 
     }
 
+    int i = 0;
     for (auto constraint : running_valid_constraints) {
+        std::cout << i++ << "|";
         constraint.print();
         std::cout << "\n";
     }
@@ -1319,7 +1875,10 @@ void Typer::print() {
     collect_existing_constraints();
 
     resolve_constraints();
-    // resolve_constraints();
+
+    std::cout << "\n\n\n" << "Second pass \n" << std::endl;
+
+    resolve_constraints();
 
     // while (alil->clear_to_next()) {
     //     auto out = command_handle(alil->next_command());
