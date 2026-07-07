@@ -21,22 +21,12 @@ enum AST_type{
     INPUT,
 
     INFO,
-    COUNT_FORMAT,
     OBJECT,
     DEFINITION,
     COMPOSITE,
     TABLE_DEF,
     REGION,
     HISTO_LIST,
-
-    INITIALIZATIONS,
-    INITIALIZATION,
-
-    COUNT_PROCESSES,
-    COUNT_PROCESS,
-
-    REGION_COMMANDS,
-    REGION_COMMAND,
 
     OBJECT_SELECT,
     OBJECT_REJECT,
@@ -47,20 +37,9 @@ enum AST_type{
 
     IF_STATEMENT,
 
-    DESCRIPTION,
-    BOOL,
-    DEFINITIONS,
     VARIABLE_LIST,
-    NUMBER,
-
-    LEPTON_TYPE,
-    ERR_TYPE,
-    SYST_VTYPE,
 
     WEIGHT_CMD,
-    REJEC_CMD,
-    SAVE_CMD,
-    PRINT_CMD,
     HISTO_CMD,
     BINS_CMD,
     BIN_CMD,
@@ -74,32 +53,11 @@ enum AST_type{
     PARTICLE_LIST,
     PARTICLE_SUM,
     INDEX,
-    BOXLIST,
 
-    VALUES,
     EXPRESSION, 
-    FUNCTION,
 
-    CONDITION,
     INTERVAL,
-
-    ID_LIST,
-    OBJECT_BLOCS,
-    OBJECT_BLOC,
-    CRITERIA,
-    HAMHUM,
-
-    COUNT, //TODO: probbaly change
-    A_COUNT,
-
-    A_BOX,
-
-    CRITERION,
-    ACTION,
     
-    COMMAND,
-    IFSTATEMENT,
-
     NEGATE,
 
     USER_FUNCTION,

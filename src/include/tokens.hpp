@@ -2,238 +2,169 @@
 #define TOKENS_H
 
 enum Token_type {
-    LEXER_ERROR, // type to signify that a lexing error has occurred
-    LEXER_COMMENT,
-    LEXER_SPACE,
-    LEXER_NEWLINE,
-    LEXER_END_OF_FILE,
+    TOK_LEXER_ERROR, // signifies that a lexing error has occurred
 
-    DECIMAL,
-    SCIENTIFIC,
+    TOK_COMMENT,
 
-    STRING,
-    INTEGER,
-    // EXP_INT,
-    // REAL,
-    VARNAME,
-    // VARDEF,
+    TOK_SPACE,
+    TOK_NEWLINE,
+    TOK_END_OF_FILE,
+
+    TOK_DECIMAL,    // Decimal/floating-point-like
+    TOK_SCIENTIFIC, // Scientific notation e.g. 2E4
+    TOK_INTEGER,    // standard integer
+
+    TOK_STRING,
+    TOK_VARNAME,    // variable name format, name_LikeThis or Variable42 or similar
     
-    DEF,
-    SELECT,
-    REJEC,
-    OBJ,
-    ALGO,
-    COMP,
+    TOK_DEF,
+    TOK_OBJ,
+    TOK_REG,
+    TOK_COMP,
 
-    HISTOLIST,
+    TOK_HISTOLIST,
 
-    ADLINFO,
-    PAP_EXPERIMENT,
-    PAP_ID,
-    PAP_TITLE,
-    PAP_PUBLICATION,
-    PAP_SQRTS,
-    PAP_LUMI,
-    PAP_ARXIV,
-    PAP_HEPDATA,
-    PAP_DOI,
+    TOK_ADLINFO,
 
-    PARTICLE_KEYWORD,
-    EXTERNAL,
-    ATTRIBUTE,
-    CORRECTIONLIB,
+    TOK_PARTICLE_KEYWORD,
+    TOK_EXTERNAL,
+    TOK_ATTRIBUTE,
+    TOK_CORRECTIONLIB,  //TODO: check implementation
+
+    TOK_SELECT,
+    TOK_REJEC,
+
+    TOK_TRUE,
+    TOK_FALSE,
+    
+    TOK_NVARS,
+    TOK_ERRORS,
+    TOK_TABLETYPE,
+
+    TOK_TAKE,
+
+    TOK_HISTO,
+    TOK_WEIGHT,
+
+    TOK_TABLE,
+
+    TOK_BIN,
+    TOK_BINS,
+
+    TOK_UNION,
+    TOK_ALIAS,
+
+    TOK_PHI,
+    TOK_ETA,
+    TOK_CHARGE,
+    TOK_MASS,
+    TOK_PT,
+
+    TOK_DR,
+    TOK_DPHI,
+    TOK_DETA,
+
+    TOK_DR_HADAMARD,
+    TOK_DPHI_HADAMARD,
+    TOK_DETA_HADAMARD,
+
+    TOK_DISTINCT,
+
+    TOK_ANYOF,
+    TOK_ALLOF,
+    TOK_ALL,
+    TOK_NONE,
+
+    TOK_THIS,
+
+    TOK_EQ,
+    TOK_NE,
+    TOK_LE,
+    TOK_GE,
+    TOK_LT,
+    TOK_GT,
+    TOK_AND,
+    TOK_OR,
+    TOK_NOT,
+    TOK_WITHIN,
+    TOK_OUTSIDE,
+
+    TOK_MINUS,
+    TOK_PLUS,
+    TOK_MULTIPLY,
+    TOK_DIVIDE,
+
+    TOK_AMPERSAND, // bitwise operator
+    TOK_PIPE, // bitwise operator
+
+    TOK_COLON,
+    TOK_RAISED_TO_POWER,
+
+    TOK_DOT_INDEX,
+    TOK_ARROW_INDEX,
+
+    TOK_OPEN_PAREN,
+    TOK_CLOSE_PAREN,
+    TOK_OPEN_SQUARE_BRACE,
+    TOK_CLOSE_SQUARE_BRACE,
+    TOK_OPEN_CURLY_BRACE,
+    TOK_CLOSE_CURLY_BRACE,
+
+    TOK_QUESTION,
+    TOK_ASSIGN, // single =
+
+    TOK_NUMOF,
+    TOK_AVE,
+    TOK_SUM,
+
+
+    TOK_ASCEND,
+    TOK_DESCEND,
+
+    TOK_TAN,
+    TOK_SIN,
+    TOK_COS,
+
+    TOK_SINH,
+    TOK_COSH,
+    TOK_TANH,
+
+    TOK_EXP,
+    TOK_LOG,
+    TOK_ABS,
+    TOK_SQRT,
+
+    TOK_SORT,
+
+    TOK_COMB,
+    TOK_DISJOINT,
+    TOK_DIRECT,
+
+    TOK_MIN,
+    TOK_MAX,
+
+
+    TOK_COMMA,
+    TOK_UNDERSCORE,
+
+    TOK_LETTER_M,
+    TOK_LETTER_Q,
+    TOK_LETTER_P,
+    TOK_LETTER_E,
+
+
+    // IF,
+    // THEN,
+    // ELSE,
+    // DO,
+    // PRINT,
     
     SYSTEMATIC,
-    SYST_TTREE,
-    SYST_WEIGHT_MC,
-    SYST_WEIGHT_PILEUP,
-    SYST_WEIGHT_JVT,
-    SYST_WEIGHT_LEPTON_SF,
-    SYST_WEIGHT_BTAG_SF,
-
-    RUNYEAR,
-    MC_CHANNEL_NUMBER,
-    EVENT_NO,
-    RUN_NO,
-    LB_NO,
-    OME,
-
-    IF,
-    THEN,
-    ELSE,
-    DO,
-    PRINT,
-
-    TRUE,
-    FALSE,
-    
-    NVARS,
-    ERRORS,
-    TABLETYPE,
-
-    TAKE,
-    HISTO,
-    WEIGHT,
-
-    TABLE,
-    SKIP_HISTO,
-    SKIP_EFFS,
-    GEN,
-    
-    ELECTRON,
-    MUON,
-    TAU,
-    TRACK,
-    PHOTON,
-    JET,
-    FJET,
-    QGJET,
-
-    BIN,
-    BINS,
-    CONSTITUENTS,
-
-    METLV,
-
-    GENPART_IDX,
-
-    UNION,
-    ALIAS,
-
-    IS_BTAG,
-    IS_CTAG,
-    IS_TAUTAG,
-
-    PDG_ID,
-    JET_ID,
-    STATUS_FLAGS,
-    
-    FLAVOR,
-
-    IS_TIGHT,
-    IS_MEDIUM,
-    IS_LOOSE,
-
-    MINI_ISO,
-    ABS_ISO,
-
-    DXY,
-    DZ,
-
-    PHI,
-    ETA,
-    RAPIDITY,
-
-    CHARGE,
-    MASS,
-
-    MSOFTDROP,
-
-    PT,
-    PZ,
-
-    THETA,
-
-    DR,
-
-    DPHI,
-    DETA,
-
-    DR_HADAMARD,
-    DPHI_HADAMARD,
-    DETA_HADAMARD,
-
-    DISTINCT,
-
-    ANYOF,
-    ALLOF,
-    ALL,
-    NONE,
-
-    THIS,
-
-    EQ,
-    NE,
-    MAXIMIZE,
-    MINIMIZE,
-    LE,
-    GE,
-    LT,
-    GT,
-    AND,
-    OR,
-    NOT,
-    WITHIN,
-    OUTSIDE,
-
-    MINUS,
-    PLUS,
-    MULTIPLY,
-    DIVIDE,
-
-    AMPERSAND,
-    PIPE,
-    COLON,
-    RAISED_TO_POWER,
-
-    DOT_INDEX,
-    ARROW_INDEX,
-
-    OPEN_PAREN,
-    CLOSE_PAREN,
-    OPEN_SQUARE_BRACE,
-    CLOSE_SQUARE_BRACE,
-    OPEN_CURLY_BRACE,
-    CLOSE_CURLY_BRACE,
-    QUESTION,
-    ASSIGN,
-
-    NUMOF,
-    AVE,
-    SUM,
-    ADD,
-    SAVE,
-    CSV,
-    ASCEND,
-    DESCEND,
-    TAN,
-    SIN,
-    COS,
-    SINH,
-    COSH,
-    TANH,
-    EXP,
-    LOG,
-    ABS,
-    SQRT,
-
-    SORT,
-
-    ANYOCCURRENCES,
-    COMB,
-    DISJOINT,
-    DIRECT,
-    MIN,
-    MAX,
-    FIRST,
-    SECOND,
 
     PM,
 
-    COMMA,
-    UNDERSCORE,
-
-    LETTER_M,
-    LETTER_Q,
-    LETTER_P,
-    LETTER_E,
-
-    INT,
-    NB,
-    PNB,
-    ID,
-    HID,
-
+    
+    ADD,
 
 };
 

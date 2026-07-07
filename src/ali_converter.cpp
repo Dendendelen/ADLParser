@@ -496,49 +496,49 @@ std::string ALILConverter::handle_particle(PNode node, std::string last_part) {
     PToken tok = node->get_token();
     std::string lexeme = tok->get_lexeme();
 
-    if (tok->get_token_type() == ARROW_INDEX) {
+    if (tok->get_token_type() == TOK_ARROW_INDEX) {
         lexeme = binary_operator(node);
     }
 
-    if (tok->get_token_type() == MINUS) {
+    if (tok->get_token_type() == TOK_MINUS) {
         node = node->get_children()[0];
         tok = node->get_token();
         std::string lexeme = tok->get_lexeme();
 
         Token_type tok_type = tok->get_token_type();
-        if (tok_type == THIS) {
+        if (tok_type == TOK_THIS) {
             tok_type = current_object_token;
             lexeme = current_object_particle_if_named;
         }
 
         switch(tok_type) {
-            case ELECTRON: 
-                inst = SUB_PART_ELECTRON; break;
-            case MUON: 
-                inst = SUB_PART_MUON; break;
-            case TAU: 
-                inst = SUB_PART_TAU; break;
-            case TRACK: 
-                inst = SUB_PART_TRACK; break;
-            case PHOTON:  
-                inst = SUB_PART_PHOTON; break;
-            case QGJET: 
-                inst = SUB_PART_QGJET; break;
-            case METLV:
-                inst = SUB_PART_METLV; break;
-            case GEN: 
-                inst = SUB_PART_GEN; break;
-            case JET: 
-                inst = SUB_PART_JET; break;
-            case FJET:
-                inst = SUB_PART_FJET; break;
-            default: 
-                inst = SUB_PART_NAMED; break;
+            // case ELECTRON: 
+            //     inst = SUB_PART_ELECTRON; break;
+            // case MUON: 
+            //     inst = SUB_PART_MUON; break;
+            // case TAU: 
+            //     inst = SUB_PART_TAU; break;
+            // case TRACK: 
+            //     inst = SUB_PART_TRACK; break;
+            // case PHOTON:  
+            //     inst = SUB_PART_PHOTON; break;
+            // case QGJET: 
+            //     inst = SUB_PART_QGJET; break;
+            // case METLV:
+            //     inst = SUB_PART_METLV; break;
+            // case GEN: 
+            //     inst = SUB_PART_GEN; break;
+            // case JET: 
+            //     inst = SUB_PART_JET; break;
+            // case FJET:
+            //     inst = SUB_PART_FJET; break;
+            // default: 
+            //     inst = SUB_PART_NAMED; break;
         }
     } else {
 
         Token_type tok_type = tok->get_token_type();
-        if (tok_type == THIS) {
+        if (tok_type == TOK_THIS) {
             tok_type = current_object_token;
             lexeme = current_object_particle_if_named;
         }
@@ -693,18 +693,18 @@ void ALILConverter::visit_particle_sum(PNode node) {
 std::string ALILConverter::particle_list_function(PNode node) {
 
     AnalysisLevelInstruction inst;
-    auto function_node = node->get_token()->get_token_type() == DOT_INDEX ? node->get_children()[1] : node;
+    auto function_node = node->get_token()->get_token_type() == TOK_DOT_INDEX ? node->get_children()[1] : node;
 
     switch (function_node->get_token()->get_token_type()) {
-        case LETTER_E: 
+        case TOK_LETTER_E: 
             inst = FUNC_ENERGY; break;
-        case LETTER_P: case PT:
+        case TOK_LETTER_P: case TOK_PT:
             inst = FUNC_PT; break;
-        case LETTER_M: case MASS:
+        case TOK_LETTER_M: case TOK_MASS:
             inst = FUNC_MASS; break;
         case MSOFTDROP:
             inst = FUNC_MSOFTDROP; break;
-        case LETTER_Q: case CHARGE:
+        case TOK_LETTER_Q: case TOK_CHARGE:
             inst = FUNC_CHARGE; break;
         case FLAVOR: 
             inst = FUNC_FLAVOR; break;
@@ -726,11 +726,11 @@ std::string ALILConverter::particle_list_function(PNode node) {
             inst = FUNC_DZ; break;
         case GENPART_IDX: 
             inst = FUNC_GEN_PART_IDX; break;
-        case PHI: 
+        case TOK_PHI: 
             inst = FUNC_PHI; break;
         case RAPIDITY: 
             inst = FUNC_RAPIDITY; break;
-        case ETA: 
+        case TOK_ETA: 
             inst = FUNC_ETA; break;
         case THETA: 
             inst = FUNC_THETA; break;
@@ -744,21 +744,21 @@ std::string ALILConverter::particle_list_function(PNode node) {
             inst = FUNC_IS_MEDIUM; break;
         case IS_LOOSE: 
             inst = FUNC_IS_LOOSE; break;
-        case DR: 
+        case TOK_DR: 
             inst = FUNC_DR; break;
-        case DPHI: 
+        case TOK_DPHI: 
             inst = FUNC_DPHI; break;
-        case DETA: 
+        case TOK_DETA: 
             inst = FUNC_DETA; break;
-        case DR_HADAMARD:
+        case TOK_DR_HADAMARD:
             inst = FUNC_DR_HADAMARD; break;
-        case DPHI_HADAMARD:
+        case TOK_DPHI_HADAMARD:
             inst = FUNC_DPHI_HADAMARD; break;
-        case DETA_HADAMARD:
+        case TOK_DETA_HADAMARD:
             inst = FUNC_DETA_HADAMARD; break;
-        case DISTINCT:
+        case TOK_DISTINCT:
             inst = FUNC_DISTINCT; break;
-        case NUMOF:
+        case TOK_NUMOF:
             inst = FUNC_SIZE; break;
 
         default:
@@ -774,7 +774,7 @@ std::string ALILConverter::particle_list_function(PNode node) {
 
     visit_children(node);
 
-    if (node->get_token()->get_token_type() == DOT_INDEX) {
+    if (node->get_token()->get_token_type() == TOK_DOT_INDEX) {
         // in this case we definitely have only one particle here by the nature of a dot attribute.
         auto child_node = node->get_children()[0];
 
@@ -813,7 +813,7 @@ std::string ALILConverter::unary_operator(PNode node) {
 
     if (node->get_ast_type() == NEGATE) {
         inst = EXPR_NEGATE;
-    } else if (node->get_token()->get_token_type() == NOT) {
+    } else if (node->get_token()->get_token_type() == TOK_NOT) {
         inst = EXPR_LOGICAL_NOT;
     }
 
@@ -833,7 +833,7 @@ std::string ALILConverter::interval_operator(PNode node) {
 
     AnalysisLevelInstruction inst;
 
-    if (node->get_token()->get_token_type() == OUTSIDE) {
+    if (node->get_token()->get_token_type() == TOK_OUTSIDE) {
         inst = EXPR_OUTSIDE;
     } else {
         inst = EXPR_WITHIN;
@@ -870,12 +870,12 @@ std::string ALILConverter::comparison_operator(PNode node) {
 
     if (node->get_children()[0]->get_ast_type() == TERMINAL) {
         Token_type lhs_tok = node->get_children()[0]->get_token()->get_token_type();
-        lhs_is_comparator = lhs_tok == GT || lhs_tok == LT || lhs_tok == LE || lhs_tok == GE;
+        lhs_is_comparator = lhs_tok == TOK_GT || lhs_tok == TOK_LT || lhs_tok == TOK_LE || lhs_tok == TOK_GE;
     }
 
     if (node->get_children()[0]->get_ast_type() == TERMINAL) {
         Token_type rhs_tok = node->get_children()[1]->get_token()->get_token_type();
-        rhs_is_comparator = rhs_tok == GT || rhs_tok == LT || rhs_tok == LE || rhs_tok == GE;
+        rhs_is_comparator = rhs_tok == TOK_GT || rhs_tok == TOK_LT || rhs_tok == TOK_LE || rhs_tok == TOK_GE;
     }
 
 
@@ -933,7 +933,7 @@ std::string ALILConverter::binary_operator(PNode node) {
 
     Token_type type = node->get_token()->get_token_type();
 
-    if (type == ARROW_INDEX) {
+    if (type == TOK_ARROW_INDEX) {
         // simply combine the names again - this is not a real operation in ALIL, and is just sugar from ADL
         std::string left_name = node->get_children()[0]->get_token()->get_lexeme();
         std::string right_name = node->get_children()[1]->get_token()->get_lexeme();
@@ -949,39 +949,39 @@ std::string ALILConverter::binary_operator(PNode node) {
     AnalysisLevelInstruction inst;
 
     switch(type) {
-        case RAISED_TO_POWER:
+        case TOK_RAISED_TO_POWER:
             inst = EXPR_RAISE; break;
-        case MULTIPLY:
+        case TOK_MULTIPLY:
             inst = EXPR_MULTIPLY; break;
-        case DIVIDE:
+        case TOK_DIVIDE:
             inst = EXPR_DIVIDE; break;
-        case PLUS:
+        case TOK_PLUS:
             inst = EXPR_ADD; break;
-        case MINUS:
+        case TOK_MINUS:
             inst = EXPR_SUBTRACT; break;
-        case LT:
+        case TOK_LT:
             inst = EXPR_LT; break;
-        case LE:
+        case TOK_LE:
             inst = EXPR_LE; break;
-        case GT:
+        case TOK_GT:
             inst = EXPR_GT; break;
-        case GE:
+        case TOK_GE:
             inst = EXPR_GE; break;
-        case EQ:
+        case TOK_EQ:
             inst = EXPR_EQ; break;
-        case NE:
+        case TOK_NE:
             inst = EXPR_NE; break;
-        case AMPERSAND:
+        case TOK_AMPERSAND:
             inst = EXPR_AMPERSAND; break;
-        case PIPE:
+        case TOK_PIPE:
             inst = EXPR_PIPE; break;
-        case AND:
+        case TOK_AND:
             inst = EXPR_AND; break;
-        case OR:
+        case TOK_OR:
             inst = EXPR_OR; break;
-        case WITHIN:
+        case TOK_WITHIN:
             inst = EXPR_WITHIN; break;
-        case OUTSIDE:
+        case TOK_OUTSIDE:
             inst = EXPR_OUTSIDE; break;            
     }
 
@@ -1039,19 +1039,19 @@ std::string ALILConverter::function_handler(PNode node) {
     Token_type type = node->get_token()->get_token_type();
 
     // if we have a dot function, the rhs tells us what kind it is
-    if (type == DOT_INDEX) type = node->get_children()[1]->get_token()->get_token_type();
+    if (type == TOK_DOT_INDEX) type = node->get_children()[1]->get_token()->get_token_type();
 
     switch (type) {
-        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: case CHARGE: case MASS:
+        case TOK_LETTER_E: case TOK_LETTER_P: case TOK_LETTER_M: case TOK_LETTER_Q: case TOK_CHARGE: case TOK_MASS:
         case FLAVOR: case CONSTITUENTS: case PDG_ID: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
         case DXY: case DZ:
-        case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case THETA: 
+        case GENPART_IDX: case TOK_PHI: case RAPIDITY: case TOK_ETA: case THETA: 
         case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
         case  MSOFTDROP: case JET_ID:
-        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: case FIRST: case SECOND:
+        case TOK_PT: case PZ: case TOK_DR: case TOK_DPHI: case TOK_DETA: case TOK_DR_HADAMARD: case TOK_DPHI_HADAMARD: case TOK_DETA_HADAMARD: case TOK_NUMOF: case FIRST: case SECOND:
             return particle_list_function(node);
 
-        case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX: case ANYOCCURRENCES:
+        case TOK_ANYOF: case TOK_ALLOF: case TOK_SQRT: case TOK_ABS: case TOK_COS:  case TOK_SIN: case TOK_TAN: case TOK_SINH: case TOK_COSH: case TOK_TANH: case TOK_EXP: case TOK_LOG: case TOK_AVE: case TOK_SUM: case TOK_SORT: case TOK_MIN: case TOK_MAX: case ANYOCCURRENCES:
         default:
             return expression_function(node);
     }
@@ -1066,45 +1066,45 @@ std::string ALILConverter::expression_function(PNode node) {
 
     AnalysisLevelInstruction inst;
 
-    auto function_node = node->get_token()->get_token_type() == DOT_INDEX ? node->get_children()[1] : node ;
+    auto function_node = node->get_token()->get_token_type() == TOK_DOT_INDEX ? node->get_children()[1] : node ;
 
     switch (function_node->get_token()->get_token_type()) {
-        case ANYOF: 
+        case TOK_ANYOF: 
             inst = FUNC_ANYOF; break;
-        case ALLOF: 
+        case TOK_ALLOF: 
             inst = FUNC_ALLOF; break;
-        case SQRT: 
+        case TOK_SQRT: 
             inst = FUNC_SQRT; break;
-        case ABS: 
+        case TOK_ABS: 
             inst = FUNC_ABS; break;
-        case COS:  
+        case TOK_COS:  
             inst = FUNC_COS; break;
-        case SIN: 
+        case TOK_SIN: 
             inst = FUNC_SIN; break;
-        case TAN: 
+        case TOK_TAN: 
             inst = FUNC_TAN; break;
-        case SINH: 
+        case TOK_SINH: 
             inst = FUNC_SINH; break;
-        case COSH: 
+        case TOK_COSH: 
             inst = FUNC_COSH; break;
-        case TANH: 
+        case TOK_TANH: 
             inst = FUNC_TANH; break;
-        case EXP: 
+        case TOK_EXP: 
             inst = FUNC_EXP; break;
-        case LOG: 
+        case TOK_LOG: 
             inst = FUNC_LOG; break;
-        case AVE: 
+        case TOK_AVE: 
             inst = FUNC_AVE; break;
-        case SUM: 
+        case TOK_SUM: 
             inst = FUNC_SUM; break;
-        case MIN:
+        case TOK_MIN:
             inst = FUNC_MIN; break;
-        case MAX:
+        case TOK_MAX:
             inst = FUNC_MAX; break;
         case ANYOCCURRENCES:
             inst = FUNC_ANYOCCURRENCES; break;
-        case SORT:
-            if (node->get_children()[1]->get_token()->get_token_type() == DESCEND) {
+        case TOK_SORT:
+            if (node->get_children()[1]->get_token()->get_token_type() == TOK_DESCEND) {
                 inst = FUNC_SORT_DESCEND; 
             } else {
                 inst = FUNC_SORT_ASCEND;
@@ -1160,27 +1160,27 @@ std::string ALILConverter::handle_expression(PNode node) {
     }
 
     switch(node->get_token()->get_token_type()) {
-        case GT: case LT: case LE: case GE:
+        case TOK_GT: case TOK_LT: case TOK_LE: case TOK_GE:
             return comparison_operator(node);
-        case RAISED_TO_POWER: case MULTIPLY: case DIVIDE: case PLUS: case MINUS: case MAXIMIZE: case MINIMIZE:  case EQ: case NE: case AMPERSAND: case PIPE: case AND: case OR: case ARROW_INDEX:
+        case TOK_RAISED_TO_POWER: case TOK_MULTIPLY: case TOK_DIVIDE: case TOK_PLUS: case TOK_MINUS: case MAXIMIZE: case MINIMIZE:  case TOK_EQ: case TOK_NE: case TOK_AMPERSAND: case TOK_PIPE: case TOK_AND: case TOK_OR: case TOK_ARROW_INDEX:
             return binary_operator(node);
-        case WITHIN: case OUTSIDE:
+        case TOK_WITHIN: case TOK_OUTSIDE:
             return interval_operator(node);
-        case NOT:
+        case TOK_NOT:
             return unary_operator(node);
-        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: case CHARGE: case MASS:
+        case TOK_LETTER_E: case TOK_LETTER_P: case TOK_LETTER_M: case TOK_LETTER_Q: case TOK_CHARGE: case TOK_MASS:
         case FLAVOR: case CONSTITUENTS: case PDG_ID: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
         case DXY: case DZ:
-        case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case THETA: 
+        case GENPART_IDX: case TOK_PHI: case RAPIDITY: case TOK_ETA: case THETA: 
         case ABS_ISO: case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
         case  MSOFTDROP: case JET_ID:
-        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: case FIRST: case SECOND:
-        case DOT_INDEX:
+        case TOK_PT: case PZ: case TOK_DR: case TOK_DPHI: case TOK_DETA: case TOK_DR_HADAMARD: case TOK_DPHI_HADAMARD: case TOK_DETA_HADAMARD: case TOK_NUMOF: case FIRST: case SECOND:
+        case TOK_DOT_INDEX:
             return function_handler(node);
-        case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: case SORT: case MIN: case MAX: case ANYOCCURRENCES:
+        case TOK_ANYOF: case TOK_ALLOF: case TOK_SQRT: case TOK_ABS: case TOK_COS:  case TOK_SIN: case TOK_TAN: case TOK_SINH: case TOK_COSH: case TOK_TANH: case TOK_EXP: case TOK_LOG: case TOK_AVE: case TOK_SUM: case TOK_SORT: case TOK_MIN: case TOK_MAX: case ANYOCCURRENCES:
             return function_handler(node);
         case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case PHOTON: 
-        case JET: case FJET: case QGJET: case METLV: case THIS:
+        case JET: case FJET: case QGJET: case METLV: case TOK_THIS:
             {
                 std::string empty = empty_particle_create();
                 return handle_particle(node, empty);
@@ -1235,7 +1235,7 @@ void ALILConverter::visit_sort(PNode node) {
 
     std::string sort_condition = handle_expression(sort->get_children()[1]);
     AnalysisLevelInstruction which_way;
-    if (sort->get_children().size() < 3 || sort->get_children()[2]->get_token()->get_token_type() == ASCEND) {
+    if (sort->get_children().size() < 3 || sort->get_children()[2]->get_token()->get_token_type() == TOK_ASCEND) {
         which_way = SORT_ASCEND;
     } else {
         which_way = SORT_DESCEND;
@@ -1379,8 +1379,8 @@ void ALILConverter::visit_object_select(PNode node) {
 
     if (node->get_children()[0]->get_ast_type() == TERMINAL) {
         Token_type tok = node->get_children()[0]->get_token()->get_token_type();
-        if (tok == ALL) last_condition_name = "ALL";
-        else if (tok == NONE) last_condition_name = "NONE";
+        if (tok == TOK_ALL) last_condition_name = "ALL";
+        else if (tok == TOK_NONE) last_condition_name = "NONE";
     }
 
     limit_mask.add_source_argument(last_condition_name);
@@ -1396,8 +1396,8 @@ void ALILConverter::visit_object_reject(PNode node) {
     if (node->get_children()[0]->get_ast_type() == TERMINAL) {
         Token_type tok = node->get_children()[0]->get_token()->get_token_type();
 
-        if (tok == ALL) last_condition_name = "ALL";
-        else if (tok == NONE) last_condition_name = "NONE"; 
+        if (tok == TOK_ALL) last_condition_name = "ALL";
+        else if (tok == TOK_NONE) last_condition_name = "NONE"; 
     }
 
 
@@ -1462,7 +1462,7 @@ std::string ALILConverter::comb_list(PNode node, std::string prev, bool is_comb)
         // add the name of this particle
         std::string lexeme = node->get_token()->get_lexeme();
 
-        if (node->get_token()->get_token_type() == ARROW_INDEX) {
+        if (node->get_token()->get_token_type() == TOK_ARROW_INDEX) {
             lexeme = binary_operator(node);
         }
 
@@ -1584,7 +1584,7 @@ void ALILConverter::visit_comb_type(PNode node) {
 
     // Token_type comb_type = node->get_children()[1]->get_token()->get_token_type();
 
-    bool is_comb = node->get_children()[1]->get_token()->get_token_type() == COMB;
+    bool is_comb = node->get_children()[1]->get_token()->get_token_type() == TOK_COMB;
 
     std::string prev_name = current_scope_name;
 
@@ -1668,11 +1668,11 @@ void ALILConverter::visit_composite(PNode node) {
 
     Token_type comb_type = source->get_token()->get_token_type();
 
-    if ((comb_type != COMB) && (comb_type != DISJOINT) && (comb_type != DIRECT)) {
+    if ((comb_type != TOK_COMB) && (comb_type != TOK_DISJOINT) && (comb_type != TOK_DIRECT)) {
         raise_analysis_conversion_exception("Invalid operation to create a composite", source->get_token());
     }
 
-    if (comb_type == DIRECT) {
+    if (comb_type == TOK_DIRECT) {
         visit_direct_combiner(node);
     } else {
         visit_comb_type(node);
@@ -1742,10 +1742,10 @@ void ALILConverter::visit_object(PNode node) {
     if (source->get_ast_type() == SORT_CMD) {
         visit_sort(node);
         return;
-    } else if (source->get_token()->get_token_type() == UNION) {
+    } else if (source->get_token()->get_token_type() == TOK_UNION) {
         visit_union_type(node);
         return;
-    } else if (source->get_token()->get_token_type() == COMB || source->get_token()->get_token_type() == DISJOINT) {
+    } else if (source->get_token()->get_token_type() == TOK_COMB || source->get_token()->get_token_type() == TOK_DISJOINT) {
         visit_comb_type(node);
         return;
     } else if (source->get_token()->get_token_type() == FIRST || source->get_token()->get_token_type() == SECOND) {
@@ -1915,7 +1915,7 @@ void ALILConverter::visit_definition(PNode node) {
 
     PNode def_stem = node->get_children()[1];
 
-    if (def_stem->get_ast_type() == TERMINAL && def_stem->get_token()->get_token_type() == EXTERNAL) {
+    if (def_stem->get_ast_type() == TERMINAL && def_stem->get_token()->get_token_type() == TOK_EXTERNAL) {
 
         PNode func;
         bool is_attr = false;
@@ -1934,7 +1934,7 @@ void ALILConverter::visit_definition(PNode node) {
         add_extern_name.add_source_argument(func_name);
 
         command_list.push_back(add_extern_name);
-    } else if (def_stem->get_ast_type() == TERMINAL && def_stem->get_token()->get_token_type() == CORRECTIONLIB) {
+    } else if (def_stem->get_ast_type() == TERMINAL && def_stem->get_token()->get_token_type() == TOK_CORRECTIONLIB) {
         PNode filename_node = node->get_children()[1]->get_children()[0];
         std::string filename = filename_node->get_token()->get_lexeme();
 
