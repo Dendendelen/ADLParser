@@ -115,7 +115,7 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "THIS") return TOK_THIS;
 
     
-
+    if (uppercase_token == "NAMED") return TOK_NAMED;
     if (uppercase_token == "BIN") return TOK_BIN;
     if (uppercase_token == "BINS") return TOK_BINS;
 
@@ -140,10 +140,6 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "DPHIHADAMARD" || uppercase_token == "DELTAPHIHADAMARD") return TOK_DPHI_HADAMARD;
 
     if (uppercase_token == "SIZE" || uppercase_token == "COUNT" || uppercase_token == "NUMOF") return TOK_NUMOF;//no arg funcs 
-
-    // Global analysis tokens
-    if (uppercase_token == "ALL") return TOK_ALL;
-    if (uppercase_token == "NONE") return TOK_NONE;
 
     // Comparison operators
     if (token == "=="|| uppercase_token == "EQ") return TOK_EQ;
@@ -286,7 +282,7 @@ std::string token_type_to_string(Token_type type) {
         case TOK_WEIGHT: return "WEIGHT";
         case TOK_TABLE: return "TABLE";
 
-
+        case TOK_NAMED: return "NAMED";
         case TOK_BIN: return "BIN";
         case TOK_BINS: return "BINS";
 
@@ -314,8 +310,6 @@ std::string token_type_to_string(Token_type type) {
 
         case TOK_ANYOF: return "ANYOF";
         case TOK_ALLOF: return "ALLOF";
-        case TOK_ALL: return "ALL";
-        case TOK_NONE: return "NONE";
         case TOK_THIS: return "THIS";
 
 

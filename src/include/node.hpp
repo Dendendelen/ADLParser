@@ -15,52 +15,81 @@ enum AST_type{
     AST_EPSILON,
 
     // Terminal - if detected, then the parsed token matters
-    TERMINAL,
+    AST_TERMINAL,
 
     // Nonterminals
-    INPUT,
+    AST_INPUT,
 
-    INFO,
-    OBJECT,
-    DEFINITION,
-    COMPOSITE,
-    TABLE_DEF,
-    REGION,
-    HISTO_LIST,
+    // input
+    AST_INFO,
+    AST_DEFINITION,
+    AST_COMPOSITE,
+    AST_OBJECT,
+    AST_TABLE_DEF,
+    AST_REGION,
+    AST_HISTO_LIST,
 
-    OBJECT_SELECT,
-    OBJECT_REJECT,
 
-    REGION_SELECT,
-    REGION_REJECT,
-    REGION_USE,
+    // info
+    AST_INITIALIZATIONS,
+    AST_INITIALIZATION,
 
-    IF_STATEMENT,
+    // definition
+    AST_EXTERN_ATTR,
+    AST_EXTERN_FUN,
+    AST_EXTERN_PARTICLE,
 
-    VARIABLE_LIST,
+    // composite
+    AST_COMP_TYPE,
+    AST_COMP_CRITERIA,
 
-    WEIGHT_CMD,
-    HISTO_CMD,
-    BINS_CMD,
-    BIN_CMD,
-    SORT_CMD,
 
-    HISTOGRAM,
-    HISTOLIST_HISTOGRAM,
-    HISTO_USE,
+    // object
+    AST_OBJECT_TYPE,
+    AST_OBJECT_CRITERIA,
 
-    NAMED_PARTICLE_LIST,
-    PARTICLE_LIST,
-    PARTICLE_SUM,
-    INDEX,
+    AST_OBJECT_SELECT,
+    AST_OBJECT_REJECT,
 
-    EXPRESSION, 
 
-    INTERVAL,
+
+
     
-    NEGATE,
+    AST_SORT_CMD,
 
-    USER_FUNCTION,
+    AST_IF_STATEMENT,
+
+    AST_VARIABLE_LIST,
+
+    AST_LITERAL_NUMBER_LIST,
+
+    // region 
+    AST_REGION_COMMANDS,
+    
+    AST_REGION_SELECT,
+    AST_REGION_REJECT,
+    AST_REGION_USE,
+    AST_REGION_WEIGHT,
+    AST_REGION_BIN,
+    AST_REGION_BINS,
+    AST_HISTO_USE,
+    AST_REGION_HISTOGRAM,
+
+    // histo_list
+    AST_HISTOLIST_HISTOGRAM,
+
+    AST_NAMED_PARTICLE_LIST,
+    AST_PARTICLE_LIST,
+    AST_PARTICLE_SUM,
+    AST_INDEX,
+
+    AST_EXPRESSION, 
+
+    AST_INTERVAL,
+    
+    AST_NEGATE,
+
+    AST_USER_FUNCTION,
     
 
 };
@@ -76,6 +105,9 @@ class Node {
 
         std::shared_ptr<Token> relevant_token;
         bool has_relevant_token;
+
+        std::string associated_string;
+        bool has_associated_string;
 
         int unique_id;
 
@@ -95,6 +127,9 @@ class Node {
 
         AST_type get_ast_type();
         std::string get_ast_type_as_string();
+
+        std::string get_associated_string();
+        void set_associated_string(std::string);
         
         friend class Tree;
 };

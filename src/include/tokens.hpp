@@ -49,6 +49,7 @@ enum Token_type {
     TOK_TABLE,
 
     TOK_BIN,
+    TOK_NAMED,
     TOK_BINS,
 
     TOK_UNION,
@@ -72,8 +73,6 @@ enum Token_type {
 
     TOK_ANYOF,
     TOK_ALLOF,
-    TOK_ALL,
-    TOK_NONE,
 
     TOK_THIS,
 
@@ -152,12 +151,6 @@ enum Token_type {
     TOK_LETTER_P,
     TOK_LETTER_E,
 
-
-    // IF,
-    // THEN,
-    // ELSE,
-    // DO,
-    // PRINT,
     
     SYSTEMATIC,
 
