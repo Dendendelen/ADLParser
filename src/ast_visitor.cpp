@@ -1,53 +1,18 @@
 #include "ast_visitor.hpp"
 #include "node.hpp"
 
+
+#define VISIT_DISPATCH(ENUM, NAME) \
+    case AST::ENUM: visit_##NAME(node); return; \
+
+
 void ASTVisitor::visit(PNode node) {
     switch (node->get_ast_type()) {
-        case OBJECT:
-            return visit_object(node);
-        case DEFINITION:
-            return visit_definition(node);
-        case REGION:
-            return visit_region(node);
-        case COMPOSITE:
-            return visit_composite(node);
-        case CONDITION:
-            return visit_condition(node);
-        case IF_STATEMENT:
-            return visit_if(node);
-        case OBJECT_SELECT:
-            return visit_object_select(node);
-        case OBJECT_REJECT:
-            return visit_object_reject(node);
-        case REGION_SELECT:
-            return visit_region_select(node);
-        case REGION_REJECT:
-            return visit_region_reject(node);
-        case REGION_USE:
-            return visit_use(node);
-        case HISTO_LIST:
-            return visit_histo_list(node);
-        case HISTOGRAM: case HISTOLIST_HISTOGRAM:
-            return visit_histogram(node);
-        case HISTO_USE:
-            return visit_histo_use(node);
-        case PARTICLE_SUM:
-            return visit_particle_sum(node);
-        case EXPRESSION:
-            return visit_expression(node);
-        case TABLE_DEF:
-            return visit_table_def(node);
-        case BIN_CMD:
-            return visit_bin(node);
-        case BINS_CMD:
-            return visit_bin_list(node);     
-        case WEIGHT_CMD:
-            return visit_weight(node);   
-
-        default:
-            return visit_children(node);
+        AST_NODE_LIST(VISIT_DISPATCH)
     }
 }
+
+#undef VISIT_DISPATCH
 
 void ASTVisitor::visit_children(PNode node) {
     for (auto it = node->get_children().begin(); it != node->get_children().end(); ++it) {

@@ -79,306 +79,299 @@ Token_type Lexer::identify_token(std::string &token) {
     if (verbose) std::cout << "Lexing " << token << std::endl;
     
     // If we start with a hash, then this is instantly a comment
-    if (token.front() == '#') return TOK_COMMENT;
-    if (std::regex_match(token, std::regex("\\s+"))) return TOK_SPACE;
+    if (token.front() == '#') return TOK::COMMENT;
+    if (std::regex_match(token, std::regex("\\s+"))) return TOK::SPACE;
 
     // Top level ADL syntax
-    if (uppercase_token == "DEF" || uppercase_token == "DEFINE") return TOK_DEF;
-    if (uppercase_token == "ALGORITHM" || uppercase_token == "ALGO" || uppercase_token == "REGION") return TOK_REG;
-    if (uppercase_token == "HISTOLIST") return TOK_HISTOLIST;
-    if (uppercase_token == "INFO") return TOK_ADLINFO;
-    if (uppercase_token == "OBJ" || uppercase_token == "OBJECT") return TOK_OBJ;
-    if (uppercase_token == "COMP" || uppercase_token == "COMPOSITE") return TOK_COMP;
+    if (uppercase_token == "DEF" || uppercase_token == "DEFINE") return TOK::DEF;
+    if (uppercase_token == "ALGORITHM" || uppercase_token == "ALGO" || uppercase_token == "REGION") return TOK::REG;
+    if (uppercase_token == "HISTOLIST") return TOK::HISTOLIST;
+    if (uppercase_token == "INFO") return TOK::ADLINFO;
+    if (uppercase_token == "OBJ" || uppercase_token == "OBJECT") return TOK::OBJ;
+    if (uppercase_token == "COMP" || uppercase_token == "COMPOSITE") return TOK::COMP;
 
 
-    if (uppercase_token == "CMD" || uppercase_token == "CUT" || uppercase_token == "SELECT") return TOK_SELECT;
-    if (uppercase_token == "REJECT") return TOK_REJEC;
+    if (uppercase_token == "CMD" || uppercase_token == "CUT" || uppercase_token == "SELECT") return TOK::SELECT;
+    if (uppercase_token == "REJECT") return TOK::REJEC;
     
-    if (uppercase_token == "PARTICLE" || uppercase_token == "CANDIDATE") return TOK_PARTICLE_KEYWORD; // keyword that allows definitions to be of particles and not functions
-    if (uppercase_token == "EXTERN" || uppercase_token  == "EXTERNAL") return TOK_EXTERNAL; // keyword that allows arbitrary external functions to be included
-    if (uppercase_token == "ATTR" || uppercase_token  == "ATTRIBUTE") return TOK_ATTRIBUTE; // keyword that allows external particle attributes to be included
-    if (uppercase_token == "CORRECTIONLIB") return TOK_CORRECTIONLIB;
+    if (uppercase_token == "PARTICLE" || uppercase_token == "CANDIDATE") return TOK::PARTICLE_KEYWORD; // keyword that allows definitions to be of particles and not functions
+    if (uppercase_token == "EXTERN" || uppercase_token  == "EXTERNAL") return TOK::EXTERNAL; // keyword that allows arbitrary external functions to be included
+    if (uppercase_token == "ATTR" || uppercase_token  == "ATTRIBUTE") return TOK::ATTRIBUTE; // keyword that allows external particle attributes to be included
+    if (uppercase_token == "CORRECTIONLIB") return TOK::CORRECTIONLIB;
 
-    if (token == "systematic") return SYSTEMATIC;
-
-    if (uppercase_token == "ON" || uppercase_token == "TRUE") return TOK_TRUE; 
-    if (uppercase_token == "OFF" || uppercase_token == "FALSE") return TOK_FALSE; 
-    if (uppercase_token == "NVARS") return TOK_NVARS;
-    if (uppercase_token == "ERRORS") return TOK_ERRORS;
-    if (uppercase_token == "TABLETYPE") return TOK_TABLETYPE;
-    if (uppercase_token == "TAKE"  || uppercase_token == "USING") return TOK_TAKE;
-    if (uppercase_token == "HISTO" || uppercase_token == "HIST") return TOK_HISTO;
-    if (uppercase_token == "WEIGHT") return TOK_WEIGHT;
-    if (uppercase_token == "TABLE") return TOK_TABLE;
+    if (uppercase_token == "ON" || uppercase_token == "TRUE") return TOK::TRUE; 
+    if (uppercase_token == "OFF" || uppercase_token == "FALSE") return TOK::FALSE; 
+    if (uppercase_token == "NVARS") return TOK::NVARS;
+    if (uppercase_token == "ERRORS") return TOK::ERRORS;
+    if (uppercase_token == "TABLETYPE") return TOK::TABLETYPE;
+    if (uppercase_token == "TAKE"  || uppercase_token == "USING") return TOK::TAKE;
+    if (uppercase_token == "HISTO" || uppercase_token == "HIST") return TOK::HISTO;
+    if (uppercase_token == "WEIGHT") return TOK::WEIGHT;
+    if (uppercase_token == "TABLE") return TOK::TABLE;
 
     // Within-object block helper
-    if (uppercase_token == "THIS") return TOK_THIS;
+    if (uppercase_token == "THIS") return TOK::THIS;
 
     
-    if (uppercase_token == "NAMED") return TOK_NAMED;
-    if (uppercase_token == "BIN") return TOK_BIN;
-    if (uppercase_token == "BINS") return TOK_BINS;
+    if (uppercase_token == "NAMED") return TOK::NAMED;
+    if (uppercase_token == "BIN") return TOK::BIN;
+    if (uppercase_token == "BINS") return TOK::BINS;
 
 
 
-    if (uppercase_token == "UNION") return TOK_UNION;
-    if (uppercase_token == "ALIAS") return TOK_ALIAS;
+    if (uppercase_token == "UNION") return TOK::UNION;
+    if (uppercase_token == "ALIAS") return TOK::ALIAS;
 
-    if (uppercase_token == "PHI") return TOK_PHI;//functions
-    if (uppercase_token == "ETA") return TOK_ETA;
-    if (uppercase_token == "CHARGE") return TOK_CHARGE;
-    if (uppercase_token == "MASS") return TOK_MASS;
+    if (uppercase_token == "PHI") return TOK::PHI;//functions
+    if (uppercase_token == "ETA") return TOK::ETA;
+    if (uppercase_token == "CHARGE") return TOK::CHARGE;
+    if (uppercase_token == "MASS") return TOK::MASS;
 
-    if (uppercase_token == "DR" || uppercase_token == "DELTAR") return TOK_DR;
-    if (uppercase_token == "DPHI" || uppercase_token == "DELTAPHI") return TOK_DPHI;
-    if (uppercase_token == "DETA" || uppercase_token == "DELTAETA") return TOK_DETA;
+    if (uppercase_token == "DR" || uppercase_token == "DELTAR") return TOK::DR;
+    if (uppercase_token == "DPHI" || uppercase_token == "DELTAPHI") return TOK::DPHI;
+    if (uppercase_token == "DETA" || uppercase_token == "DELTAETA") return TOK::DETA;
 
-    if (uppercase_token == "DISTINCT") return TOK_DISTINCT;
+    if (uppercase_token == "DISTINCT") return TOK::DISTINCT;
 
-    if (uppercase_token == "DRHADAMARD" || uppercase_token == "DELTARHADAMARD") return TOK_DR_HADAMARD;
-    if (uppercase_token == "DETAHADAMARD" || uppercase_token == "DELTAETAHADAMARD") return TOK_DETA_HADAMARD;
-    if (uppercase_token == "DPHIHADAMARD" || uppercase_token == "DELTAPHIHADAMARD") return TOK_DPHI_HADAMARD;
+    if (uppercase_token == "DRHADAMARD" || uppercase_token == "DELTARHADAMARD") return TOK::DR_HADAMARD;
+    if (uppercase_token == "DETAHADAMARD" || uppercase_token == "DELTAETAHADAMARD") return TOK::DETA_HADAMARD;
+    if (uppercase_token == "DPHIHADAMARD" || uppercase_token == "DELTAPHIHADAMARD") return TOK::DPHI_HADAMARD;
 
-    if (uppercase_token == "SIZE" || uppercase_token == "COUNT" || uppercase_token == "NUMOF") return TOK_NUMOF;//no arg funcs 
+    if (uppercase_token == "SIZE" || uppercase_token == "COUNT" || uppercase_token == "NUMOF") return TOK::NUMOF;//no arg funcs 
 
     // Comparison operators
-    if (token == "=="|| uppercase_token == "EQ") return TOK_EQ;
-    if (token == "!="|| uppercase_token == "NE") return TOK_NE;
-    if (token == "<="|| uppercase_token == "LE") return TOK_LE;
-    if (token == ">="|| uppercase_token == "GE") return TOK_GE;
-    if (token == "<"|| uppercase_token == "LT") return TOK_LT;
-    if (token == ">"|| uppercase_token == "GT") return TOK_GT;
+    if (token == "=="|| uppercase_token == "EQ") return TOK::EQ;
+    if (token == "!="|| uppercase_token == "NE") return TOK::NE;
+    if (token == "<="|| uppercase_token == "LE") return TOK::LE;
+    if (token == ">="|| uppercase_token == "GE") return TOK::GE;
+    if (token == "<"|| uppercase_token == "LT") return TOK::LT;
+    if (token == ">"|| uppercase_token == "GT") return TOK::GT;
 
     // Logical operators
-    if (uppercase_token == "AND" || token == "&&") return TOK_AND;
-    if (uppercase_token == "OR" || token == "||") return TOK_OR;
-    if (uppercase_token == "NOT") return TOK_NOT;
-    if (uppercase_token == "WITHIN" || uppercase_token == "IN") return TOK_WITHIN;
-    if (uppercase_token == "OUTSIDE") return TOK_OUTSIDE;
+    if (uppercase_token == "AND" || token == "&&") return TOK::AND;
+    if (uppercase_token == "OR" || token == "||") return TOK::OR;
+    if (uppercase_token == "NOT") return TOK::NOT;
+    if (uppercase_token == "WITHIN" || uppercase_token == "IN") return TOK::WITHIN;
+    if (uppercase_token == "OUTSIDE") return TOK::OUTSIDE;
 
     
-    if (token == "-") return TOK_MINUS;
-    if (token == "+") return TOK_PLUS;
-    if (token == "*") return TOK_MULTIPLY;
-    if (token == "/") return TOK_DIVIDE;
+    if (token == "-") return TOK::MINUS;
+    if (token == "+") return TOK::PLUS;
+    if (token == "*") return TOK::MULTIPLY;
+    if (token == "/") return TOK::DIVIDE;
 
-    if (token == "&") return TOK_AMPERSAND;
-    if (token == "|") return TOK_PIPE;
-    if (token == ":") return TOK_COLON;
-    if (token == "^") return TOK_RAISED_TO_POWER;
+    if (token == "&") return TOK::AMPERSAND;
+    if (token == "|") return TOK::PIPE;
+    if (token == ":") return TOK::COLON;
+    if (token == "^") return TOK::RAISED_TO_POWER;
 
     //  A dot, likely used to index an attribute e.g. particle.m
-    if (token == ".") return TOK_DOT_INDEX;
-    if (token == "->") return TOK_ARROW_INDEX;
+    if (token == ".") return TOK::DOT_INDEX;
+    if (token == "->") return TOK::ARROW_INDEX;
 
-    if (token == "(") return TOK_OPEN_PAREN;
-    if (token == ")") return TOK_CLOSE_PAREN;
-    if (token == "[") return TOK_OPEN_SQUARE_BRACE;
-    if (token == "]") return TOK_CLOSE_SQUARE_BRACE;
-    if (token == "{") return TOK_OPEN_CURLY_BRACE;
-    if (token == "}") return TOK_CLOSE_CURLY_BRACE;
-    if (token == "?") return TOK_QUESTION;
-    if (token == "=") return TOK_ASSIGN;
-    if (token == "_") return TOK_UNDERSCORE;
+    if (token == "(") return TOK::OPEN_PAREN;
+    if (token == ")") return TOK::CLOSE_PAREN;
+    if (token == "[") return TOK::OPEN_SQUARE_BRACE;
+    if (token == "]") return TOK::CLOSE_SQUARE_BRACE;
+    if (token == "{") return TOK::OPEN_CURLY_BRACE;
+    if (token == "}") return TOK::CLOSE_CURLY_BRACE;
+    if (token == "?") return TOK::QUESTION;
+    if (token == "=") return TOK::ASSIGN;
+    if (token == "_") return TOK::UNDERSCORE;
 
-    if (uppercase_token == "DESCEND" || uppercase_token == "DESCENDING" || uppercase_token == "DECREASING") return TOK_DESCEND;
-    if (uppercase_token == "ASCEND" || uppercase_token == "ASCENDING" || uppercase_token == "INCREASING") return TOK_ASCEND;
+    if (uppercase_token == "DESCEND" || uppercase_token == "DESCENDING" || uppercase_token == "DECREASING") return TOK::DESCEND;
+    if (uppercase_token == "ASCEND" || uppercase_token == "ASCENDING" || uppercase_token == "INCREASING") return TOK::ASCEND;
 
     // Purely mathematical functions
-    if (uppercase_token == "TAN") return TOK_TAN;
-    if (uppercase_token == "SIN") return TOK_SIN;
-    if (uppercase_token == "COS") return TOK_COS;
-    if (uppercase_token == "SINH") return TOK_SINH;
-    if (uppercase_token == "COSH") return TOK_COSH;
-    if (uppercase_token == "TANH") return TOK_TANH;
-    if (uppercase_token == "EXP") return TOK_EXP;
-    if (uppercase_token == "LOG") return TOK_LOG;
-    if (uppercase_token == "ABS") return TOK_ABS;
-    if (uppercase_token == "SQRT") return TOK_SQRT;
+    if (uppercase_token == "TAN") return TOK::TAN;
+    if (uppercase_token == "SIN") return TOK::SIN;
+    if (uppercase_token == "COS") return TOK::COS;
+    if (uppercase_token == "SINH") return TOK::SINH;
+    if (uppercase_token == "COSH") return TOK::COSH;
+    if (uppercase_token == "TANH") return TOK::TANH;
+    if (uppercase_token == "EXP") return TOK::EXP;
+    if (uppercase_token == "LOG") return TOK::LOG;
+    if (uppercase_token == "ABS") return TOK::ABS;
+    if (uppercase_token == "SQRT") return TOK::SQRT;
 
     // Functions on variable lists
-    if (uppercase_token == "AVE") return TOK_AVE;
-    if (uppercase_token == "SUM") return TOK_SUM;
-    if (uppercase_token == "ADD") return TOK_ADD;
-    if (uppercase_token == "ANY" || uppercase_token == "ANYOF") return TOK_ANYOF;
-    if (uppercase_token == "ALLOF" || uppercase_token ==  "ALL") return TOK_ALLOF;
+    if (uppercase_token == "AVE") return TOK::AVE;
+    if (uppercase_token == "SUM") return TOK::SUM;
+    if (uppercase_token == "ADD") return TOK::ADD;
+    if (uppercase_token == "ANY" || uppercase_token == "ANYOF") return TOK::ANYOF;
+    if (uppercase_token == "ALLOF" || uppercase_token ==  "ALL") return TOK::ALLOF;
 
      
-    if (uppercase_token == "SORT") return TOK_SORT;
+    if (uppercase_token == "SORT") return TOK::SORT;
 
     // Combinators - ways to combine different lists of particles
-    if (uppercase_token == "COMB" || uppercase_token=="CARTESIAN") return TOK_COMB;
-    if (uppercase_token == "DISJOINT") return TOK_DISJOINT;
-    if (uppercase_token == "DIRECT") return TOK_DIRECT;
+    if (uppercase_token == "COMB" || uppercase_token=="CARTESIAN") return TOK::COMB;
+    if (uppercase_token == "DISJOINT") return TOK::DISJOINT;
+    if (uppercase_token == "DIRECT") return TOK::DIRECT;
 
-    if (uppercase_token == "MIN") return TOK_MIN;
-    if (uppercase_token == "MAX") return TOK_MAX;
+    if (uppercase_token == "MIN") return TOK::MIN;
+    if (uppercase_token == "MAX") return TOK::MAX;
 
-    if (token == "+-"|| token == "-+") return PM;
-
-    if (token == ",") return TOK_COMMA;
+    if (token == ",") return TOK::COMMA;
 
     // these letters are keywords which indicate a corresponding function 
-    if (uppercase_token == "Q") return TOK_LETTER_Q; // charge
-    if (uppercase_token == "E") return TOK_LETTER_E; // energy
-    if (uppercase_token == "P") return TOK_LETTER_P; // momentum
-    if (uppercase_token == "M") return TOK_LETTER_M; // mass
+    if (uppercase_token == "Q") return TOK::LETTER_Q; // charge
+    if (uppercase_token == "E") return TOK::LETTER_E; // energy
+    if (uppercase_token == "P") return TOK::LETTER_P; // momentum
+    if (uppercase_token == "M") return TOK::LETTER_M; // mass
 
     // We have as of yet failed to lex this token, which implies it isn't something that exact matching has worked with
     // We check if it is some kind of number
-    if (std::regex_match(token, reg_int)) return TOK_INTEGER;
-    if (std::regex_match(token, reg_decimal)) return TOK_DECIMAL;
-    if (std::regex_match(token, reg_scientific)) return TOK_SCIENTIFIC;
+    if (std::regex_match(token, reg_int)) return TOK::INTEGER;
+    if (std::regex_match(token, reg_decimal)) return TOK::DECIMAL;
+    if (std::regex_match(token, reg_scientific)) return TOK::SCIENTIFIC;
 
     // It definintely isn't a number - maybe it's in a variable name format
-    if (std::regex_match(token, reg_varname)) return TOK_VARNAME;
+    if (std::regex_match(token, reg_varname)) return TOK::VARNAME;
 
     // Not that either - maybe it's just a valid string
-    if (std::regex_match(token, reg_string)) return TOK_STRING;
+    if (std::regex_match(token, reg_string)) return TOK::STRING;
 
     // Not any sort of valid object, so far as this can tell. Assume this is invalid text, and end our tokenization.
-    return TOK_LEXER_ERROR;
+    return TOK::LEXER_ERROR;
 }
 
 std::string token_type_to_string(Token_type type) {
     switch(type) {
-        case TOK_LEXER_ERROR: return "LEXER_ERROR";
-        case TOK_COMMENT: return "LEXER_COMMENT";
-        case TOK_SPACE: return "LEXER_SPACE";
-        case TOK_NEWLINE: return "LEXER_NEWLINE";
-        case TOK_END_OF_FILE: return "LEXER_END_OF_FILE";
+        case TOK::LEXER_ERROR: return "LEXER_ERROR";
+        case TOK::COMMENT: return "LEXER_COMMENT";
+        case TOK::SPACE: return "LEXER_SPACE";
+        case TOK::NEWLINE: return "LEXER_NEWLINE";
+        case TOK::END_OF_FILE: return "LEXER_END_OF_FILE";
 
-        case TOK_DECIMAL: return "DECIMAL";
-        case TOK_SCIENTIFIC: return "SCIENTIFIC";
+        case TOK::DECIMAL: return "DECIMAL";
+        case TOK::SCIENTIFIC: return "SCIENTIFIC";
 
-        case TOK_STRING: return "STRING";
-        case TOK_INTEGER: return "INTEGER";
-        case TOK_VARNAME: return "VARNAME";
+        case TOK::STRING: return "STRING";
+        case TOK::INTEGER: return "INTEGER";
+        case TOK::VARNAME: return "VARNAME";
 
-        case TOK_DEF: return "DEF";
-        case TOK_SELECT: return "SELECT";
-        case TOK_REJEC: return "REJEC";
-        case TOK_OBJ: return "OBJ";
-        case TOK_REG: return "REG";
+        case TOK::DEF: return "DEF";
+        case TOK::SELECT: return "SELECT";
+        case TOK::REJEC: return "REJEC";
+        case TOK::OBJ: return "OBJ";
+        case TOK::REG: return "REG";
 
-        case TOK_HISTOLIST: return "HISTOLIST";
+        case TOK::HISTOLIST: return "HISTOLIST";
 
-        case TOK_ADLINFO: return "ADLINFO";
+        case TOK::ADLINFO: return "ADLINFO";
 
-        case TOK_PARTICLE_KEYWORD: return "PARTICLE_KEYWORD";
-        case TOK_EXTERNAL: return "EXTERNAL";
-        case TOK_ATTRIBUTE: return "ATTRIBUTE";
-        case TOK_CORRECTIONLIB: return "CORRECTIONLIB";
+        case TOK::PARTICLE_KEYWORD: return "PARTICLE_KEYWORD";
+        case TOK::EXTERNAL: return "EXTERNAL";
+        case TOK::ATTRIBUTE: return "ATTRIBUTE";
+        case TOK::CORRECTIONLIB: return "CORRECTIONLIB";
 
-        case SYSTEMATIC: return "SYSTEMATIC";
+        case TOK::TRUE: return "TRUE";
+        case TOK::FALSE: return "FALSE";
+        case TOK::NVARS: return "NVARS";
+        case TOK::ERRORS: return "ERRORS";
+        case TOK::TABLETYPE: return "TABLETYPE";
+        case TOK::TAKE: return "TAKE";
+        case TOK::HISTO: return "HISTO";
+        case TOK::WEIGHT: return "WEIGHT";
+        case TOK::TABLE: return "TABLE";
 
-        case TOK_TRUE: return "TRUE";
-        case TOK_FALSE: return "FALSE";
-        case TOK_NVARS: return "NVARS";
-        case TOK_ERRORS: return "ERRORS";
-        case TOK_TABLETYPE: return "TABLETYPE";
-        case TOK_TAKE: return "TAKE";
-        case TOK_HISTO: return "HISTO";
-        case TOK_WEIGHT: return "WEIGHT";
-        case TOK_TABLE: return "TABLE";
+        case TOK::NAMED: return "NAMED";
+        case TOK::BIN: return "BIN";
+        case TOK::BINS: return "BINS";
 
-        case TOK_NAMED: return "NAMED";
-        case TOK_BIN: return "BIN";
-        case TOK_BINS: return "BINS";
-
-        case TOK_UNION: return "UNION";
-        case TOK_ALIAS: return "ALIAS";
+        case TOK::UNION: return "UNION";
+        case TOK::ALIAS: return "ALIAS";
 
 
-        case TOK_PHI: return "PHI";
-        case TOK_ETA: return "ETA";
+        case TOK::PHI: return "PHI";
+        case TOK::ETA: return "ETA";
 
-        case TOK_CHARGE: return "CHARGE";
-        case TOK_MASS: return "MASS";
+        case TOK::CHARGE: return "CHARGE";
+        case TOK::MASS: return "MASS";
 
-        case TOK_PT: return "PT";
+        case TOK::PT: return "PT";
 
-        case TOK_DR: return "DR";
-        case TOK_DPHI: return "DPHI";
-        case TOK_DETA: return "DETA";
+        case TOK::DR: return "DR";
+        case TOK::DPHI: return "DPHI";
+        case TOK::DETA: return "DETA";
 
-        case TOK_DR_HADAMARD: return "DR_HADAMARD";
-        case TOK_DPHI_HADAMARD: return "DPHI_HADAMARD";
-        case TOK_DETA_HADAMARD: return "DETA_HADAMARD";
+        case TOK::DR_HADAMARD: return "DR_HADAMARD";
+        case TOK::DPHI_HADAMARD: return "DPHI_HADAMARD";
+        case TOK::DETA_HADAMARD: return "DETA_HADAMARD";
 
-        case TOK_NUMOF: return "NUMOF";
+        case TOK::NUMOF: return "NUMOF";
 
-        case TOK_ANYOF: return "ANYOF";
-        case TOK_ALLOF: return "ALLOF";
-        case TOK_THIS: return "THIS";
+        case TOK::ANYOF: return "ANYOF";
+        case TOK::ALLOF: return "ALLOF";
+        case TOK::THIS: return "THIS";
 
 
-        case TOK_EQ: return "EQ";
-        case TOK_NE: return "NE";
-        case TOK_LE: return "LE";
-        case TOK_GE: return "GE";
-        case TOK_LT: return "LT";
-        case TOK_GT: return "GT";
-        case TOK_AND: return "AND";
-        case TOK_OR: return "OR";
-        case TOK_NOT: return "NOT";
-        case TOK_WITHIN: return "WITHIN";
-        case TOK_OUTSIDE: return "OUTSIDE";
+        case TOK::EQ: return "EQ";
+        case TOK::NE: return "NE";
+        case TOK::LE: return "LE";
+        case TOK::GE: return "GE";
+        case TOK::LT: return "LT";
+        case TOK::GT: return "GT";
+        case TOK::AND: return "AND";
+        case TOK::OR: return "OR";
+        case TOK::NOT: return "NOT";
+        case TOK::WITHIN: return "WITHIN";
+        case TOK::OUTSIDE: return "OUTSIDE";
 
-        case TOK_MINUS: return "MINUS";
-        case TOK_PLUS: return "PLUS";
-        case TOK_MULTIPLY: return "MULTIPLY";
-        case TOK_DIVIDE: return "DIVIDE";
+        case TOK::MINUS: return "MINUS";
+        case TOK::PLUS: return "PLUS";
+        case TOK::MULTIPLY: return "MULTIPLY";
+        case TOK::DIVIDE: return "DIVIDE";
 
-        case TOK_DOT_INDEX: return "DOT_INDEX";
-        case TOK_ARROW_INDEX: return "ARROW_INDEX";
+        case TOK::DOT_INDEX: return "DOT_INDEX";
+        case TOK::ARROW_INDEX: return "ARROW_INDEX";
 
-        case TOK_AMPERSAND: return "AMPERSAND";
-        case TOK_PIPE: return "PIPE";
-        case TOK_COLON: return "COLON";
-        case TOK_RAISED_TO_POWER: return "RAISED_TO_POWER";
+        case TOK::AMPERSAND: return "AMPERSAND";
+        case TOK::PIPE: return "PIPE";
+        case TOK::COLON: return "COLON";
+        case TOK::RAISED_TO_POWER: return "RAISED_TO_POWER";
 
-        case TOK_OPEN_PAREN: return "OPEN_PAREN";
-        case TOK_CLOSE_PAREN: return "CLOSE_PAREN";
-        case TOK_OPEN_SQUARE_BRACE: return "OPEN_SQUARE_BRACE";
-        case TOK_CLOSE_SQUARE_BRACE: return "CLOSE_SQUARE_BRACE";
-        case TOK_OPEN_CURLY_BRACE: return "OPEN_CURLY_BRACE";
-        case TOK_CLOSE_CURLY_BRACE: return "CLOSE_CURLY_BRACE";
-        case TOK_QUESTION: return "QUESTION";
-        case TOK_ASSIGN: return "ASSIGN";
+        case TOK::OPEN_PAREN: return "OPEN_PAREN";
+        case TOK::CLOSE_PAREN: return "CLOSE_PAREN";
+        case TOK::OPEN_SQUARE_BRACE: return "OPEN_SQUARE_BRACE";
+        case TOK::CLOSE_SQUARE_BRACE: return "CLOSE_SQUARE_BRACE";
+        case TOK::OPEN_CURLY_BRACE: return "OPEN_CURLY_BRACE";
+        case TOK::CLOSE_CURLY_BRACE: return "CLOSE_CURLY_BRACE";
+        case TOK::QUESTION: return "QUESTION";
+        case TOK::ASSIGN: return "ASSIGN";
 
-        case TOK_AVE: return "AVE";
-        case TOK_SUM: return "SUM";
-        case TOK_ADD: return "ADD";
-        case TOK_ASCEND: return "ASCEND";
-        case TOK_DESCEND: return "DESCEND";
-        case TOK_TAN: return "TAN";
-        case TOK_SIN: return "SIN";
-        case TOK_COS: return "COS";
-        case TOK_SINH: return "SINH";
-        case TOK_COSH: return "COSH";
-        case TOK_TANH: return "TANH";
-        case TOK_EXP: return "EXP";
-        case TOK_LOG: return "LOG";
-        case TOK_ABS: return "ABS";
-        case TOK_SQRT: return "SQRT";
-        case TOK_SORT: return "SORT";
-        case TOK_COMB: return "COMB";
-        case TOK_DISJOINT: return "DISJOINT";
-        case TOK_DIRECT: return "DIRECT";
-        case TOK_MIN: return "MIN";
-        case TOK_MAX: return "MAX";
-        case PM: return "PM";
+        case TOK::AVE: return "AVE";
+        case TOK::SUM: return "SUM";
+        case TOK::ADD: return "ADD";
+        case TOK::ASCEND: return "ASCEND";
+        case TOK::DESCEND: return "DESCEND";
+        case TOK::TAN: return "TAN";
+        case TOK::SIN: return "SIN";
+        case TOK::COS: return "COS";
+        case TOK::SINH: return "SINH";
+        case TOK::COSH: return "COSH";
+        case TOK::TANH: return "TANH";
+        case TOK::EXP: return "EXP";
+        case TOK::LOG: return "LOG";
+        case TOK::ABS: return "ABS";
+        case TOK::SQRT: return "SQRT";
+        case TOK::SORT: return "SORT";
+        case TOK::COMB: return "COMB";
+        case TOK::DISJOINT: return "DISJOINT";
+        case TOK::DIRECT: return "DIRECT";
+        case TOK::MIN: return "MIN";
+        case TOK::MAX: return "MAX";
 
-        case TOK_COMMA: return "COMMA";
-        case TOK_UNDERSCORE: return "UNDERSCORE";
+        case TOK::COMMA: return "COMMA";
+        case TOK::UNDERSCORE: return "UNDERSCORE";
 
-        case TOK_LETTER_M: return "LETTER_M";
-        case TOK_LETTER_Q: return "LETTER_Q";
-        case TOK_LETTER_P: return "LETTER_P";
-        case TOK_LETTER_E: return "LETTER_E";
-        case TOK_COMP: return "COMP";
-        case TOK_DISTINCT: return "DISTINCT";
+        case TOK::LETTER_M: return "LETTER_M";
+        case TOK::LETTER_Q: return "LETTER_Q";
+        case TOK::LETTER_P: return "LETTER_P";
+        case TOK::LETTER_E: return "LETTER_E";
+        case TOK::COMP: return "COMP";
+        case TOK::DISTINCT: return "DISTINCT";
           break;
         }
 }
@@ -395,7 +388,7 @@ void Lexer::lex_token(std::string &token, int &line_number, int &column_number) 
     auto tok = std::make_shared<Token>(identify_token(token));
     tok->set_data(line_number, column_number, token);
 
-    if (tok->get_token_type() == TOK_LEXER_ERROR) {
+    if (tok->get_token_type() == TOK::LEXER_ERROR) {
         raise_lexing_exception(tok);
     }
 
@@ -499,7 +492,7 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
         // The line is over, we lex the remainder
         lex_token(running_token, line, column);
 
-        auto endline = std::make_shared<Token>(TOK_NEWLINE);
+        auto endline = std::make_shared<Token>(TOK::NEWLINE);
         endline->set_data(line, column, "\n");
         tokens.push_back(endline);
 
@@ -514,11 +507,11 @@ void Lexer::print() {
 
     for (auto it = tokens.begin(); it != tokens.end(); ++it) {
         std::shared_ptr tok = *it;
-        if (tok->get_token_type() == TOK_NEWLINE) {
+        if (tok->get_token_type() == TOK::NEWLINE) {
             std::cout << std::endl;
             continue;
         }
-        std::cout << tok->get_token_type() << ": " << tok->get_lexeme() << "," << " ";
+        std::cout << token_type_to_string(tok->get_token_type()) << ": " << tok->get_lexeme() << "," << " ";
     }
 }
 
@@ -531,7 +524,7 @@ void Lexer::erase_whitespace() {
         auto tok = *it;
         switch (tok->get_token_type()) {
             // If this is a whitespace or comment, don't even consider it in parsing
-            case TOK_LEXER_ERROR: case TOK_NEWLINE: case TOK_COMMENT: case TOK_SPACE:
+            case TOK::LEXER_ERROR: case TOK::NEWLINE: case TOK::COMMENT: case TOK::SPACE:
                 break;
             default:
                 non_whitespace_tokens.push_back(tok);
@@ -548,7 +541,7 @@ void Lexer::reset() {
 
 std::shared_ptr<Token> Lexer::next() {
     if (current_token == non_whitespace_tokens.end()) return 
-    std::make_shared<Token>(TOK_END_OF_FILE);
+    std::make_shared<Token>(TOK::END_OF_FILE);
 
     auto tok = *current_token;
     ++current_token;
@@ -577,11 +570,11 @@ std::shared_ptr<Token> Lexer::peek(int lookahead) {
         ++ahead_tok_it;
         lookahead--;
         if (ahead_tok_it == non_whitespace_tokens.end()) return 
-        std::make_shared<Token>(TOK_END_OF_FILE);
+        std::make_shared<Token>(TOK::END_OF_FILE);
     }
 
     if (ahead_tok_it == non_whitespace_tokens.end()) return 
-    std::make_shared<Token>(TOK_END_OF_FILE);
+    std::make_shared<Token>(TOK::END_OF_FILE);
 
     return *ahead_tok_it;
 }
