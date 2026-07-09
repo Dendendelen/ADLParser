@@ -11,13 +11,14 @@ enum AST_type{
     // Set if an error has occurred in the AST
     AST_ERROR,
 
-    // AST node for an epsilon expression - empty, and detected by parser as a key to remove this node from consideration
-    AST_EPSILON,
-
     // Terminal - if detected, then the parsed token matters
-    AST_TERMINAL,
+    // ------------
+    AST_VARYING_TERMINAL,
+    AST_OPERATOR_TERMINAL,
+    AST_BUILTIN_FUNC_TERMINAL,
 
     // Nonterminals
+    // ------------
     AST_INPUT,
 
     // input
@@ -38,30 +39,29 @@ enum AST_type{
     AST_EXTERN_ATTR,
     AST_EXTERN_FUN,
     AST_EXTERN_PARTICLE,
+    AST_CORRECTIONLIB,
 
     // composite
     AST_COMP_TYPE,
     AST_COMP_CRITERIA,
+
+    AST_COMPOSITE_CARTESIAN,
+    AST_COMPOSITE_DISJOINT,
+    AST_COMPOSITE_DIRECT,
 
 
     // object
     AST_OBJECT_TYPE,
     AST_OBJECT_CRITERIA,
 
+    AST_OBJ_UNION,
+    AST_OBJ_SORT,
+
+    AST_ASCEND,
+    AST_DESCEND,
+
     AST_OBJECT_SELECT,
     AST_OBJECT_REJECT,
-
-
-
-
-    
-    AST_SORT_CMD,
-
-    AST_IF_STATEMENT,
-
-    AST_VARIABLE_LIST,
-
-    AST_LITERAL_NUMBER_LIST,
 
     // region 
     AST_REGION_COMMANDS,
@@ -76,18 +76,34 @@ enum AST_type{
     AST_REGION_HISTOGRAM,
 
     // histo_list
+    AST_HISTO_ENTRIES,
     AST_HISTOLIST_HISTOGRAM,
 
     AST_NAMED_PARTICLE_LIST,
     AST_PARTICLE_LIST,
     AST_PARTICLE_SUM,
-    AST_INDEX,
 
     AST_EXPRESSION, 
 
     AST_INTERVAL,
+    AST_IF_STATEMENT,
+    AST_SORT_EXPRESSION,
+    AST_MIN_EXPRESSION,
+    AST_MAX_EXPRESSION,
+    AST_INDEX_OPERATOR,
+    AST_INDEX,
+    AST_UNBOUNDED,
+
+    AST_THIS,
+    AST_TRUE,
+    AST_FALSE,
     
+    AST_VARIABLE_LIST,
+    AST_LITERAL_NUMBER_LIST,
+    AST_STRING_LIST,
+
     AST_NEGATE,
+    AST_L_NOT,
 
     AST_USER_FUNCTION,
     

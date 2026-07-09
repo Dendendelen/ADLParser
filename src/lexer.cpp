@@ -199,7 +199,7 @@ Token_type Lexer::identify_token(std::string &token) {
     // Functions on variable lists
     if (uppercase_token == "AVE") return TOK_AVE;
     if (uppercase_token == "SUM") return TOK_SUM;
-    if (uppercase_token == "ADD") return ADD;
+    if (uppercase_token == "ADD") return TOK_ADD;
     if (uppercase_token == "ANY" || uppercase_token == "ANYOF") return TOK_ANYOF;
     if (uppercase_token == "ALLOF" || uppercase_token ==  "ALL") return TOK_ALLOF;
 
@@ -349,7 +349,7 @@ std::string token_type_to_string(Token_type type) {
 
         case TOK_AVE: return "AVE";
         case TOK_SUM: return "SUM";
-        case ADD: return "ADD";
+        case TOK_ADD: return "ADD";
         case TOK_ASCEND: return "ASCEND";
         case TOK_DESCEND: return "DESCEND";
         case TOK_TAN: return "TAN";
@@ -559,18 +559,14 @@ std::shared_ptr<Token> Lexer::next() {
 void Lexer::expect_and_consume(Token_type type, std::string error) {
     auto tok = next();
     if (tok->get_token_type() != type) {
-        raise_parsing_exception(error, tok);
+        if (error == "") {
+            std::stringstream error_ss;
+            error_ss << "Unexpected token, expected a token of type " << token_type_to_string(type) << ", got token of type " << token_type_to_string(tok->get_token_type());
+            raise_parsing_exception(error_ss.str(), tok);
+        } else {
+            raise_parsing_exception(error, tok);
+        }
     }
-}
-
-void Lexer::expect_and_consume(Token_type type) {
-    auto tok = next();
-    if (tok->get_token_type() != type) {
-        std::stringstream error_ss;
-        error_ss << "Unexpected token, expected a token of type " << token_type_to_string(type) << ", got token of type " << token_type_to_string(tok->get_token_type());
-        raise_parsing_exception(error_ss.str(), tok);
-    }
-    
 }
 
 

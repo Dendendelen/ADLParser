@@ -44,13 +44,13 @@ class Lexer {
 
         std::regex reg_whitespace;
 
+        std::shared_ptr<Token> next();
+
     public: 
         Lexer();
         void reset();
-        std::shared_ptr<Token> next();
 
-        void expect_and_consume(Token_type type);
-        void expect_and_consume(Token_type type, std::string error);
+        void expect_and_consume(Token_type type, std::string error = "");
 
         std::shared_ptr<Token> peek(int lookahead);
         void read_lines(std::string filename, bool is_verbose = false);

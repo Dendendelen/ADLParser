@@ -19,12 +19,15 @@ class Parser {
         void parse_def_rvalue(PNode parent);
 
         void parse_composite(PNode parent);
-        void parse_composite_rvalue(PNode parent);
-        void parse_composite_criteria(PNode parent);
-        void parse_composite_criterion(PNode parent);
+        void parse_comp_rvalue(PNode parent);
+        void parse_comp_type(PNode parent);
+        void parse_comp_criteria(PNode parent);
+        void parse_comp_criterion(PNode parent);
 
         void parse_object(PNode parent);
         void parse_obj_rvalue(PNode parent);
+        void parse_obj_type(PNode parent);
+        void parse_optional_sort_dir(PNode parent);
         void parse_obj_criteria(PNode parent);
         void parse_obj_criterion(PNode parent);
 
@@ -46,6 +49,13 @@ class Parser {
 
         void parse_bool(PNode parent);
         void parse_id(PNode parent);
+        void parse_string(PNode parent, std::string error = "");
+        void parse_varname(PNode parent, std::string error = "");
+        void parse_number(PNode parent, std::string error = "");
+        void parse_integer(PNode parent, std::string error = "");
+        void parse_scientific(PNode parent, std::string error = "");
+        void parse_decimal(PNode parent, std::string error = "");
+
         void parse_assignment();
 
         void parse_particle_sum(PNode parent);
@@ -62,7 +72,6 @@ class Parser {
         PNode precedence_climber(PNode parent, int min_precedence);
         PNode parse_primary_expression(PNode parent);
         PNode parse_expression(PNode parent);
-
 
         void print_children_and_yourself(PNode node, int *top_number);
 

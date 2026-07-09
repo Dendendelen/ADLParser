@@ -27,6 +27,8 @@ enum Token_type {
     TOK_ADLINFO,
 
     TOK_PARTICLE_KEYWORD,
+    TOK_ADD,
+
     TOK_EXTERNAL,
     TOK_ATTRIBUTE,
     TOK_CORRECTIONLIB,  //TODO: check implementation
@@ -155,9 +157,6 @@ enum Token_type {
     SYSTEMATIC,
 
     PM,
-
-    
-    ADD,
 
 };
 
