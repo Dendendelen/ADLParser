@@ -1,6 +1,7 @@
 #ifndef NODE_H
 #define NODE_H
 
+#include <span>
 #include <vector>
 #include <memory>
 
@@ -38,14 +39,12 @@
     X(CORRECTIONLIB,            correctionlib)                                 \
                                                                                \
     /* Composite subnodes */                                                   \
-    X(COMP_TYPE,                comp_type)                                     \
     X(COMP_CRITERIA,            comp_criteria)                                 \
     X(COMPOSITE_CARTESIAN,      composite_cartesian)                           \
     X(COMPOSITE_DISJOINT,       composite_disjoint)                            \
     X(COMPOSITE_DIRECT,         composite_direct)                              \
                                                                                \
     /* Object subnodes */                                                      \
-    X(OBJECT_TYPE,              object_type)                                   \
     X(OBJECT_CRITERIA,          object_criteria)                               \
     X(OBJ_UNION,                obj_union)                                     \
     X(OBJ_SORT,                 obj_sort)                                      \
@@ -107,13 +106,18 @@ enum class AST_type{
 
 #undef MAKE_ENUM
 
-
 typedef AST_type AST;
+
+
+class Node;
+
+typedef std::shared_ptr<Node> PNode;
 
 class Node {
     private:
         Node(AST_type in);
-        std::vector<std::shared_ptr<Node>> children;
+
+        std::vector<PNode> children;
         std::weak_ptr<Node> m_parent;
 
         int line_number;
@@ -129,14 +133,16 @@ class Node {
         int unique_id;
 
     public:
-        Node(AST_type in, std::shared_ptr<Node> parent);
-        Node(AST_type in, std::shared_ptr<Node> parent, std::shared_ptr<Token> tok);
+        Node(AST_type in, PNode parent);
+        Node(AST_type in, PNode parent, std::shared_ptr<Token> tok);
         
-        void set_parent(std::shared_ptr<Node> parent);
+        void set_parent(PNode parent);
         std::weak_ptr<Node> get_parent();
 
-        void add_child(std::shared_ptr<Node> child);
-        std::vector<std::shared_ptr<Node>> &get_children();
+        void add_child(PNode child);
+
+        const std::span<const PNode> get_children() const;
+        PNode get_child(int index);
         
         void set_token(std::shared_ptr<Token> tok);
         std::shared_ptr<Token> get_token();
@@ -145,13 +151,12 @@ class Node {
         AST_type get_ast_type();
         std::string get_ast_type_as_string();
 
-        std::string get_associated_string();
         void set_associated_string(std::string);
-        
+        std::string consume_associated_string();
+
         friend class Tree;
 };
 
-typedef std::shared_ptr<Node> PNode;
 
 #define NODE_TYPE(X) \
     class XNode : public Node {public: std::string get_ast_type_as_string() override{return "X"}; };
@@ -160,11 +165,11 @@ class ErrorNode : public Node {};
 
 class Tree {
     private:
-        std::shared_ptr<Node> root;
+        PNode root;
 
     public:
         Tree(AST_type in);
-        std::shared_ptr<Node> get_root();
+        PNode get_root();
 
 };
 

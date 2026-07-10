@@ -73,6 +73,12 @@ class Parser {
         PNode parse_primary_expression(PNode parent);
         PNode parse_expression(PNode parent);
 
+        PNode create_node(AST_type in, PNode parent, PToken tok);
+        PNode create_node(AST_type in, PNode parent);
+        PNode create_lost_node(AST_type in, PNode parent, PToken tok);
+        PNode create_lost_node(AST_type in, PNode parent);
+        PNode make_list_root_node(AST_type in, PNode parent);
+
         void print_children_and_yourself(PNode node, int *top_number);
 
 

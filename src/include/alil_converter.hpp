@@ -4,16 +4,27 @@
 #include "ast_visitor.hpp"
 #include "config.hpp"
 #include "lexer.hpp"
+#include "node.hpp"
 #include "tokens.hpp"
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 
-enum AnalysisLevelInstruction {
+enum class AnalysisLevelInstruction {
+
+    CREATE_EMPTY_INFO_LIST,
+    ADD_TO_INFO_LIST,
+    DISPLAY_INFO,
+
+
+
     CREATE_REGION,
     MERGE_REGIONS,
     CUT_REGION,
+
+    CREATE_BIN_OF_REGION,
 
     ADD_ALIAS,
     ADD_EXTERNAL,
@@ -37,8 +48,6 @@ enum AnalysisLevelInstruction {
     DO_CUTFLOW_ON_REGION,
     DO_EVENTLIST_ON_REGION,
 
-    CREATE_BIN,
-
     CREATE_TABLE,
     CREATE_TABLE_VALUE,
     CREATE_TABLE_LOWER_BOUNDS,
@@ -52,8 +61,8 @@ enum AnalysisLevelInstruction {
     BEGIN_IF,
     END_IF,
 
-    SORT_ASCEND,
-    SORT_DESCEND,
+    OBJ_SORT_ASCEND,
+    OBJ_SORT_DESCEND,
 
     EXPR_RAISE,
     EXPR_MULTIPLY,
@@ -134,45 +143,16 @@ enum AnalysisLevelInstruction {
     FUNC_MAX_LIST,
     FUNC_MIN_LIST,
 
-    FUNC_ANYOCCURRENCES,
-    FUNC_FIRST,
-    FUNC_SECOND,
     FUNC_SORT_ASCEND,
     FUNC_SORT_DESCEND,
-
-    FUNC_FLAVOR,
-    FUNC_CONSTITUENTS,
-
-    FUNC_PDG_ID,
-    FUNC_JET_ID,
-
-    FUNC_TAUTAG,
-
-    FUNC_CTAG,
-    FUNC_DXY,
-    FUNC_DZ,
-
-    FUNC_IS_TIGHT,
-    FUNC_IS_MEDIUM,
-    FUNC_IS_LOOSE,
 
     FUNC_NAMED,
 
     MAKE_EMPTY_PARTICLE,
 
     MAKE_EMPTY_UNION,
-    ADD_NAMED_TO_UNION,
-    ADD_ELECTRON_TO_UNION,
-    ADD_MUON_TO_UNION,
-    ADD_TAU_TO_UNION,
-    ADD_TRACK_TO_UNION,
-    ADD_PHOTON_TO_UNION,
-    ADD_QGJET_TO_UNION,
-    ADD_METLV_TO_UNION,
-    ADD_GEN_TO_UNION,
-    ADD_JET_TO_UNION,
-    ADD_FJET_TO_UNION,
-
+    ADD_PART_TO_UNION,
+    
     MAKE_EMPTY_COMB,
     ADD_NAMED_TO_COMB,
     ADD_ELECTRON_TO_COMB,
@@ -229,39 +209,79 @@ enum AnalysisLevelInstruction {
 
 };
 
-class AnalysisCommand {
+typedef AnalysisLevelInstruction ALIL;
+
+
+
+#define MAKE_UNCONSUMED __attribute__((return_typestate(unconsumed)))
+static_assert(true, "Macro check");
+
+#define CALLABLE_UNCONSUMED __attribute__((callable_when(unconsumed)))
+#define CALLABLE_CONSUMED __attribute__((callable_when(consumed)))
+#define CALLABLE_EITHER __attribute__((callable_when(unconsumed, consumed)))
+
+#define PARAM_UNCONSUMED __attribute__((param_typestate(unconsumed))) 
+
+class ALILCollection;
+class ALILConverter;
+
+class __attribute__((consumable(unconsumed))) AnalysisCommand {
     private:
         AnalysisLevelInstruction instruction;
 
-        std::string dest_argument;
+        bool has_been_collected;
+        void mark_collected() CALLABLE_UNCONSUMED __attribute__((set_typestate(consumed)));
+
+        std::optional<std::string> dest_argument;
         std::vector<std::string> source_arguments;
-        bool has_dest_argument_yet;
 
-        std::weak_ptr<Token> source_token;
-        bool has_source_token;
+        std::optional<std::weak_ptr<Token>> source_token;
     public:
-        AnalysisCommand(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok);
-        AnalysisCommand(AnalysisLevelInstruction inst);
+        AnalysisCommand(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok) MAKE_UNCONSUMED;
+        AnalysisCommand(AnalysisLevelInstruction inst) MAKE_UNCONSUMED;
+        AnalysisCommand(const AnalysisCommand& other) MAKE_UNCONSUMED;
+        AnalysisCommand(AnalysisCommand&& other) MAKE_UNCONSUMED;
 
-        void add_dest_argument(std::string arg);
-        void add_source_argument(std::string arg);
+        ~AnalysisCommand() CALLABLE_CONSUMED;
 
-        AnalysisLevelInstruction get_instruction();
-        std::string get_argument(int pos);
-        int get_num_arguments();
+        void add_dest_argument(std::string arg) CALLABLE_UNCONSUMED;
+        void add_source_argument(std::string arg) CALLABLE_UNCONSUMED;
 
-        bool has_dest_argument();
-        std::string get_dest_argument();
-        std::string get_source_argument(int pos);
+        std::string reserve_dest_arg_value(ALILConverter *) CALLABLE_UNCONSUMED;
+
+        AnalysisLevelInstruction get_instruction() CALLABLE_CONSUMED;
+        std::string get_argument(int pos) CALLABLE_CONSUMED;
+        int get_num_arguments() CALLABLE_CONSUMED;
+
+        bool has_dest_argument() CALLABLE_CONSUMED;
+        std::string get_dest_argument() CALLABLE_CONSUMED;
+        std::string get_source_argument(int pos) CALLABLE_CONSUMED;
     
-        void print_instruction();
-        void print_instruction(int width_of_dest, int width_of_inst);
+        void print_instruction() CALLABLE_CONSUMED;
+        void print_instruction(int width_of_dest, int width_of_inst) CALLABLE_CONSUMED;
         std::string static instruction_to_text(AnalysisLevelInstruction inst);
+
+        void collect_into(ALILCollection &) CALLABLE_UNCONSUMED;
+
+        friend ALILCollection;
+};
+
+class ALILCollection {
+    private:
+        std::vector<AnalysisCommand> command_list;
+        void collect_command(AnalysisCommand in);
+
+    public:
+        ALILCollection();
+        std::vector<AnalysisCommand> emit_collected_commands;
+
+        friend AnalysisCommand;
 };
 
 class ALILConverter : ASTVisitor {
     private:
-        std::vector<AnalysisCommand> command_list;
+
+        ALILCollection commands;
 
         void clean_command_list();
 
@@ -292,6 +312,19 @@ class ALILConverter : ASTVisitor {
         std::string reserve_scoped_limit_name();
         std::string reserve_scoped_region_name();
 
+        class NameScope {
+            private:
+                std::string old_name;
+                ALILConverter *this_converter;
+            public:
+                NameScope(std::string, ALILConverter *);
+                NameScope(std::string type_name, PNode id_node, ALILConverter *);
+                ~NameScope();
+        };        
+        std::string current_scope_name;
+        std::string what_object_is_this;
+        std::string what_region_are_we_in;
+
         void visit_object_first_second(PNode node);
         void visit_sort(PNode node);
         void visit_union_type(PNode node); 
@@ -301,7 +334,6 @@ class ALILConverter : ASTVisitor {
         std::string last_condition_name;
         std::string last_value_name;
         std::string current_limit;
-        std::string current_scope_name;
 
         Token_type current_object_token;
         std::string current_object_particle_if_named;
@@ -317,27 +349,23 @@ class ALILConverter : ASTVisitor {
         Config &config;
 
     protected:
+        void visit_info(PNode node) override;
+        void visit_definition(PNode node) override;
+        void visit_composite(PNode node) override;
         void visit_object(PNode node) override;
-        void visit_if(PNode node) override;
+
+        void visit_initializations(PNode node) override;
+
+        void visit_object_criteria(PNode node) override;
+        void visit_obj_union(PNode node) override;
+        void visit_obj_sort(PNode node) override;
         void visit_object_select(PNode node) override;
         void visit_object_reject(PNode node) override;
+    
+        void visit_region_commands(PNode node) override;
         void visit_region_select(PNode node) override;
         void visit_region_reject(PNode node) override;
-        void visit_composite(PNode node) override;
-        void visit_condition(PNode node) override;
-        void visit_region(PNode node) override;
-        void visit_definition(PNode node) override;
-        void visit_criteria(PNode node) override;
-        void visit_use(PNode node) override;
-        void visit_histogram(PNode node) override;
-        void visit_histo_list(PNode node) override;
-        void visit_histo_use(PNode node) override;
-        void visit_particle_sum(PNode node) override;
-        void visit_expression(PNode node) override;
-        void visit_bin(PNode node) override;
-        void visit_bin_list(PNode node) override;
-        void visit_table_def(PNode node) override;
-        void visit_weight(PNode node) override;
+        
 
 
     public:
@@ -348,6 +376,8 @@ class ALILConverter : ASTVisitor {
 
         AnalysisCommand next_command();
         bool clear_to_next();
+
+        friend AnalysisCommand;
 };
 
 

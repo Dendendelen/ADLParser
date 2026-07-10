@@ -34,8 +34,13 @@ void Node::add_child(std::shared_ptr<Node> child) {
     children.push_back((child));
 }
 
-std::vector<std::shared_ptr<Node>> &Node::get_children() {
+std::span<PNode const> Node::get_children() const {
     return children;
+}
+
+std::shared_ptr<Node> Node::get_child(int index) {
+    assert(index < children.size());
+    return children[index];
 }
 
 void Node::set_token(std::shared_ptr<Token> tok) {
@@ -59,8 +64,10 @@ std::string Node::get_ast_type_as_string() {
     return AST_type_to_string(type);
 }
 
-std::string Node::get_associated_string() {
-    if (has_associated_string) return associated_string;
+std::string Node::consume_associated_string() {
+    std::string out;
+    out = has_associated_string ? associated_string : "";
+    has_associated_string = false;
     return "";
 } 
 

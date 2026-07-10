@@ -16,8 +16,9 @@ class ASTVisitor {
     public:
         void visit(PNode node);
 
-        void visit_children(PNode node);
-        void visit_children_after_index(PNode node, int index);
+        virtual void visit_children(PNode node);
+        virtual void visit_children_before_index(PNode node, int index);
+        virtual void visit_children_after_index(PNode node, int index);
 
 
 };

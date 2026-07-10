@@ -20,6 +20,17 @@ void ASTVisitor::visit_children(PNode node) {
     }
 }
 
+void ASTVisitor::visit_children_before_index(PNode node, int index) {
+    int i = 0;
+    for (auto it = node->get_children().begin(); it != node->get_children().end(); ++it) {
+        if (i < index) {
+            visit(*it);
+        }
+        i++;
+    }  
+}
+
+
 void ASTVisitor::visit_children_after_index(PNode node, int index) {
     int i = 0;
     for (auto it = node->get_children().begin(); it != node->get_children().end(); ++it) {
