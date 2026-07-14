@@ -213,25 +213,26 @@ typedef AnalysisLevelInstruction ALIL;
 
 
 
+#define CONSUMABLE(state)      __attribute__((consumable(state)))
 #define MAKE_UNCONSUMED __attribute__((return_typestate(unconsumed)))
-static_assert(true, "Macro check");
-
 #define CALLABLE_UNCONSUMED __attribute__((callable_when(unconsumed)))
 #define CALLABLE_CONSUMED __attribute__((callable_when(consumed)))
 #define CALLABLE_EITHER __attribute__((callable_when(unconsumed, consumed)))
-
+#define SET_CONSUMED           __attribute__((set_typestate(consumed)))
 #define PARAM_UNCONSUMED __attribute__((param_typestate(unconsumed))) 
 
 class ALILCollection;
 class ALILConverter;
 
-class __attribute__((consumable(unconsumed))) AnalysisCommand {
+class CONSUMABLE(unconsumed) AnalysisCommand {
     private:
         AnalysisLevelInstruction instruction;
 
         bool has_been_collected;
-        void mark_collected() CALLABLE_UNCONSUMED __attribute__((set_typestate(consumed)));
+        void mark_collected() CALLABLE_UNCONSUMED SET_CONSUMED;
 
+        bool dest_declared;
+        bool source_declared;
         std::optional<std::string> dest_argument;
         std::vector<std::string> source_arguments;
 
@@ -240,13 +241,13 @@ class __attribute__((consumable(unconsumed))) AnalysisCommand {
         AnalysisCommand(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok) MAKE_UNCONSUMED;
         AnalysisCommand(AnalysisLevelInstruction inst) MAKE_UNCONSUMED;
         AnalysisCommand(const AnalysisCommand& other) MAKE_UNCONSUMED;
-        AnalysisCommand(AnalysisCommand&& other) MAKE_UNCONSUMED;
 
         ~AnalysisCommand() CALLABLE_CONSUMED;
 
         void add_dest_argument(std::string arg) CALLABLE_UNCONSUMED;
         void add_source_argument(std::string arg) CALLABLE_UNCONSUMED;
-
+        void add_empty_source() CALLABLE_UNCONSUMED;
+        void add_empty_dest() CALLABLE_UNCONSUMED;
         std::string reserve_dest_arg_value(ALILConverter *) CALLABLE_UNCONSUMED;
 
         AnalysisLevelInstruction get_instruction() CALLABLE_CONSUMED;
@@ -259,10 +260,9 @@ class __attribute__((consumable(unconsumed))) AnalysisCommand {
     
         void print_instruction() CALLABLE_CONSUMED;
         void print_instruction(int width_of_dest, int width_of_inst) CALLABLE_CONSUMED;
-        std::string static instruction_to_text(AnalysisLevelInstruction inst);
-
         void collect_into(ALILCollection &) CALLABLE_UNCONSUMED;
 
+        std::string static instruction_to_text(AnalysisLevelInstruction inst);
         friend ALILCollection;
 };
 
@@ -365,8 +365,14 @@ class ALILConverter : ASTVisitor {
         void visit_region_commands(PNode node) override;
         void visit_region_select(PNode node) override;
         void visit_region_reject(PNode node) override;
-        
+        void visit_region_use(PNode node) override;
+        void visit_region_weight(PNode node) override;
+        void visit_region_bin(PNode node) override;
+        void visit_region_bins(PNode node) override;
+        void visit_region_histo_use(PNode node) override;
+        void visit_region_histogram(PNode node) override;
 
+        void visit_histogram(PNode node) override;
 
     public:
         ALILConverter(Config &conf);

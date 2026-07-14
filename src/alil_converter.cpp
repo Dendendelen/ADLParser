@@ -3,7 +3,6 @@
 #include "node.hpp"
 #include "exceptions.hpp"
 #include <cassert>
-#include <iomanip>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -11,15 +10,15 @@
 #include <string>
 #include <vector>
 
-AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok) MAKE_UNCONSUMED: instruction(inst), has_been_collected(false), source_token(tok) {
+AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok) MAKE_UNCONSUMED: instruction(inst), has_been_collected(false), dest_declared(false) , source_declared(false), source_token(tok){
 
 }
 
-AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst) MAKE_UNCONSUMED: instruction(inst), has_been_collected(false) {
+AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst) MAKE_UNCONSUMED: instruction(inst), has_been_collected(false), dest_declared(false), source_declared(false) {
 
 }
 
-AnalysisCommand::AnalysisCommand(const AnalysisCommand &other) MAKE_UNCONSUMED: instruction(other.instruction), has_been_collected(other.has_been_collected), dest_argument(other.dest_argument), source_arguments(other.source_arguments), source_token(other.source_token) {
+AnalysisCommand::AnalysisCommand(const AnalysisCommand &other) MAKE_UNCONSUMED: instruction(other.instruction), has_been_collected(other.has_been_collected), dest_declared(other.dest_declared), source_declared(other.source_declared), dest_argument(other.dest_argument), source_arguments(other.source_arguments), source_token(other.source_token){
 
 }
 
@@ -30,10 +29,20 @@ AnalysisCommand::~AnalysisCommand() CALLABLE_CONSUMED{
 void AnalysisCommand::add_dest_argument(std::string arg) CALLABLE_UNCONSUMED{
     assert(!dest_argument);
     dest_argument = arg;
+    dest_declared = true;
 }
 
 void AnalysisCommand::add_source_argument(std::string arg) CALLABLE_UNCONSUMED{
     source_arguments.push_back(arg);
+    source_declared = true;
+}
+
+
+void AnalysisCommand::add_empty_source() CALLABLE_UNCONSUMED {
+    source_declared = true;
+}
+void AnalysisCommand::add_empty_dest() CALLABLE_UNCONSUMED {
+    dest_declared = true;
 }
 
 AnalysisLevelInstruction AnalysisCommand::get_instruction() {
@@ -96,6 +105,7 @@ ALILCollection::ALILCollection() {
 }
 
 void ALILCollection::collect_command(AnalysisCommand in __attribute__((param_typestate(unconsumed)))) {
+    assert(in.source_declared && in.dest_declared);
     command_list.push_back(in);
 }
 
@@ -557,6 +567,7 @@ void ALILConverter::visit_info(PNode node) {
 
     AnalysisCommand display_info(ALIL::DISPLAY_INFO);
     display_info.add_source_argument(name_of_init);
+    display_info.add_empty_dest();
 
     display_info.collect_into(commands);
 }
@@ -764,54 +775,6 @@ void ALILConverter::visit_region_commands(PNode node) {
 
         std::optional<AnalysisCommand> reg_command;
 
-        switch (command->get_ast_type()) {
-            case AST::REGION_SELECT: case AST::REGION_REJECT:
-                reg_command.emplace(ALIL::CUT_REGION);
-                reg_command->add_source_argument(source);
-                reg_command->add_source_argument(command->consume_associated_string());
-                source = reg_command->reserve_dest_arg_value(this);
-                break;
-            case AST::REGION_USE:
-                reg_command.emplace(ALIL::MERGE_REGIONS);
-                reg_command->add_source_argument(command->consume_associated_string());
-                reg_command->add_source_argument(source);
-                source = reg_command->reserve_dest_arg_value(this);
-                break;
-            case AST::REGION_WEIGHT:
-                reg_command.emplace(ALIL::WEIGHT_APPLY);
-                reg_command->add_source_argument(source);
-                reg_command->add_source_argument(command->get_child(0)->consume_associated_string());
-                reg_command->add_source_argument(command->get_child(1)->consume_associated_string());
-                source = reg_command->reserve_dest_arg_value(this);
-                break;
-            case AST::REGION_BIN:
-            {
-                AnalysisCommand make_bin(AnalysisLevelInstruction::CREATE_BIN_OF_REGION);
-                make_bin.add_source_argument(source);
-
-                std::string dest;
-                if (command->get_children().size() > 1) {
-                    dest = command->get_child(0)->consume_associated_string();
-                    make_bin.add_dest_argument(dest);
-                    make_bin.add_source_argument(command->get_child(1)->consume_associated_string());
-                } else {
-                    dest = make_bin.reserve_dest_arg_value(this);
-                    make_bin.add_source_argument(command->get_child(0)->consume_associated_string());
-                }
-                make_bin.collect_into(commands);
-                // commands.collect_command(make_bin);
-                // AnalysisCommand 
-                // reg_command.emplace()
-            } break;
-                
-            case AST::REGION_BINS:
-
-            case AST::HISTO_USE:
-
-            case AST::REGION_HISTOGRAM:
-                break;
-        }
-
         reg_command->collect_into(commands);
     }
 
@@ -850,6 +813,175 @@ void ALILConverter::visit_region_reject(PNode node) {
     node->set_associated_string(select.reserve_dest_arg_value(this));
 
     select.collect_into(commands);
+}
+
+void ALILConverter::visit_region_use(PNode node) {
+    std::string last_region = node->consume_associated_string();
+
+    visit_children(node);
+
+    AnalysisCommand use(ALIL::MERGE_REGIONS);
+    use.add_source_argument(node->get_child(0)->consume_associated_string());
+    use.add_source_argument(last_region);
+
+    node->set_associated_string(use.reserve_dest_arg_value(this));
+
+    use.collect_into(commands);
+}
+
+void ALILConverter::visit_region_weight(PNode node) {
+    std::string last_region = node->consume_associated_string();
+
+    visit_children(node);
+
+    AnalysisCommand weight(ALIL::WEIGHT_APPLY);
+    weight.add_source_argument(node->get_child(0)->consume_associated_string());
+    weight.add_source_argument(node->get_child(1)->consume_associated_string());
+    
+    node->set_associated_string(weight.reserve_dest_arg_value(this));
+
+    weight.collect_into(commands);
+}
+
+
+void ALILConverter::visit_region_bin(PNode node) {
+
+    std::string last_region = node->consume_associated_string();
+
+    visit_children(node);
+
+    AnalysisCommand make_bin(ALIL::CREATE_BIN_OF_REGION);
+    make_bin.add_source_argument(last_region);
+
+    std::string dest;
+    if (node->get_children().size() > 1) {
+        dest = node->get_child(0)->consume_associated_string();
+        make_bin.add_dest_argument(dest);
+        make_bin.add_source_argument(node->get_child(1)->consume_associated_string());
+    } else {
+        dest = make_bin.reserve_dest_arg_value(this);
+        make_bin.add_source_argument(node->get_child(0)->consume_associated_string());
+    }
+
+    make_bin.collect_into(commands);
+
+    node->set_associated_string(last_region);
+}
+
+
+void ALILConverter::visit_region_bins(PNode node) {
+    std::string last_region = node->consume_associated_string();
+
+    visit_children(node);
+
+    std::string discriminant_expression = node->get_child(0)->consume_associated_string();
+
+    std::optional<std::string> last_bound;
+
+    for (PNode bound : node->get_child(1)->get_children()) {
+
+        std::string lower_bound;
+
+        if (!last_bound) {
+
+            AnalysisCommand ge(ALIL::EXPR_GE);
+            ge.add_source_argument(discriminant_expression);
+            ge.add_source_argument(*last_bound);
+            lower_bound = ge.reserve_dest_arg_value(this);
+            ge.collect_into(commands);
+        } else {
+            lower_bound = "true";
+        }
+
+        last_bound.emplace(bound->consume_associated_string());
+
+        AnalysisCommand lt(ALIL::EXPR_LT);
+        lt.add_source_argument(discriminant_expression);
+        lt.add_source_argument(*last_bound);
+        std::string upper_bound = lt.reserve_dest_arg_value(this);
+        lt.collect_into(commands);
+
+        AnalysisCommand both_bounds(ALIL::EXPR_AND);
+        both_bounds.add_source_argument(lower_bound);
+        both_bounds.add_source_argument(upper_bound);
+        std::string final_bound = both_bounds.reserve_dest_arg_value(this);
+        both_bounds.collect_into(commands);
+
+        AnalysisCommand bin(ALIL::CREATE_BIN_OF_REGION);
+        bin.add_source_argument(last_region);
+        bin.add_source_argument(final_bound);
+        bin.reserve_dest_arg_value(this); // we do not need to know the name of this bin
+        bin.collect_into(commands);
+    }
+
+    node->set_associated_string(last_region);
+
+}
+
+void ALILConverter::visit_region_histo_use(PNode node) {
+    std::string this_region = node->consume_associated_string();
+    AnalysisCommand histo_use(ALIL::USE_HIST);
+    
+    visit_children(node);
+
+    histo_use.add_source_argument(node->get_child(0)->consume_associated_string());
+    histo_use.add_source_argument(this_region);
+    histo_use.add_empty_dest();
+
+    histo_use.collect_into(commands);
+
+    node->set_associated_string(this_region);
+}
+
+
+void ALILConverter::visit_region_histogram(PNode node) {
+
+    std::string this_region = node->consume_associated_string();
+
+    visit_children(node);
+
+    std::string hist_name = node->consume_associated_string();
+    AnalysisCommand use_hist(ALIL::USE_HIST);
+
+    use_hist.add_source_argument(hist_name);
+    use_hist.add_source_argument(this_region);
+    use_hist.add_empty_dest();
+
+    use_hist.collect_into(commands);
+
+    node->set_associated_string(this_region);
+}
+
+
+void ALILConverter::visit_histogram(PNode node) {
+    
+    bool is_2d = node->get_children().size() > 6;
+
+    AnalysisCommand hist(is_2d ? ALIL::HIST_2D : ALIL::HIST_1D);
+
+    visit_children(node);
+    
+    std::string name = node->get_child(0)->consume_associated_string();
+
+    hist.add_dest_argument(name);
+    hist.add_source_argument(node->get_child(1)->consume_associated_string()); //TODO:check this4
+
+    hist.add_source_argument(node->get_child(2)->consume_associated_string());
+    hist.add_source_argument(node->get_child(3)->consume_associated_string());
+    hist.add_source_argument(node->get_child(4)->consume_associated_string());
+    hist.add_source_argument(node->get_child(5)->consume_associated_string());
+
+    if (is_2d) {
+        hist.add_source_argument(node->get_child(6)->consume_associated_string());
+        hist.add_source_argument(node->get_child(7)->consume_associated_string());
+        hist.add_source_argument(node->get_child(8)->consume_associated_string());
+        hist.add_source_argument(node->get_child(9)->consume_associated_string());
+    }
+
+    node->set_associated_string(name);
+
+    hist.collect_into(commands);
+
 }
 
 // void ALILConverter::clean_command_list() {

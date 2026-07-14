@@ -823,7 +823,7 @@ void Parser::parse_region_command(PNode parent) {
             PToken next = lexer->peek(1);
             if (next->get_token_type() == TOK::TAKE) {
 
-                PNode histo_use(create_node(AST::HISTO_USE, parent, tok));
+                PNode histo_use(create_node(AST::REGION_HISTO_USE, parent, tok));
 
                 // REGION_COMMAND -> histo take ID
                 lexer->expect_and_consume(TOK::HISTO);
@@ -922,30 +922,32 @@ void Parser::parse_histo_entry(PNode parent) {
 
 */     
 void Parser::parse_histogram(PNode parent) {
+    PNode histogram = create_node(AST::HISTOGRAM, parent, lexer->peek(0));
+
     // id , 
-    parse_id(parent);
+    parse_id(histogram);
     lexer->expect_and_consume(TOK::COMMA);
 
     // STRING_LIST ,
-    parse_string_list(parent);
+    parse_string_list(histogram);
     lexer->expect_and_consume(TOK::COMMA);
 
     // BINNING ,
-    parse_binning(parent);
+    parse_binning(histogram);
     lexer->expect_and_consume(TOK::COMMA);
 
     // E
-    parse_expression(parent);
+    parse_expression(histogram);
 
     // use to check if the list continues 
     auto discriminant = lexer->peek(0);
 
     if (discriminant->get_token_type() == TOK::COMMA) {
         lexer->expect_and_consume(TOK::COMMA);
-        parse_binning(parent);
+        parse_binning(histogram);
  
         lexer->expect_and_consume(TOK::COMMA);
-        parse_expression(parent);
+        parse_expression(histogram);
     }
 }
 
@@ -1171,35 +1173,36 @@ void Parser::parse_assignment() {
 /* PARTICLE_SUM productions:
 ---
 
-    PARTICLE_SUM -> PARTICLE + PARTICLE_SUM
+    PARTICLE_SUM -> SIGNED_PARTICLE + PARTICLE_SUM
 
-    PARTICLE_SUM -> PARTICLE - PARTICLE_SUM
+    PARTICLE_SUM -> SIGNED_PARTICLE - PARTICLE_SUM
 
-    PARTICLE_SUM -> PARTICLE 
+    PARTICLE_SUM -> SIGNED_PARTICLE 
 
 */
 void Parser::parse_particle_sum(PNode parent) {
 
     PNode particle_sum = make_list_root_node(AST::PARTICLE_SUM, parent);
 
-    parse_particle(particle_sum);
+    parse_signed_particle(particle_sum);
     auto tok = lexer->peek(0);
 
     switch (tok->get_token_type()) {
 
         case TOK::PLUS:
-            // PARTICLE_SUM -> PARTICLE + PARTICLE_SUM
+            // PARTICLE_SUM -> SIGNED_PARTICLE + PARTICLE_SUM
             lexer->expect_and_consume(TOK::PLUS);
             parse_particle_sum(particle_sum);
             return;
 
         case TOK::MINUS:
-            // PARTICLE_SUM -> PARTICLE - PARTICLE_SUM
+            // PARTICLE_SUM -> SIGNED_PARTICLE - PARTICLE_SUM
+            lexer->expect_and_consume(TOK::MINUS);
             parse_particle_sum(particle_sum);
             return;
 
         default:
-            // PARTICLE_SUM -> PARTICLE
+            // PARTICLE_SUM -> SIGNED_PARTICLE
             return;
     }
 }
@@ -1352,6 +1355,14 @@ void Parser::parse_variable_list(PNode parent) {
         }
     }
 }
+
+/* SIGNED_PARTICLE productions: 
+---
+
+    SIGNED_PARTICLE -> - PARTICLE
+    SIGNED_PARTICLE -> PARTICLE
+
+*/
 
 
 /* PARTICLE productions:

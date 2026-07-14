@@ -61,12 +61,13 @@
     X(REGION_WEIGHT,            region_weight)                                 \
     X(REGION_BIN,               region_bin)                                    \
     X(REGION_BINS,              region_bins)                                   \
-    X(HISTO_USE,                histo_use)                                     \
+    X(REGION_HISTO_USE,         region_histo_use)                              \
     X(REGION_HISTOGRAM,         region_histogram)                              \
                                                                                \
     /* Histolist subnodes */                                                   \
     X(HISTO_ENTRIES,            histo_entries)                                 \
     X(HISTOLIST_HISTOGRAM,      histolist_histogram)                           \
+    X(HISTOGRAM,                histogram)                                     \
                                                                                \
     /* General lists */                                                        \
     X(NAMED_PARTICLE_LIST,      named_particle_list)                           \
