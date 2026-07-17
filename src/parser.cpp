@@ -1173,37 +1173,82 @@ void Parser::parse_assignment() {
 /* PARTICLE_SUM productions:
 ---
 
-    PARTICLE_SUM -> SIGNED_PARTICLE + PARTICLE_SUM
+    PARTICLE_SUM -> PARTICLE PARTICLE_SUM_TAIL
 
-    PARTICLE_SUM -> SIGNED_PARTICLE - PARTICLE_SUM
-
-    PARTICLE_SUM -> SIGNED_PARTICLE 
+    PARTICLE_SUM -> - PARTICLE_SUM_TAIL
 
 */
 void Parser::parse_particle_sum(PNode parent) {
 
     PNode particle_sum = make_list_root_node(AST::PARTICLE_SUM, parent);
 
-    parse_signed_particle(particle_sum);
     auto tok = lexer->peek(0);
 
     switch (tok->get_token_type()) {
 
+        case TOK::MINUS:
+        {
+            // PARTICLE_SUM -> - PARTICLE PARTICLE_SUM_TAIL
+            lexer->expect_and_consume(TOK::MINUS);
+
+            PNode negate(create_node(AST::PARTICLE_NEGATE, particle_sum));
+            parse_particle(negate);
+
+            parse_particle_sum_tail(particle_sum);
+
+            return;
+        }
+        default:
+            // PARTICLE_SUM -> PARTICLE PARTICLE_SUM_TAIL
+            parse_particle(particle_sum);
+            parse_particle_sum_tail(particle_sum);
+            return;
+
+    }
+}
+
+
+/* PARTICLE_SUM_TAIL productions:
+
+    PARTICLE_SUM_TAIL -> + PARTICLE PARTICLE_SUM_TAIL
+    
+    PARTICLE_SUM_TAIL -> - PARTICLE PARTICLE_SUM_TAIL
+
+    PARTICLE_SUM_TAIL -> epsilon
+
+*/
+void Parser::parse_particle_sum_tail(PNode parent) {
+    PNode particle_sum = make_list_root_node(AST::PARTICLE_SUM, parent);
+
+    auto tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+
+        
         case TOK::PLUS:
-            // PARTICLE_SUM -> SIGNED_PARTICLE + PARTICLE_SUM
+            // PARTICLE_SUM_TAIL -> + PARTICLE PARTICLE_SUM_TAIL
             lexer->expect_and_consume(TOK::PLUS);
-            parse_particle_sum(particle_sum);
+            parse_particle(particle_sum);
+
+            parse_particle_sum_tail(particle_sum);
+
             return;
 
         case TOK::MINUS:
-            // PARTICLE_SUM -> SIGNED_PARTICLE - PARTICLE_SUM
+        {
+            // PARTICLE_SUM_TAIL -> - PARTICLE PARTICLE_SUM_TAIL
             lexer->expect_and_consume(TOK::MINUS);
-            parse_particle_sum(particle_sum);
+            PNode negate(create_node(AST::PARTICLE_NEGATE, particle_sum));
+            parse_particle(negate);
+
+            parse_particle_sum_tail(particle_sum);
+
+            return;
+        }
+        default:
+            // PARTICLE_SUM_TAIL -> epsilon
             return;
 
-        default:
-            // PARTICLE_SUM -> SIGNED_PARTICLE
-            return;
     }
 }
 
@@ -1356,13 +1401,6 @@ void Parser::parse_variable_list(PNode parent) {
     }
 }
 
-/* SIGNED_PARTICLE productions: 
----
-
-    SIGNED_PARTICLE -> - PARTICLE
-    SIGNED_PARTICLE -> PARTICLE
-
-*/
 
 
 /* PARTICLE productions:
@@ -1537,7 +1575,10 @@ int get_precedence(PToken tok, bool increase_if_left_associative = false) {
         return 20 + left_associative_addition;
 
         // logical comparators
-        case TOK::AND: case TOK::OR:
+        case TOK::AND: 
+        return 15 + left_associative_addition;
+
+        case TOK::OR:
         return 10 + left_associative_addition;
 
         // ternary operator parses as E -> E : E
