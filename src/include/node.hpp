@@ -73,6 +73,7 @@
     X(NAMED_PARTICLE_LIST,      named_particle_list)                           \
     X(PARTICLE_LIST,            particle_list)                                 \
     X(PARTICLE_SUM,             particle_sum)                                  \
+    X(PARTICLE_NEGATE,          particle_negate)                               \
     X(VARIABLE_LIST,            variable_list)                                 \
     X(LITERAL_NUMBER_LIST,      literal_number_list)                           \
     X(STRING_LIST,              string_list)                                   \

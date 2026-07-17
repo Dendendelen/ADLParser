@@ -59,6 +59,7 @@ class Parser {
         void parse_assignment();
 
         void parse_particle_sum(PNode parent);
+        void parse_particle_sum_tail(PNode parent);
         void parse_particle_list(PNode parent);
         void parse_named_particle_list(PNode parent);
         void parse_literal_number_list(PNode parent);

@@ -34,7 +34,7 @@ void Node::add_child(std::shared_ptr<Node> child) {
     children.push_back((child));
 }
 
-std::span<PNode const> Node::get_children() const {
+const std::span<PNode const> Node::get_children() const {
     return children;
 }
 
