@@ -3,6 +3,7 @@
 #include "node.hpp"
 #include "exceptions.hpp"
 #include <cassert>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <sstream>
@@ -48,7 +49,7 @@ void AnalysisCommand::add_empty_dest() CALLABLE_UNCONSUMED {
 AnalysisLevelInstruction AnalysisCommand::get_instruction() {
     return instruction;
 }
-std::string AnalysisCommand::get_argument(int pos) CALLABLE_CONSUMED{
+std::string AnalysisCommand::get_argument(std::size_t pos) CALLABLE_CONSUMED{
     assert(pos >= 0);
     
     if (pos == 0) {
@@ -56,7 +57,7 @@ std::string AnalysisCommand::get_argument(int pos) CALLABLE_CONSUMED{
         assert(source_arguments.size() >= 1);
         return source_arguments[0];
     } else if (dest_argument) {
-        int pos_in_vec = pos - 1;
+        size_t pos_in_vec = pos - 1;
         assert(pos_in_vec < source_arguments.size());
         return source_arguments[pos_in_vec];
     } else {
@@ -75,7 +76,7 @@ std::string AnalysisCommand::get_dest_argument() CALLABLE_CONSUMED{
     return *dest_argument;
 }
 
-std::string AnalysisCommand::get_source_argument(int pos) CALLABLE_CONSUMED{
+std::string AnalysisCommand::get_source_argument(size_t pos) CALLABLE_CONSUMED{
     assert(pos < source_arguments.size()); 
     return source_arguments[pos];
 }
@@ -504,8 +505,8 @@ void AnalysisCommand::print_instruction() {
 std::string ALILConverter::reserve_scoped_value_name() {
     std::stringstream new_var_name;
     new_var_name << "_V" << highest_var_val++ << "" << current_scope_name;
-    last_value_name = new_var_name.str();
-    return last_value_name;
+    std::string value_name = new_var_name.str();
+    return value_name;
 }
 
 
@@ -765,6 +766,8 @@ void ALILConverter::visit_table_def(PNode node) {
     std::string current_table = create_table.reserve_dest_arg_value(this);
     create_table.add_source_argument(num_vars_string);
 
+    create_table.collect_into(commands);
+
     auto table_node_iterator = table_list_node->get_children().begin();
 
     for (int row = 0; row < num_entries; row++) {
@@ -809,6 +812,8 @@ void ALILConverter::visit_table_def(PNode node) {
     AnalysisCommand final_naming(ALIL::ADD_ALIAS);
     final_naming.add_dest_argument(table_id_node->consume_associated_string());
     final_naming.add_source_argument(current_table);
+
+    final_naming.collect_into(commands);
 }
 
 
@@ -1274,6 +1279,26 @@ void ALILConverter::visit_particle_sum(PNode node) {
     node->set_associated_string(last_added_particle);
 }
 
+void ALILConverter::visit_variable_list(PNode node) {
+    AnalysisCommand list_create(ALIL::CREATE_EMPTY_VALUE_LIST);
+    list_create.add_empty_source();
+    std::string last_list = list_create.reserve_dest_arg_value(this);
+    list_create.collect_into(commands);
+
+    visit_children(node);
+
+    for (PNode value : node->get_children()) {
+        AnalysisCommand add_to_list(ALIL::ADD_VALUE_TO_LIST);
+        add_to_list.add_source_argument(last_list);
+        add_to_list.add_source_argument(value->consume_associated_string());
+        last_list = add_to_list.reserve_dest_arg_value(this);
+
+        add_to_list.collect_into(commands);
+    }
+
+    node->set_associated_string(last_list);
+}
+
 void ALILConverter::visit_expression(PNode node) {
     NameScope expr_scope("EXPR", this);
 
@@ -1281,10 +1306,6 @@ void ALILConverter::visit_expression(PNode node) {
 
     node->set_associated_string(node->get_child(0)->consume_associated_string());
 }
-
-
-
-
 
 AnalysisLevelInstruction inst_for_binary(PToken tok) {
     switch (tok->get_token_type()) {
@@ -1298,10 +1319,6 @@ AnalysisLevelInstruction inst_for_binary(PToken tok) {
             return ALIL::EXPR_ADD;
         case TOK::MINUS:
             return ALIL::EXPR_SUBTRACT;
-        case TOK::WITHIN:
-            return ALIL::EXPR_WITHIN;
-        case TOK::OUTSIDE:
-            return ALIL::EXPR_OUTSIDE;
         case TOK::AMPERSAND:
             return ALIL::EXPR_BITWISE_AND;
         case TOK::PIPE:
@@ -1402,6 +1419,301 @@ void ALILConverter::visit_operator_terminal(PNode node) {
         }
     
     }
+}
+
+void ALILConverter::visit_index_operator(PNode node) {
+
+    visit_children(node);
+    std::string value_to_index = node->get_child(0)->consume_associated_string();
+
+    PNode bound_1;
+    PNode bound_2;
+
+    bool two_bound = false;
+    AnalysisLevelInstruction inst;
+
+
+    PNode index_node = node->get_child(1);
+
+    if (index_node->get_children().size() > 1) {
+
+        PNode lower_bound = index_node->get_child(0);
+        PNode upper_bound = index_node->get_child(1);
+
+        if (lower_bound->get_ast_type() == AST::UNBOUNDED && upper_bound->get_ast_type() == AST::UNBOUNDED) {
+            assert(false);
+        } else if (lower_bound->get_ast_type() == AST::UNBOUNDED) {
+            inst = ALIL::EXPR_INDEX_UNTIL;
+            bound_1 = upper_bound;
+        } else if (upper_bound->get_ast_type() == AST::UNBOUNDED) {
+            inst = ALIL::EXPR_INDEX_FROM;
+            bound_1 = lower_bound;
+        } else {
+            inst = ALIL::EXPR_INDEX_RANGE;
+            two_bound = true;
+            bound_1 = lower_bound;
+            bound_2 = upper_bound;
+        }
+    } else {
+        inst = ALIL::EXPR_INDEX;
+        bound_1 = index_node->get_child(0);
+    }
+
+    AnalysisCommand index_command(inst);
+    index_command.add_source_argument(value_to_index);
+    index_command.add_source_argument(bound_1->consume_associated_string());
+    if (two_bound) index_command.add_source_argument(bound_2->consume_associated_string());
+
+    node->set_associated_string(index_command.reserve_dest_arg_value(this));
+    index_command.collect_into(commands);
+}
+
+void ALILConverter::visit_if_statement(PNode node) {
+    visit_children(node);
+
+    std::string discriminant = node->get_child(0)->consume_associated_string();
+    std::string result_if_true = node->get_child(1)->consume_associated_string();
+    std::string result_if_false = node->get_child(2)->consume_associated_string();
+
+    AnalysisCommand if_statement(ALIL::EXPR_IF_TERNARY);
+    if_statement.add_source_argument(discriminant);
+    if_statement.add_source_argument(result_if_false);
+    if_statement.add_source_argument(result_if_false);
+    node->set_associated_string(if_statement.reserve_dest_arg_value(this));
+
+    if_statement.collect_into(commands);
+}
+
+void ALILConverter::visit_within_statement(PNode node) {
+    visit_children(node);
+    AnalysisCommand within(ALIL::EXPR_WITHIN);
+    within.add_source_argument(node->get_child(0)->consume_associated_string());
+    within.add_source_argument(node->get_child(1)->consume_associated_string());
+    within.add_source_argument(node->get_child(2)->consume_associated_string());
+    node->set_associated_string(within.reserve_dest_arg_value(this));
+
+    within.collect_into(commands);
+}
+
+void ALILConverter::visit_outside_statement(PNode node) {
+    visit_children(node);
+    AnalysisCommand within(ALIL::EXPR_WITHIN);
+    within.add_source_argument(node->get_child(0)->consume_associated_string());
+    within.add_source_argument(node->get_child(1)->consume_associated_string());
+    within.add_source_argument(node->get_child(2)->consume_associated_string());
+    std::string within_result = within.reserve_dest_arg_value(this);
+
+    within.collect_into(commands);
+
+    AnalysisCommand invert_interval(ALIL::EXPR_LOGICAL_NOT);
+    invert_interval.add_source_argument(within_result);
+    node->set_associated_string(invert_interval.reserve_dest_arg_value(this));
+
+    invert_interval.collect_into(commands);
+}
+
+void ALILConverter::visit_sort_expression(PNode node) {
+    bool is_ascending = true;
+    if (node->get_children().size() > 1) {
+        if (node->get_child(1)->get_ast_type() == AST::DESCEND) is_ascending = false;
+    }
+    AnalysisCommand sort(is_ascending ? ALIL::FUNC_SORT_ASCEND : ALIL::FUNC_SORT_DESCEND);
+
+    visit_children(node);
+
+    sort.add_source_argument(node->get_child(0)->consume_associated_string());
+    node->set_associated_string(sort.reserve_dest_arg_value(this));
+
+    sort.collect_into(commands);
+}
+
+
+
+void ALILConverter::visit_min_expression(PNode node) {
+
+    bool is_min = node->get_ast_type() == AST::MIN_EXPRESSION;
+
+    PNode list_node = node->get_child(0);
+
+    PNode first = list_node->get_child(0);
+    visit(first);
+
+    AnalysisCommand first_min(is_min ? ALIL::FUNC_MIN_OF_LIST : ALIL::FUNC_MAX_OF_LIST);
+    first_min.add_source_argument(first->consume_associated_string());
+    std::string last_val = first_min.reserve_dest_arg_value(this);
+
+    first_min.collect_into(commands);
+
+    bool is_first = true;
+
+    for (PNode val : list_node->get_children()) {
+        if (is_first) {
+            is_first = false;
+            continue;
+        }
+
+        visit(val);
+
+        AnalysisCommand min_per_se(is_min ? ALIL::FUNC_MIN_OF_LIST : ALIL::FUNC_MAX_OF_LIST);
+        min_per_se.add_source_argument(val->consume_associated_string());
+        std::string min_of_this_val = min_per_se.reserve_dest_arg_value(this);
+
+        min_per_se.collect_into(commands);
+
+        AnalysisCommand min_with_prev(is_min ? ALIL::FUNC_MIN_OF_PAIR : ALIL::FUNC_MAX_OF_PAIR);
+        min_with_prev.add_source_argument(last_val);
+        min_with_prev.add_source_argument(min_of_this_val);
+
+        last_val = min_with_prev.reserve_dest_arg_value(this);
+        
+        min_with_prev.collect_into(commands);
+    }
+
+    node->set_associated_string(last_val);
+
+}
+
+
+void ALILConverter::visit_max_expression(PNode node) {
+    // we handle the max case in the other visitor.
+    visit_min_expression(node);
+}
+
+void ALILConverter::visit_negate(PNode node) {
+    AnalysisCommand negate(ALIL::EXPR_NEGATE);
+    negate.add_source_argument(node->get_child(0)->consume_associated_string());
+    node->set_associated_string(negate.reserve_dest_arg_value(this));
+    
+    negate.collect_into(commands);
+}
+
+void ALILConverter::visit_l_not(PNode node) {
+    AnalysisCommand l_not(ALIL::EXPR_LOGICAL_NOT);
+    l_not.add_source_argument(node->get_child(0)->consume_associated_string());
+    node->set_associated_string(l_not.reserve_dest_arg_value(this));
+
+    l_not.collect_into(commands);
+}
+
+AnalysisLevelInstruction inst_for_builtin(PToken tok) {
+    switch (tok->get_token_type()) {
+        case TOK::ANYOF: 
+            return ALIL::FUNC_ANYOF;
+        case TOK::ALLOF: 
+            return ALIL::FUNC_ALLOF;
+        case TOK::SQRT: 
+            return ALIL::FUNC_SQRT;
+        case TOK::ABS: 
+            return ALIL::FUNC_ABS;
+        case TOK::COS:  
+            return ALIL::FUNC_COS;
+        case TOK::SIN: 
+            return ALIL::FUNC_SIN;
+        case TOK::TAN: 
+            return ALIL::FUNC_TAN;
+        case TOK::SINH: 
+            return ALIL::FUNC_SINH;
+        case TOK::COSH: 
+            return ALIL::FUNC_COSH;
+        case TOK::TANH: 
+            return ALIL::FUNC_TANH;
+        case TOK::EXP: 
+            return ALIL::FUNC_EXP;
+        case TOK::LOG: 
+            return ALIL::FUNC_LOG;
+        case TOK::AVE: 
+            return ALIL::FUNC_AVE;
+        case TOK::SUM:
+            return ALIL::FUNC_SUM;
+
+        case TOK::LETTER_E: 
+            return ALIL::FUNC_ENERGY;
+        case TOK::LETTER_P: case TOK::PT:
+            return ALIL::FUNC_PT;
+        case TOK::LETTER_M: case TOK::MASS:
+            return ALIL::FUNC_MASS;
+        case TOK::LETTER_Q: case TOK::CHARGE:
+            return ALIL::FUNC_CHARGE;
+        case TOK::PHI: 
+            return ALIL::FUNC_PHI;
+        case TOK::ETA: 
+            return ALIL::FUNC_ETA;
+        case TOK::NUMOF: 
+            return ALIL::FUNC_SIZE;
+        case TOK::DR: 
+            return ALIL::FUNC_DR;
+        case TOK::DPHI: 
+            return ALIL::FUNC_DPHI;
+        case TOK::DETA:
+            return ALIL::FUNC_DETA;
+        case TOK::DR_HADAMARD: 
+            return ALIL::FUNC_DR_HADAMARD;
+        case TOK::DPHI_HADAMARD: 
+            return ALIL::FUNC_DPHI_HADAMARD;
+        case TOK::DETA_HADAMARD:
+            return ALIL::FUNC_DETA_HADAMARD;
+        case TOK::DISTINCT:
+            return ALIL::FUNC_DISTINCT;
+
+        default:
+            assert(false);
+            return ALIL::CONVERSION_ERROR;
+    }
+}
+
+void ALILConverter::visit_builtin_func_terminal(PNode node) {
+    AnalysisCommand func(inst_for_builtin(node->get_token()));
+
+    PNode input_node = node->get_child(0);
+
+    switch (node->get_token()->get_token_type()) {
+        case CASE_BUILT_IN_PARTICLE_FUN_ONE_ARG:
+        {
+            PNode particle_node = input_node->get_child(0);
+            visit(particle_node);
+            func.add_source_argument(particle_node->consume_associated_string());
+        } break;
+        case CASE_BUILT_IN_PARTICLE_FUN_TWO_ARG:
+        {
+            PNode particle_node_1 = input_node->get_child(0);
+            PNode particle_node_2 = input_node->get_child(1);
+            visit_children(input_node);
+            func.add_source_argument(particle_node_1->consume_associated_string());
+            func.add_source_argument(particle_node_2->consume_associated_string());
+        }   break;
+        case CASE_BUILT_IN_MATH_FUN:
+        {
+            func.add_source_argument(input_node->consume_associated_string());
+        } break;
+        default:
+            assert(false);
+    }
+
+    node->set_associated_string(func.reserve_dest_arg_value(this));
+
+    func.collect_into(commands);
+}
+
+void ALILConverter::visit_user_function(PNode node) {
+    visit_children_before_index(node, 1);
+
+    std::string func_name = node->get_child(0)->consume_associated_string();
+
+    AnalysisCommand user_func(ALIL::FUNC_NAMED);
+    user_func.add_source_argument(func_name);
+
+    if (node->get_child(1)->get_children().size() > 1) {
+        visit_children_after_index(node, 1);
+        user_func.add_source_argument(node->get_child(1)->consume_associated_string());
+    } else {
+        PNode single_argument = node->get_child(1)->get_child(0);
+        visit(single_argument);
+        user_func.add_source_argument(single_argument->consume_associated_string());
+    }
+
+    node->set_associated_string(user_func.reserve_dest_arg_value(this));
+    
+    user_func.collect_into(commands);
 }
 
 void ALILConverter::visit_varying_terminal(PNode node) {

@@ -2,6 +2,7 @@
 #include <memory>
 
 #include <iostream>
+#include <sstream>
 
 #include "exceptions.hpp"
 #include "lexer.hpp"
@@ -1677,6 +1678,14 @@ PNode Parser::precedence_climber(PNode parent, int min_precedence) {
             lexer->expect_and_consume(TOK::COLON);
             if_statement->add_child(precedence_climber(if_statement, 0));
             return if_statement;
+        } else if (next_op->get_token_type() == TOK::WITHIN || next_op->get_token_type() == TOK::OUTSIDE) {
+            PNode interval_statement(create_node(next_op->get_token_type() == TOK::WITHIN ? AST::WITHIN_STATEMENT : AST::OUTSIDE_STATEMENT, parent, next_op));
+            interval_statement->add_child(lhs);
+            lhs->set_parent(interval_statement);
+            interval_statement->add_child(precedence_climber(interval_statement, 0));
+            lexer->expect_and_consume(TOK::COMMA);
+            interval_statement->add_child(precedence_climber(interval_statement, 0));
+            return interval_statement;
         }
 
         op_node = create_lost_node(AST::OPERATOR_TERMINAL, parent, next_op);
@@ -1699,15 +1708,6 @@ PNode Parser::precedence_climber(PNode parent, int min_precedence) {
     // at this point, we have parsed all we can of precedences above our threshold. We give our final node of the loop
     return lhs;
 }
-
-#define CASE_BUILT_IN_MATH_FUN TOK::ANYOF: case TOK::ALLOF: case TOK::SQRT: case TOK::ABS: case TOK::COS:  case TOK::SIN: case TOK::TAN: case TOK::SINH: case TOK::COSH: case TOK::TANH: case TOK::EXP: case TOK::LOG: case TOK::AVE: case TOK::SUM
-
-#define CASE_BUILT_IN_PARTICLE_FUN TOK::LETTER_E: case TOK::LETTER_P: case TOK::LETTER_M: case TOK::LETTER_Q: \
-case TOK::CHARGE: case TOK::MASS: case TOK::PHI: case TOK::ETA: case TOK::PT: \
-case TOK::DR: case TOK::DPHI: case TOK::DETA: \
-case TOK::DR_HADAMARD: case TOK::DPHI_HADAMARD: case TOK::DETA_HADAMARD: \
-case TOK::NUMOF: case TOK::DISTINCT
-
 
 /* E' productions:
 ---
@@ -1748,18 +1748,6 @@ PNode Parser::parse_primary_expression(PNode parent) {
             parse_variable_list(varlist);
             lexer->expect_and_consume(TOK::CLOSE_CURLY_BRACE);
             return varlist;
-        }
-
-        // E' -> [E, E]
-        case TOK::OPEN_SQUARE_BRACE:
-        {
-            PNode interval(create_lost_node(AST::INTERVAL, parent, tok)); 
-            interval->add_child(precedence_climber(interval, 0));
-            if (lexer->peek(0)->get_token_type() == TOK::COMMA) lexer->expect_and_consume(TOK::COMMA);
-            interval->add_child(precedence_climber(interval, 0));
-            lexer->expect_and_consume(TOK::CLOSE_SQUARE_BRACE);
-            return interval; 
-
         }
 
         case TOK::SORT:
@@ -1809,7 +1797,8 @@ PNode Parser::parse_primary_expression(PNode parent) {
         // Functions which take a particle as an argument
         // E' -> BUILT_IN_PARTICLE_FUN
         // E' -> BUILT_IN_PARTICLE_FUN (PARTICLE_LIST)
-        case CASE_BUILT_IN_PARTICLE_FUN:
+        case CASE_BUILT_IN_PARTICLE_FUN_ONE_ARG:
+        case CASE_BUILT_IN_PARTICLE_FUN_TWO_ARG:
         {
 
             PNode partfun(create_lost_node(AST::BUILTIN_FUNC_TERMINAL, parent, tok));

@@ -80,7 +80,6 @@
                                                                                \
     /* Expression subnodes */                                                  \
     X(EXPRESSION,               expression)                                    \
-    X(INTERVAL,                 interval)                                      \
     X(IF_STATEMENT,             if_statement)                                  \
     X(SORT_EXPRESSION,          sort_expression)                               \
     X(MIN_EXPRESSION,           min_expression)                                \
@@ -88,6 +87,8 @@
     X(INDEX_OPERATOR,           index_operator)                                \
     X(INDEX,                    index)                                         \
     X(UNBOUNDED,                unbounded)                                     \
+    X(WITHIN_STATEMENT,         within_statement)                              \
+    X(OUTSIDE_STATEMENT,        outside_statement)                             \
     X(THIS,                     this_node)                                     \
     X(TRUE,                     true_literal)                                  \
     X(FALSE,                    false_literal)                                 \
@@ -109,7 +110,6 @@ enum class AST_type{
 #undef MAKE_ENUM
 
 typedef AST_type AST;
-
 
 class Node;
 

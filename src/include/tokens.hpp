@@ -157,4 +157,13 @@ enum class Token_type {
 
 typedef Token_type TOK;
 
+#define CASE_BUILT_IN_MATH_FUN TOK::ANYOF: case TOK::ALLOF: case TOK::SQRT: case TOK::ABS: case TOK::COS:  case TOK::SIN: case TOK::TAN: case TOK::SINH: case TOK::COSH: case TOK::TANH: case TOK::EXP: case TOK::LOG: case TOK::AVE: case TOK::SUM
+
+#define CASE_BUILT_IN_PARTICLE_FUN_ONE_ARG TOK::LETTER_E: case TOK::LETTER_P: case TOK::LETTER_M: case TOK::LETTER_Q: \
+case TOK::CHARGE: case TOK::MASS: case TOK::PHI: case TOK::ETA: case TOK::PT
+
+#define CASE_BUILT_IN_PARTICLE_FUN_TWO_ARG TOK::DR: case TOK::DPHI: case TOK::DETA: \
+case TOK::DR_HADAMARD: case TOK::DPHI_HADAMARD: case TOK::DETA_HADAMARD: \
+case TOK::NUMOF: case TOK::DISTINCT
+
 #endif
