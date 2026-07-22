@@ -1,12 +1,15 @@
 #ifndef TIMBER_CONVERTER_H
 #define TIMBER_CONVERTER_H
 
-#include "ali_converter.hpp"
+#include "alil_converter.hpp"
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
+
+#define CONVERTER_FUNCS_DECLARE(ENUM, NAME) \
+    std::string convert_##NAME(AnalysisCommand) override;
 
 class TimberConverter : public ALILToFrameworkCompiler {
 
@@ -56,6 +59,8 @@ class TimberConverter : public ALILToFrameworkCompiler {
 
         std::string get_mapping_if_exists(std::string str);
 
+    protected:
+        ALIL_INSTRUCTION_LIST(CONVERTER_FUNCS_DECLARE);
 
     public:
         using ALILToFrameworkCompiler::ALILToFrameworkCompiler;
@@ -63,5 +68,6 @@ class TimberConverter : public ALILToFrameworkCompiler {
         void print() override;
 };
 
+#undef CONVERTER_FUNCS_DECLARE
 
 #endif

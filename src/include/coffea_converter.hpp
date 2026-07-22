@@ -1,7 +1,7 @@
 #ifndef COFFEA_CONVERTER_H
 #define COFFEA_CONVERTER_H
 
-#include "ali_converter.hpp"
+#include "alil_converter.hpp"
 #include <string>
 #include <unordered_map>
 #include <unordered_set>

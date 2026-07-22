@@ -250,6 +250,8 @@ void Parser::parse_definition(PNode parent) {
 
     DEF_RVALUE -> external attribute STRING
 
+    DEF_RVALUE -> external particle STRING
+
     DEF_RVALUE -> correctionlib STRING STRING
 
     DEF_RVALUE -> add PARTICLE_SUM
@@ -266,6 +268,7 @@ void Parser::parse_def_rvalue(PNode parent) {
     switch(tok->get_token_type()) {
 
         // DEF_RVALUE -> external STRING
+        // DEF_RVALUE -> external particle STRING
         // DEF_RVALUE -> external attribute STRING 
         case TOK::EXTERNAL:
         {
@@ -277,12 +280,15 @@ void Parser::parse_def_rvalue(PNode parent) {
             if (lexer->peek(0)->get_token_type() == TOK::ATTRIBUTE) {
                 lexer->expect_and_consume(TOK::ATTRIBUTE);
                 external = create_node(AST::EXTERN_ATTR, parent, tok);
+            } else if (lexer->peek(0)->get_token_type() == TOK::PARTICLE_KEYWORD) {
+                lexer->expect_and_consume(TOK::PARTICLE_KEYWORD);
+                external = create_node(AST::EXTERN_PARTICLE, parent, tok);
             } else {
                 external = create_node(AST::EXTERN_FUN, parent, tok);
             }
 
             parse_string(external, "External functions must be given an explicit code string to run");
-        }
+        } break;
 
         // DEF_RVALUE -> correctionlib STRING STRING
 
@@ -295,7 +301,7 @@ void Parser::parse_def_rvalue(PNode parent) {
             parse_string(correctionlib, "Correctionlib correction sets must be given an exact string for a file name");
             parse_string(correctionlib, "Correctionlib correction set includes must be given an exact string for a key");
 
-        }
+        } break;
 
         // DEF_RVALUE -> add PARTICLE_SUM
         // DEF_RVALUE -> particle_keyword PARTICLE_SUM
@@ -303,7 +309,7 @@ void Parser::parse_def_rvalue(PNode parent) {
         {   
             tok->get_token_type() == TOK::ADD ? lexer->expect_and_consume(TOK::ADD) : lexer->expect_and_consume(TOK::PARTICLE_KEYWORD);    
             parse_particle_sum(parent);
-        }
+        } break;
 
         // DEF_RVALUE -> E
         default:
@@ -368,12 +374,18 @@ void Parser::parse_comp_type(PNode parent) {
     switch(tok->get_token_type()) {
 
         case TOK::COMB:
+            // COMPOSITE_TYPE -> comb
+            lexer->expect_and_consume(TOK::COMB);
             create_node(AST::COMPOSITE_CARTESIAN, parent, tok);
             break;
         case TOK::DISJOINT:
+            // COMPOSITE_TYPE -> disjoint
+            lexer->expect_and_consume(TOK::DISJOINT);
             create_node(AST::COMPOSITE_DISJOINT, parent, tok);
             break;
         case TOK::DIRECT:
+            // COMPOSITE_TYPE -> direct
+            lexer->expect_and_consume(TOK::DIRECT);
             create_node(AST::COMPOSITE_DIRECT, parent, tok);
             break;
         default:
@@ -817,6 +829,7 @@ void Parser::parse_region_command(PNode parent) {
             lexer->expect_and_consume(TOK::BINS);
             parse_expression(bins);
             parse_literal_number_list(bins);
+            return;
         }
 
         case TOK::HISTO:
@@ -1165,6 +1178,7 @@ void Parser::parse_assignment() {
         case TOK::TAKE:
             // ASSIGNMENT -> take
             lexer->expect_and_consume(TOK::TAKE);
+            return;
         default:
             raise_parsing_exception("An '=', ':', or 'take', is needed for the first token of this block", tok);
     }
@@ -1266,9 +1280,10 @@ void Parser::parse_particle_sum_tail(PNode parent) {
 void Parser::parse_particle_list(PNode parent) {
 
     PNode particle_list = make_list_root_node(AST::PARTICLE_LIST, parent);
-    auto tok = lexer->peek(0);
 
     parse_particle(particle_list);
+
+    auto tok = lexer->peek(0);
     switch (tok->get_token_type()) {
 
         // PARTICLE_LIST -> PARTICLE, PARTICLE_LIST
@@ -1296,11 +1311,10 @@ void Parser::parse_particle_list(PNode parent) {
 void Parser::parse_named_particle_list(PNode parent) {
 
     PNode named_particle_list = make_list_root_node(AST::NAMED_PARTICLE_LIST, parent);
-    auto tok = lexer->peek(0);
-
     parse_particle(parent);
     parse_id(parent);
 
+    auto tok = lexer->peek(0);
     switch (tok->get_token_type()) {
 
         case TOK::COMMA:
@@ -1661,7 +1675,7 @@ PNode Parser::precedence_climber(PNode parent, int min_precedence) {
 
     // keep going while the next token is an operator with at least our current level of precedence
     while (get_precedence(next_op) >= min_precedence) {
-
+        lexer->expect_and_consume(next_op->get_token_type());
         // E -> E[INDEX]
         if (next_op->get_token_type() == TOK::OPEN_SQUARE_BRACE) {
             PNode indexing(create_node(AST::INDEX_OPERATOR, parent, next_op));
@@ -1726,6 +1740,7 @@ PNode Parser::parse_primary_expression(PNode parent) {
         // particles are allowed in expressions since user defined functions may use them - this is included in that
         case TOK::THIS:
         {
+            lexer->expect_and_consume(TOK::THIS);
             return create_lost_node(AST::THIS, parent, tok);
         }
 
@@ -1755,6 +1770,7 @@ PNode Parser::parse_primary_expression(PNode parent) {
 
             PNode sort_expr(create_lost_node(AST::SORT_EXPRESSION, parent, tok));
             // E' -> sort (E OPTIONAL_SORT_DIR)
+            lexer->expect_and_consume(TOK::SORT);
             lexer->expect_and_consume(TOK::OPEN_PAREN);
             sort_expr->add_child(precedence_climber(parent, 0));
             parse_optional_sort_dir(sort_expr);
@@ -1770,6 +1786,7 @@ PNode Parser::parse_primary_expression(PNode parent) {
         {
             PNode minmax(create_lost_node(tok->get_token_type() == TOK::MIN ? AST::MIN_EXPRESSION : AST::MAX_EXPRESSION, parent, tok));
 
+            lexer->expect_and_consume(tok->get_token_type());
             lexer->expect_and_consume(TOK::OPEN_PAREN);
             parse_variable_list(minmax);
             lexer->expect_and_consume(TOK::CLOSE_PAREN);
@@ -1823,9 +1840,10 @@ PNode Parser::parse_primary_expression(PNode parent) {
         case TOK::STRING: case TOK::VARNAME:
         {
             PNode name(create_lost_node(AST::VARYING_TERMINAL, parent, tok));
+            lexer->expect_and_consume(tok->get_token_type());
             // here, we are met with a token that isn't any other known form. If it is immediately followed by parentheses, then this is probably some external function. 
-            if (lexer->peek(1)->get_token_type() == TOK::OPEN_PAREN) {
-                PNode func(create_node(AST::USER_FUNCTION, parent, tok));
+            if (lexer->peek(0)->get_token_type() == TOK::OPEN_PAREN) {
+                PNode func(create_lost_node(AST::USER_FUNCTION, parent, tok));
                 func->add_child(name);
                 name->set_parent(func);
 
@@ -1844,6 +1862,7 @@ PNode Parser::parse_primary_expression(PNode parent) {
         case TOK::MINUS: 
         {
             PNode negate_node(create_lost_node(AST::NEGATE, parent, tok));
+            lexer->expect_and_consume(TOK::MINUS);
             // precedence of negation should be stronger than multiplication but weaker than power
             negate_node->add_child(precedence_climber(negate_node, 85));
             return negate_node;
@@ -1852,6 +1871,7 @@ PNode Parser::parse_primary_expression(PNode parent) {
         case TOK::NOT:
         {   
             PNode not_node(create_lost_node(AST::L_NOT, parent, tok));
+            lexer->expect_and_consume(TOK::NOT);
             // precedence of the logical not should be higher than the other logical operations but lower than comparison
             not_node->add_child(precedence_climber(not_node, 15));
             return not_node;
@@ -1860,7 +1880,9 @@ PNode Parser::parse_primary_expression(PNode parent) {
         // E -> NUMBER
         default:
             if(!is_numerical(tok->get_token_type())) raise_parsing_exception("Invalid token used in expression", tok);
-            return create_node(AST::ERROR, parent, tok);
+            lexer->expect_and_consume(tok->get_token_type());
+            PNode number(create_lost_node(AST::VARYING_TERMINAL, parent, tok));
+            return number;
     }
 }
 

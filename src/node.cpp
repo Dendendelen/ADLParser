@@ -20,6 +20,8 @@ std::string AST_type_to_string(AST_type type) {
     switch(type) {
         AST_NODE_LIST(TYPE_TO_STRING)
     }
+    assert(false);
+    return "";
 }
 
 void Node::set_parent(std::shared_ptr<Node> in) {

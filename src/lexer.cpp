@@ -1,5 +1,6 @@
 #include "lexer.hpp"
 
+#include <cassert>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -374,6 +375,10 @@ std::string token_type_to_string(Token_type type) {
         case TOK::DISTINCT: return "DISTINCT";
           break;
         }
+
+    assert(false);
+    return "";
+
 }
 
 std::string Token::get_token_type_as_string() {

@@ -3,229 +3,14 @@
 
 #include "ast_visitor.hpp"
 #include "config.hpp"
-#include "lexer.hpp"
 #include "node.hpp"
-#include <cstddef>
+#include "alil.hpp"
+
 #include <memory>
-#include <optional>
 #include <string>
 #include <unordered_map>
-#include <vector>
 
 
-enum class AnalysisLevelInstruction {
-
-    CONVERSION_ERROR,
-
-    CREATE_EMPTY_INFO_LIST,
-    ADD_TO_INFO_LIST,
-    DISPLAY_INFO,
-
-    CREATE_REGION,
-    MERGE_REGIONS,
-    CUT_REGION,
-
-    CREATE_BIN_OF_REGION,
-
-    ADD_ALIAS,
-    ADD_EXTERNAL,
-    ADD_EXTERN_ATTR,
-    ADD_CORRECTIONLIB,
-
-    CREATE_MASK,
-    LIMIT_MASK,
-    APPLY_MASK,
-
-    CREATE_EMPTY_HIST_LIST,
-    ADD_HIST_TO_LIST,
-    USE_HIST,
-    USE_HIST_LIST,
-
-    HIST_1D,
-    HIST_2D,
-
-    WEIGHT_APPLY,
-
-    DO_CUTFLOW_ON_REGION,
-    DO_EVENTLIST_ON_REGION,
-
-    CREATE_TABLE,
-    CREATE_TABLE_ERRORED_VALUE,
-    CREATE_TABLE_VALUE,
-    CREATE_TABLE_LOWER_BOUNDS,
-    CREATE_TABLE_UPPER_BOUNDS,
-    APPEND_TO_TABLE,
-    FINISH_TABLE,
-
-    OBJ_SORT_ASCEND,
-    OBJ_SORT_DESCEND,
-
-    EXPR_RAISE,
-    EXPR_MULTIPLY,
-    EXPR_DIVIDE,
-    EXPR_ADD,
-    EXPR_SUBTRACT,
-    EXPR_LT,
-    EXPR_LE,
-    EXPR_GT,
-    EXPR_GE,
-    EXPR_EQ,
-    EXPR_NE,
-    EXPR_BITWISE_AND,
-    EXPR_BITWISE_OR,
-    EXPR_AND,
-    EXPR_OR,
-
-    EXPR_WITHIN,
-    EXPR_WITHIN_EXCLUSIVE,
-    EXPR_WITHIN_LEFT_EXCLUSIVE,
-    EXPR_WITHIN_RIGHT_EXCLUSIVE,
-
-    EXPR_OUTSIDE,
-
-    EXPR_NEGATE,
-    EXPR_LOGICAL_NOT,
-
-    EXPR_IF_TERNARY,
-
-    EXPR_INDEX,
-    EXPR_INDEX_RANGE,
-    EXPR_INDEX_UNTIL,
-    EXPR_INDEX_FROM,
-
-    FUNC_CHARGE,
-    FUNC_PT,
-    FUNC_ETA,
-    FUNC_PHI,
-    FUNC_MASS,
-    FUNC_ENERGY,
-
-    FUNC_DISTINCT,
-
-    FUNC_DR,
-    FUNC_DPHI,
-    FUNC_DETA,
-
-    FUNC_DR_HADAMARD,
-    FUNC_DPHI_HADAMARD,
-    FUNC_DETA_HADAMARD,
-
-    FUNC_SIZE,
-
-    FUNC_ANYOF, 
-    FUNC_ALLOF, 
-
-    FUNC_SQRT, 
-    FUNC_ABS, 
-    FUNC_COS,  
-    FUNC_SIN, 
-    FUNC_TAN, 
-    FUNC_SINH, 
-    FUNC_COSH, 
-    FUNC_TANH, 
-    FUNC_EXP, 
-    FUNC_LOG, 
-    FUNC_AVE, 
-    FUNC_SUM, 
-
-    FUNC_MIN_OF_PAIR,
-    FUNC_MAX_OF_PAIR,
-
-    FUNC_MIN_OF_LIST,
-    FUNC_MAX_OF_LIST,
-
-    FUNC_SORT_ASCEND,
-    FUNC_SORT_DESCEND,
-
-    FUNC_NAMED,
-
-    CREATE_EMPTY_VALUE_LIST,
-    ADD_VALUE_TO_LIST,
-
-    CREATE_EMPTY_UNION,
-    ADD_PART_TO_UNION,
-    
-    CREATE_EMPTY_CARTESIAN,
-    CREATE_EMPTY_DISJOINT,
-    CREATE_EMPTY_DIRECT,
-
-    ADD_PART_TO_COMPOSITE,
-    NAME_ELEMENT_OF_COMPOSITE,
-
-    CREATE_EMPTY_PARTICLE,
-    ADD_PARTICLE,
-    SUB_PARTICLE
-
-};
-
-typedef AnalysisLevelInstruction ALIL;
-
-
-
-#define CONSUMABLE(state)      __attribute__((consumable(state)))
-#define MAKE_UNCONSUMED __attribute__((return_typestate(unconsumed)))
-#define CALLABLE_UNCONSUMED __attribute__((callable_when(unconsumed)))
-#define CALLABLE_CONSUMED __attribute__((callable_when(consumed)))
-#define CALLABLE_EITHER __attribute__((callable_when(unconsumed, consumed)))
-#define SET_CONSUMED           __attribute__((set_typestate(consumed)))
-#define PARAM_UNCONSUMED __attribute__((param_typestate(unconsumed))) 
-
-class ALILCollection;
-class ALILConverter;
-
-class CONSUMABLE(unconsumed) AnalysisCommand {
-    private:
-        AnalysisLevelInstruction instruction;
-
-        bool has_been_collected;
-        void mark_collected() CALLABLE_UNCONSUMED SET_CONSUMED;
-
-        bool dest_declared;
-        bool source_declared;
-        std::optional<std::string> dest_argument;
-        std::vector<std::string> source_arguments;
-
-        std::optional<std::weak_ptr<Token>> source_token;
-    public:
-        AnalysisCommand(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok) MAKE_UNCONSUMED;
-        AnalysisCommand(AnalysisLevelInstruction inst) MAKE_UNCONSUMED;
-        AnalysisCommand(const AnalysisCommand& other) MAKE_UNCONSUMED;
-
-        ~AnalysisCommand() CALLABLE_CONSUMED;
-
-        void add_dest_argument(std::string arg) CALLABLE_UNCONSUMED;
-        void add_source_argument(std::string arg) CALLABLE_UNCONSUMED;
-        void add_empty_source() CALLABLE_UNCONSUMED;
-        void add_empty_dest() CALLABLE_UNCONSUMED;
-        std::string reserve_dest_arg_value(ALILConverter *) CALLABLE_UNCONSUMED;
-
-        AnalysisLevelInstruction get_instruction() CALLABLE_CONSUMED;
-        std::string get_argument(size_t pos) CALLABLE_CONSUMED;
-        int get_num_arguments() CALLABLE_CONSUMED;
-
-        bool has_dest_argument() CALLABLE_CONSUMED;
-        std::string get_dest_argument() CALLABLE_CONSUMED;
-        std::string get_source_argument(size_t pos) CALLABLE_CONSUMED;
-    
-        void print_instruction() CALLABLE_CONSUMED;
-        void print_instruction(int width_of_dest, int width_of_inst) CALLABLE_CONSUMED;
-        void collect_into(ALILCollection &) CALLABLE_UNCONSUMED;
-
-        std::string static instruction_to_text(AnalysisLevelInstruction inst);
-        friend ALILCollection;
-};
-
-class ALILCollection {
-    private:
-        std::vector<AnalysisCommand> command_list;
-        void collect_command(AnalysisCommand in);
-
-    public:
-        ALILCollection();
-        std::vector<AnalysisCommand> emit_collected_commands;
-
-        friend AnalysisCommand;
-};
 
 class ALILConverter : ASTVisitor {
     private:
@@ -329,14 +114,21 @@ class ALILConverter : ASTVisitor {
         AnalysisCommand next_command();
         bool clear_to_next();
 
-        friend AnalysisCommand;
+        friend AnalysisCommandBuilder;
 };
 
+
+#define CONVERT_DISPATCH_DECLARE(ENUM, NAME) \
+    virtual std::string convert_##NAME(AnalysisCommand) = 0;
 
 class ALILToFrameworkCompiler {
     protected:
         std::unique_ptr<ALILConverter> alil;
         Config &config;
+
+        ALIL_INSTRUCTION_LIST(CONVERT_DISPATCH_DECLARE)
+
+        std::string command_convert(AnalysisCommand PARAM_CONSUMED);
 
     public:
         ALILToFrameworkCompiler(ALILConverter *alil_in, Config &conf);
@@ -344,4 +136,5 @@ class ALILToFrameworkCompiler {
         virtual void print() = 0;
 };
 
+#undef CONVERT_DISPATCH_DECLARE
 #endif
