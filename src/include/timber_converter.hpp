@@ -1,7 +1,11 @@
 #ifndef TIMBER_CONVERTER_H
 #define TIMBER_CONVERTER_H
 
+#include "alil.hpp"
 #include "alil_converter.hpp"
+#include <cstddef>
+#include <iostream>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -9,62 +13,55 @@
 
 
 #define CONVERTER_FUNCS_DECLARE(ENUM, NAME) \
-    std::string convert_##NAME(AnalysisCommand) override;
+    std::string convert_##NAME(const AnalysisCommand &) override;
 
 class TimberConverter : public ALILToFrameworkCompiler {
 
     private:
 
-        std::vector<std::string> existing_definitions;
         std::unordered_map<std::string, std::string> var_mappings;
-        std::unordered_map<std::string, std::vector<std::string>> region_groups;
 
-        std::unordered_set<std::string> empty_union_names;
-        std::unordered_set<std::string> is_lorentz_vector;
-        std::unordered_set<std::string> comb_already_made;
         std::unordered_set<std::string> particle_already_has_provenance;
-        std::unordered_set<std::string> already_applied_globally;
         std::unordered_set<std::string> is_attribute;
-
-        std::unordered_map<std::string, std::vector<std::string>> comb_map;
+        std::unordered_set<std::string> is_lorentz;
 
         std::string met_name;
  
-        std::string command_convert(AnalysisCommand command);
+        void add_mapping(std::string source, std::string dest);
+        std::string get_mapping(std::string);
+        std::string get_mapped_source(const AnalysisCommand &command, size_t pos);
+        std::string get_mapped_dest(const AnalysisCommand &command);
 
+        std::string list_append(std::string list_end, char delimiter, const AnalysisCommand &command, std::string to_add = "");
+        std::string attribute(std::string attr, std::string object, std::string separator_chars = "_");
+        std::string lorentzify(std::string object);
+        std::string multi_arg_function(std::string func_name, int num_args, const AnalysisCommand &command, std::string ending_tok = "", bool is_lorentz = false);
+        std::string multi_arg_lorentz_function(std::string func_name, int num_args, const AnalysisCommand &command, std::string ending_tok = "");
+        std::string binary_infix_operation(std::string op_name, const AnalysisCommand &command);
+        std::string interval(std::string left_bound_op, std::string right_bound_op, const AnalysisCommand &command);
+        std::string add_subtract_particles(const AnalysisCommand &command, bool is_subtraction = false);
+        std::string use_within_region(std::string fun_within_node, const AnalysisCommand &command);
 
-        std::string lorentzify(std::string name);
-        std::string binary_command(AnalysisCommand command, std::string op);
+        template<typename... Args>
+        void emit(Args... args) {
+            (std::cout << ... << args) << '\n' << std::flush;
+        };
+        void emit_newline() {
+            emit("");
+        };
 
-        std::string generate_4vector_label(std::string input, std::string prefix, std::string suffix);
-        std::string generate_4vector_label(std::string input, std::string suffix);
+        template<typename... Args>
+        void emit_comment(Args... args) {
+            emit("# ", args...);
+        }
 
-        void append_4vector_label(AnalysisCommand command, std::string suffix, std::string suffix_if_lv = "");
-        void append_4vector_label(AnalysisCommand command, std::string prefix, std::string suffix, std::string prefix_if_lv, std::string suffix_if_lv);
-
-        std::string one_argument_function(AnalysisCommand command, std::string function_name);
-        std::string sub_particle(AnalysisCommand command, std::string name);
-        std::string add_particle(AnalysisCommand command, std::string name, bool negative = false);
-        std::string index_particle(AnalysisCommand command, bool is_named, std::string part_text);
-        std::string existing_definitions_string();
-        std::string add_all_relevant_tags_for_object(AnalysisCommand command);
-
-        std::string add_all_relevant_tags_for_union_merge(AnalysisCommand command, std::string adding_name);
-        std::string add_all_relevant_tags_for_union_empty(AnalysisCommand command);
-
-        std::string add_structure_for_comb_empty(AnalysisCommand command);
-        std::string add_structure_for_comb_merge(AnalysisCommand command, std::string adding_name);
-        std::string add_comb_argument(std::string new_name, std::string name_of_comb, std::string val, bool disjoint=false);
-
-
-        std::string get_mapping_if_exists(std::string str);
-
+        void handle_command(const AnalysisCommand &command);
+        
     protected:
         ALIL_INSTRUCTION_LIST(CONVERTER_FUNCS_DECLARE);
 
     public:
         using ALILToFrameworkCompiler::ALILToFrameworkCompiler;
-        void print_timber();
         void print() override;
 };
 

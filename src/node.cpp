@@ -70,7 +70,7 @@ std::string Node::consume_associated_string() {
     std::string out;
     out = has_associated_string ? associated_string : "";
     has_associated_string = false;
-    return "";
+    return out;
 } 
 
 void Node::set_associated_string(std::string str_in) {

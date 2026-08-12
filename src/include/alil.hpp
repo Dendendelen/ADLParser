@@ -3,8 +3,10 @@
 
 #include "lexer.hpp"
 
+#include <span>
 #include <string>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 #include <memory>
 
@@ -44,7 +46,7 @@ class ALILConverter;
     X(WEIGHT_APPLY,                     weight_apply)                          \
                                                                                \
     X(DO_CUTFLOW_ON_REGION,             do_cutflow_on_region)                  \
-    X(DO_EVENTLIST_ON_REGION,           do_eventlist_on_regin)                 \
+    X(DO_EVENTLIST_ON_REGION,           do_eventlist_on_region)                 \
                                                                                \
     X(CREATE_TABLE,                     create_table)                          \
     X(CREATE_TABLE_ERRORED_VALUE,       create_table_errored_value)            \
@@ -205,14 +207,14 @@ class AnalysisCommand {
     public:
         AnalysisCommand(const AnalysisCommand& other);
 
-        AnalysisLevelInstruction get_instruction();
-        std::string get_argument(size_t pos);
-        int get_num_arguments();
+        AnalysisLevelInstruction get_instruction() const;
+        // std::string get_argument(size_t pos);
+        int get_num_arguments() const;
 
-        bool has_dest_argument();
-        std::string get_dest_argument();
-        int get_num_source_arguments();
-        std::string get_source_argument(size_t pos);
+        bool has_dest_argument() const;
+        const std::string get_dest_argument() const;
+        int get_num_source_arguments() const;
+        const std::string get_source_argument(size_t pos) const;
     
         void print_instruction();
         void print_instruction(int width_of_dest, int width_of_inst);
@@ -255,7 +257,8 @@ class ALILCollection {
 
     public:
         ALILCollection();
-        std::vector<AnalysisCommand> emit_collected_commands;
+
+        const std::span<const AnalysisCommand> get_commands() const;
         void print_collected_commands();
 
         friend AnalysisCommandBuilder;

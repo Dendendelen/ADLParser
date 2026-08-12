@@ -6,6 +6,7 @@
 #include <cassert>
 #include <memory>
 #include <optional>
+#include <queue>
 #include <sstream>
 #include <iostream>
 #include <string>
@@ -154,12 +155,16 @@ void ALILConverter::visit_composite(PNode node) {
     bool is_particle_step = true;
     visit(comp_naming_elements);
 
+    std::queue<std::string> input_parts;
 
     for (PNode particle : comp_naming_elements->get_children()) {
         if (is_particle_step) {
             AnalysisCommandBuilder add_part_to_comp(ALIL::ADD_PART_TO_COMPOSITE);
             add_part_to_comp.add_source_argument(last_name_of_comp); 
-            add_part_to_comp.add_source_argument(particle->consume_associated_string());
+
+            std::string new_input_part = particle->consume_associated_string();
+            add_part_to_comp.add_source_argument(new_input_part);
+            input_parts.push(new_input_part);
 
             // new name of the composite that now includes this particle
             last_name_of_comp = add_part_to_comp.reserve_dest_arg_value(this);
@@ -169,15 +174,16 @@ void ALILConverter::visit_composite(PNode node) {
         is_particle_step = !is_particle_step;
     }
 
-    assert(!is_particle_step);
+    assert(is_particle_step);
 
     bool is_name_step = false;
     for (PNode name_part : comp_naming_elements->get_children()) {
-        visit(name_part);
         if (is_name_step) {
             AnalysisCommandBuilder naming_command(ALIL::NAME_ELEMENT_OF_COMPOSITE);
             naming_command.add_source_argument(last_name_of_comp);
             naming_command.add_source_argument(std::to_string(index));
+            naming_command.add_source_argument(input_parts.front());
+            input_parts.pop();
 
             // get the name by which we will locally refer to this
             std::string local_name = name_part->consume_associated_string();
@@ -192,7 +198,7 @@ void ALILConverter::visit_composite(PNode node) {
         is_name_step = !is_name_step;
     }
 
-    assert(is_name_step);
+    assert(!is_name_step);
 
     visit_children_after_index(node, 2);
 
@@ -554,16 +560,11 @@ void ALILConverter::visit_region_commands(PNode node) {
 
     create_region.collect_into(commands);
 
-    visit_children(node);
-
     for (auto command : node->get_children()) {
 
         command->set_associated_string(source);
         visit(command);
-
-        std::optional<AnalysisCommandBuilder> reg_command;
-
-        reg_command->collect_into(commands);
+        source = command->consume_associated_string();
     }
 
     // set the associated string to the final value name that has accumulated all infos thus far
@@ -785,7 +786,7 @@ void ALILConverter::visit_particle_sum(PNode node) {
     for (PNode part : node->get_children()) {
         bool is_negative = part->get_ast_type() == AST::PARTICLE_NEGATE;
         AnalysisCommandBuilder add_part(is_negative ? ALIL::SUB_PARTICLE : ALIL::ADD_PARTICLE);
-        PNode relevant_part_node = is_negative ? part : part->get_child(0);
+        PNode relevant_part_node = is_negative ? part->get_child(0) : part;
 
         add_part.add_source_argument(last_added_particle);
         add_part.add_source_argument(relevant_part_node->consume_associated_string());
@@ -896,6 +897,7 @@ void ALILConverter::visit_operator_terminal(PNode node) {
 
             std::stringstream arrow;
             arrow << node->get_child(0)->consume_associated_string() << "->" << node->get_child(1)->consume_associated_string();
+            node->set_associated_string(arrow.str());
         } break;
         case TOK::DOT_INDEX:
         {
@@ -906,11 +908,16 @@ void ALILConverter::visit_operator_terminal(PNode node) {
                 user_func.add_source_argument(node->get_child(0)->consume_associated_string());
                 user_func.add_source_argument(node->get_child(1)->consume_associated_string());
 
+                std::string dest = user_func.reserve_dest_arg_value(this);
+
                 user_func.collect_into(commands);
+
+                node->set_associated_string(dest);
 
             } else if (node->get_child(1)->get_ast_type() == AST::BUILTIN_FUNC_TERMINAL) {
                 // we handle this in logic for builtin funcs.
                 visit_children_after_index(node, 0);
+                node->set_associated_string(node->get_child(1)->consume_associated_string());
             } else {
                 raise_analysis_conversion_exception("Invalid token given after a dot index", node->get_token());
             }
@@ -1263,7 +1270,13 @@ void ALILConverter::visit_user_function(PNode node) {
 }
 
 void ALILConverter::visit_varying_terminal(PNode node) {
-    node->set_associated_string(node->get_token()->get_lexeme());
+    std::string target_lexeme = node->get_token()->get_lexeme();
+
+    // if this literal has an associated composite global name, change it here.
+    if (what_global_name_for_this_comp_name.contains(target_lexeme)) {
+        target_lexeme = what_global_name_for_this_comp_name[target_lexeme];
+    }
+    node->set_associated_string(target_lexeme);
 }
 
 void ALILConverter::visit_true_literal(PNode node) {
@@ -1331,12 +1344,16 @@ void ALILConverter::print_commands() {
 
 ALILConverter::ALILConverter(Config &conf): highest_var_val(0), iter_command(0),  config(conf){}
 
+ALILCollection &ALILConverter::get_commands() {
+    return commands;
+}
+
 ALILToFrameworkCompiler::ALILToFrameworkCompiler(ALILConverter *alil_in, Config &conf): alil(alil_in), config(conf) {}
 
 #define VISIT_DISPATCH(ENUM, NAME) \
     case ALIL::ENUM: return convert_##NAME(command); \
 
-std::string ALILToFrameworkCompiler::command_convert(AnalysisCommand command) {
+std::string ALILToFrameworkCompiler::command_convert(const AnalysisCommand &command) {
     switch (command.get_instruction()) {
         ALIL_INSTRUCTION_LIST(VISIT_DISPATCH)
     }

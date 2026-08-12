@@ -127,6 +127,7 @@ Token_type Lexer::identify_token(std::string &token) {
     if (uppercase_token == "ETA") return TOK::ETA;
     if (uppercase_token == "CHARGE") return TOK::CHARGE;
     if (uppercase_token == "MASS") return TOK::MASS;
+    if (uppercase_token == "PT") return TOK::PT;
 
     if (uppercase_token == "DR" || uppercase_token == "DELTAR") return TOK::DR;
     if (uppercase_token == "DPHI" || uppercase_token == "DELTAPHI") return TOK::DPHI;

@@ -11,64 +11,52 @@ AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst): instruction(ins
 
 AnalysisCommand::AnalysisCommand(const AnalysisCommand &other): instruction(other.instruction), dest_argument(other.dest_argument), source_arguments(other.source_arguments), source_token(other.source_token) {}
 
-AnalysisLevelInstruction AnalysisCommand::get_instruction() {
+AnalysisLevelInstruction AnalysisCommand::get_instruction() const {
     return instruction;
 }
-std::string AnalysisCommand::get_argument(std::size_t pos) {
-    assert(pos >= 0);
+// const std::string AnalysisCommand::get_argument(std::size_t pos) const{
+//     assert(pos >= 0);
     
-    if (pos == 0) {
-        if (dest_argument) return *dest_argument;
-        assert(source_arguments.size() >= 1);
-        return source_arguments[0];
-    } else if (dest_argument) {
-        size_t pos_in_vec = pos - 1;
-        assert(pos_in_vec < source_arguments.size());
-        return source_arguments[pos_in_vec];
-    } else {
-        assert(pos < source_arguments.size());
-        return source_arguments[pos];
-    }
+//     if (pos == 0) {
+//         if (dest_argument) return *dest_argument;
+//         assert(source_arguments.size() >= 1);
+//         return source_arguments[0];
+//     } else if (dest_argument) {
+//         size_t pos_in_vec = pos - 1;
+//         assert(pos_in_vec < source_arguments.size());
+//         return source_arguments[pos_in_vec];
+//     } else {
+//         assert(pos < source_arguments.size());
+//         return source_arguments[pos];
+//     }
 
-}
+// }
 
-bool AnalysisCommand::has_dest_argument() {
+bool AnalysisCommand::has_dest_argument() const {
     return dest_argument.has_value();
 }
 
-std::string AnalysisCommand::get_dest_argument() {
+const std::string AnalysisCommand::get_dest_argument() const {
     assert(dest_argument);
     return *dest_argument;
 }
 
-int AnalysisCommand::get_num_source_arguments() {
+int AnalysisCommand::get_num_source_arguments() const {
     return source_arguments.size();
 }
 
-std::string AnalysisCommand::get_source_argument(size_t pos) {
+const std::string AnalysisCommand::get_source_argument(size_t pos) const {
     assert(pos < source_arguments.size()); 
     return source_arguments[pos];
 }
 
-int AnalysisCommand::get_num_arguments() {
+int AnalysisCommand::get_num_arguments() const{
     return static_cast<int>(dest_argument.has_value()) + source_arguments.size();
 }
 
 
 
 void AnalysisCommand::print_instruction(int width_of_dest, int width_of_inst) {
-
-    switch (instruction) {
-        using enum ALIL;
-        case CREATE_EMPTY_CARTESIAN: case CREATE_EMPTY_DIRECT: case CREATE_EMPTY_DISJOINT: case CREATE_EMPTY_HIST_LIST: case CREATE_EMPTY_INFO_LIST: case CREATE_EMPTY_VALUE_LIST: case CREATE_EMPTY_PARTICLE: case CREATE_EMPTY_UNION: case CREATE_TABLE: case CREATE_MASK: case CREATE_REGION: case CREATE_BIN_OF_REGION:
-        {    
-            std::cout << std::endl;
-        } break;
-        default:
-        {
-
-        }
-    }
 
     std::cout << std::left << std::setw(width_of_dest) << (std::stringstream() << "(" << (dest_argument ? *dest_argument : "") << ") ").str() << std::left << std::setw(2) << " <- ";
 
@@ -83,6 +71,7 @@ void AnalysisCommand::print_instruction(int width_of_dest, int width_of_inst) {
     }
 
     std::cout << std::left << args.str();
+    std::cout << "\n";
 
 }
 
@@ -163,6 +152,10 @@ ALILCollection::ALILCollection() {
 void ALILCollection::collect_command(AnalysisCommandBuilder &in PARAM_UNCONSUMED) {
     assert(in.source_declared && in.dest_declared);
     command_list.push_back(in);
+}
+
+const std::span<const AnalysisCommand> ALILCollection::get_commands() const {
+    return command_list;
 }
 
 void ALILCollection::print_collected_commands() {

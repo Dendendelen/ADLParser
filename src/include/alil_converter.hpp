@@ -109,17 +109,16 @@ class ALILConverter : ASTVisitor {
         ALILConverter(Config &conf);
 
         void visitation(PNode root);
-        void print_commands();
 
-        AnalysisCommand next_command();
-        bool clear_to_next();
+        ALILCollection &get_commands();
+        void print_commands();
 
         friend AnalysisCommandBuilder;
 };
 
 
 #define CONVERT_DISPATCH_DECLARE(ENUM, NAME) \
-    virtual std::string convert_##NAME(AnalysisCommand) = 0;
+    virtual std::string convert_##NAME(const AnalysisCommand &) = 0;
 
 class ALILToFrameworkCompiler {
     protected:
@@ -128,8 +127,7 @@ class ALILToFrameworkCompiler {
 
         ALIL_INSTRUCTION_LIST(CONVERT_DISPATCH_DECLARE)
 
-        std::string command_convert(AnalysisCommand PARAM_CONSUMED);
-
+        std::string command_convert(const AnalysisCommand &);
     public:
         ALILToFrameworkCompiler(ALILConverter *alil_in, Config &conf);
         virtual ~ALILToFrameworkCompiler() = default;

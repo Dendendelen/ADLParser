@@ -742,9 +742,7 @@ void Parser::parse_region_commands(PNode parent) {
 
     REGION_COMMAND -> weight ID E
 
-    REGION_COMMAND -> bin E
-
-    REGION_COMMAND -> bin named STRING E
+    REGION_COMMAND -> bin ID ASSIGNMENT E
 
     REGION_COMMAND -> bins E LITERAL_NUMBER_LIST
 
@@ -799,25 +797,13 @@ void Parser::parse_region_command(PNode parent) {
 
         case TOK::BIN:
         {
+            // REGION_COMMAND -> bin ID ASSIGNMENT E
             PNode bin(create_node(AST::REGION_BIN, parent, tok));
-            PToken next = lexer->peek(1);
-
-            if (next->get_token_type() == TOK::NAMED) {
-        
-                // REGION_COMMAND -> bin named STRING E
-                lexer->expect_and_consume(TOK::BIN);
-                lexer->expect_and_consume(TOK::NAMED);
-                parse_string(bin);
-                parse_expression(bin);
-                return;
-
-            } else {
-
-                // REGION_COMMAND -> bin E
-                lexer->expect_and_consume(TOK::BIN);
-                parse_expression(bin);
-                return;
-            }
+            lexer->expect_and_consume(TOK::BIN);
+            parse_id(bin);
+            parse_assignment();
+            parse_expression(bin);
+            return;
 
         }
 
@@ -1311,8 +1297,8 @@ void Parser::parse_particle_list(PNode parent) {
 void Parser::parse_named_particle_list(PNode parent) {
 
     PNode named_particle_list = make_list_root_node(AST::NAMED_PARTICLE_LIST, parent);
-    parse_particle(parent);
-    parse_id(parent);
+    parse_particle(named_particle_list);
+    parse_id(named_particle_list);
 
     auto tok = lexer->peek(0);
     switch (tok->get_token_type()) {
@@ -1320,7 +1306,7 @@ void Parser::parse_named_particle_list(PNode parent) {
         case TOK::COMMA:
             // NAMED_PARTICLE_LIST -> PARTICLE ID, NAMED_PARTICLE_LIST
             lexer->expect_and_consume(TOK::COMMA);
-            parse_named_particle_list(parent);
+            parse_named_particle_list(named_particle_list);
             return;
 
         default:
@@ -1899,14 +1885,17 @@ void Parser::print_children_and_yourself(PNode node, int *top_number) {
 
     int reserved_number_for_me = (*top_number)++;
 
-    if (node->has_token()) {
+    AST_type ast_type = node->get_ast_type();
+    bool is_terminal = ast_type == AST::VARYING_TERMINAL || ast_type == AST::OPERATOR_TERMINAL || ast_type == AST::BUILTIN_FUNC_TERMINAL;
+
+    if (node->has_token() && is_terminal) {
         std::string lexeme(node->get_token()->get_lexeme());
         std::regex quotes = std::regex("\"+");
         lexeme = std::regex_replace(lexeme, quotes, "");
 
         std::cout << "    " << reserved_number_for_me << " [label=\"" << lexeme << "\"]" << std::endl;
     } else {
-        std::cout << "    " << reserved_number_for_me << " [label=\"ID:" << node->get_ast_type_as_string() << "\"]" <<std::endl;
+        std::cout << "    " << reserved_number_for_me << " [label=\"NT:" << node->get_ast_type_as_string() << "\"]" <<std::endl;
     }
 
     auto children_vector = node->get_children();
