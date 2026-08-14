@@ -32,7 +32,7 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::string get_mapped_source(const AnalysisCommand &command, size_t pos);
         std::string get_mapped_dest(const AnalysisCommand &command);
 
-        std::string list_append(std::string list_end, char delimiter, const AnalysisCommand &command, std::string to_add = "");
+        std::string list_append(std::string list_end, std::string delimiter, const AnalysisCommand &command, std::string to_add = "");
         std::string attribute(std::string attr, std::string object, std::string separator_chars = "_");
         std::string lorentzify(std::string object);
         std::string multi_arg_function(std::string func_name, int num_args, const AnalysisCommand &command, std::string ending_tok = "", bool is_lorentz = false);

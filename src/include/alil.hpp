@@ -3,6 +3,7 @@
 
 #include "lexer.hpp"
 
+#include <ranges>
 #include <span>
 #include <string>
 #include <optional>
@@ -46,13 +47,11 @@ class ALILConverter;
     X(WEIGHT_APPLY,                     weight_apply)                          \
                                                                                \
     X(DO_CUTFLOW_ON_REGION,             do_cutflow_on_region)                  \
-    X(DO_EVENTLIST_ON_REGION,           do_eventlist_on_region)                 \
+    X(DO_EVENTLIST_ON_REGION,           do_eventlist_on_region)                \
                                                                                \
     X(CREATE_TABLE,                     create_table)                          \
     X(CREATE_TABLE_ERRORED_VALUE,       create_table_errored_value)            \
     X(CREATE_TABLE_VALUE,               create_table_value)                    \
-    X(CREATE_TABLE_LOWER_BOUNDS,        create_table_lower_bounds)             \
-    X(CREATE_TABLE_UPPER_BOUNDS,        create_table_upper_bounds)             \
     X(APPEND_TO_TABLE,                  append_to_table)                       \
     X(FINISH_TABLE,                     finish_table)                          \
                                                                                \
@@ -236,6 +235,7 @@ class CONSUMABLE(unconsumed) AnalysisCommandBuilder : public AnalysisCommand{
         AnalysisCommandBuilder(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok) MAKE_UNCONSUMED;
         AnalysisCommandBuilder(AnalysisLevelInstruction inst) MAKE_UNCONSUMED;
         AnalysisCommandBuilder(const AnalysisCommandBuilder& other);
+        AnalysisCommandBuilder(const AnalysisCommand& other);
 
         ~AnalysisCommandBuilder() CALLABLE_CONSUMED;
 
@@ -246,19 +246,23 @@ class CONSUMABLE(unconsumed) AnalysisCommandBuilder : public AnalysisCommand{
         std::string reserve_dest_arg_value(ALILConverter *) CALLABLE_UNCONSUMED;
        
         void collect_into(ALILCollection &) CALLABLE_UNCONSUMED SET_CONSUMED;
+        void collect_into_reverse(ALILCollection &) CALLABLE_UNCONSUMED SET_CONSUMED;
 
         friend ALILCollection;
 };
 
 class ALILCollection {
     private:
-        std::vector<AnalysisCommand> command_list;
+        std::deque<AnalysisCommand> command_list;
         void collect_command(AnalysisCommandBuilder &in);
+        void collect_command_reverse(AnalysisCommandBuilder &in);
 
     public:
         ALILCollection();
 
-        const std::span<const AnalysisCommand> get_commands() const;
+        const auto get_commands() const {
+            return std::ranges::subrange(command_list.begin(), command_list.end());
+        }       
         void print_collected_commands();
 
         friend AnalysisCommandBuilder;

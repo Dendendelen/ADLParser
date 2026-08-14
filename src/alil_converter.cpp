@@ -3,10 +3,12 @@
 #include "lexer.hpp"
 #include "node.hpp"
 #include "exceptions.hpp"
+#include <algorithm>
 #include <cassert>
 #include <memory>
 #include <optional>
 #include <queue>
+#include <ranges>
 #include <sstream>
 #include <iostream>
 #include <string>
@@ -15,7 +17,7 @@
 
 std::string ALILConverter::reserve_scoped_value_name() {
     std::stringstream new_var_name;
-    new_var_name << "_V" << highest_var_val++ << "" << current_scope_name;
+    new_var_name << "_V" << highest_var_val++ << "_" << current_scope_name;
     std::string value_name = new_var_name.str();
     return value_name;
 }
@@ -26,7 +28,7 @@ ALILConverter::NameScope::NameScope(std::string type_name, ALILConverter *conver
     old_name = converter->current_scope_name;
 
     std::stringstream scope_name;
-    scope_name << "_" << type_name << "_" << old_name;
+    scope_name << type_name << "_" << old_name;
 
     converter->current_scope_name = scope_name.str();
 }
@@ -37,7 +39,7 @@ ALILConverter::NameScope::NameScope(std::string type_name, PNode id_node, ALILCo
 
     std::string name_lexeme = id_node->get_token()->get_lexeme();
     std::stringstream scope_name;
-    scope_name << "_" << type_name << "_" << name_lexeme << "_" << old_name;
+    scope_name << type_name << "_" << name_lexeme << "_" << old_name;
 
     converter->current_scope_name = scope_name.str();
 }
@@ -285,7 +287,8 @@ void ALILConverter::visit_table_def(PNode node) {
     AnalysisCommandBuilder create_table(ALIL::CREATE_TABLE, table_id_node->get_token());
 
     std::string current_table = create_table.reserve_dest_arg_value(this);
-    create_table.add_source_argument(num_vars_string);
+    create_table.add_empty_source();
+    // create_table.add_source_argument(num_vars_string);
 
     create_table.collect_into(commands);
 
@@ -299,16 +302,18 @@ void ALILConverter::visit_table_def(PNode node) {
 
         AnalysisCommandBuilder create_table_value(do_errors ? ALIL::CREATE_TABLE_ERRORED_VALUE : ALIL::CREATE_TABLE_VALUE);
         std::string values_name = create_table_value.reserve_dest_arg_value(this);
+        
+        AnalysisCommandBuilder lower_bound_list(ALIL::CREATE_EMPTY_VALUE_LIST);
+        lower_bound_list.add_empty_source();
+        std::string last_lower_bound = lower_bound_list.reserve_dest_arg_value(this);
 
-        AnalysisCommandBuilder create_table_lower_bounds(ALIL::CREATE_TABLE_LOWER_BOUNDS);
-        std::string lower_bound_name = create_table_lower_bounds.reserve_dest_arg_value(this);
+        lower_bound_list.collect_into(commands);
 
-        AnalysisCommandBuilder create_table_upper_bounds(ALIL::CREATE_TABLE_UPPER_BOUNDS);
-        std::string upper_bound_name = create_table_upper_bounds.reserve_dest_arg_value(this);
+        AnalysisCommandBuilder upper_bound_list(ALIL::CREATE_EMPTY_VALUE_LIST);
+        upper_bound_list.add_empty_source();
+        std::string last_upper_bound = upper_bound_list.reserve_dest_arg_value(this);
 
-        append_to_table.add_source_argument(values_name);
-        append_to_table.add_source_argument(lower_bound_name);
-        append_to_table.add_source_argument(upper_bound_name);
+        upper_bound_list.collect_into(commands);
 
         for (int col = 0; col < num_columns_per_row; col++, table_node_iterator++) {
 
@@ -318,19 +323,31 @@ void ALILConverter::visit_table_def(PNode node) {
             if (col <= (do_errors ? 2 : 0)) {
                 create_table_value.add_source_argument(current_arg_text);
             } else if (col % 2 == 0) {
-                create_table_upper_bounds.add_source_argument(current_arg_text);
+
+                AnalysisCommandBuilder new_upper_bound(ALIL::ADD_VALUE_TO_LIST);
+                new_upper_bound.add_source_argument(last_upper_bound);
+                new_upper_bound.add_source_argument(current_arg_text);
+                last_upper_bound = new_upper_bound.reserve_dest_arg_value(this);
+                new_upper_bound.collect_into(commands);
             } else {
-                create_table_lower_bounds.add_source_argument(current_arg_text);
+                AnalysisCommandBuilder new_lower_bound(ALIL::ADD_VALUE_TO_LIST);
+                new_lower_bound.add_source_argument(last_lower_bound);
+                new_lower_bound.add_source_argument(current_arg_text);
+                last_lower_bound = new_lower_bound.reserve_dest_arg_value(this);
+                new_lower_bound.collect_into(commands);
             }   
         }
 
+        
+        append_to_table.add_source_argument(values_name);
+        append_to_table.add_source_argument(last_lower_bound);
+        append_to_table.add_source_argument(last_upper_bound);
+
         create_table_value.collect_into(commands);
-        create_table_lower_bounds.collect_into(commands);
-        create_table_upper_bounds.collect_into(commands);
         append_to_table.collect_into(commands);
     }
 
-    AnalysisCommandBuilder final_naming(ALIL::ADD_ALIAS);
+    AnalysisCommandBuilder final_naming(ALIL::FINISH_TABLE);
     final_naming.add_dest_argument(table_id_node->consume_associated_string());
     final_naming.add_source_argument(current_table);
 
@@ -350,10 +367,24 @@ void ALILConverter::visit_region(PNode node) {
     visit_children(node);
 
     AnalysisCommandBuilder final_name_of_region(ALIL::ADD_ALIAS);
-    final_name_of_region.add_dest_argument(region_id_node->consume_associated_string());
+    std::string final_reg_name = region_id_node->consume_associated_string();
+    final_name_of_region.add_dest_argument(final_reg_name);
     final_name_of_region.add_source_argument(region_commands_node->consume_associated_string());
 
     final_name_of_region.collect_into(commands);
+
+    // add cutflow and eventlist outputs here, we will remove them later if we do not need them.
+    AnalysisCommandBuilder do_cutflow(ALIL::DO_CUTFLOW_ON_REGION);
+    do_cutflow.add_source_argument(final_reg_name);
+    do_cutflow.add_empty_dest();
+
+    do_cutflow.collect_into(commands);
+
+    AnalysisCommandBuilder do_eventlist(ALIL::DO_EVENTLIST_ON_REGION);
+    do_eventlist.add_source_argument(final_reg_name);
+    do_eventlist.add_empty_dest();
+
+    do_eventlist.collect_into(commands);
 }
 
 
@@ -415,11 +446,14 @@ void ALILConverter::visit_initializations(PNode node) {
 
 void ALILConverter::visit_comp_criteria(PNode node) {
     // COMP_CRITERIA -> N x DEFINITION |_| OBJ_SELECT |_| OBJ_REJECT
-
     AnalysisCommandBuilder create_mask(ALIL::CREATE_MASK);
     std::string global_name_of_first_object = (*what_global_name_for_this_comp_name.begin()).second;
     create_mask.add_source_argument(global_name_of_first_object);
-    std::string source = create_mask.reserve_dest_arg_value(this);
+    std::string source;
+    {
+        NameScope mask_name("MASK", this);
+        source = create_mask.reserve_dest_arg_value(this);
+    }
 
     create_mask.collect_into(commands);
 
@@ -463,7 +497,13 @@ void ALILConverter::visit_object_criteria(PNode node) {
     // CRITERIA -> N x OBJ_SELECT |_| OBJ_REJECT
 
     AnalysisCommandBuilder create_mask(ALIL::CREATE_MASK);
-    std::string source = create_mask.reserve_dest_arg_value(this);
+    std::string source;
+    {
+        NameScope mask_name("MASK", this);
+        source = create_mask.reserve_dest_arg_value(this);
+    }
+
+
     create_mask.add_source_argument(what_object_is_this);
 
     create_mask.collect_into(commands);
@@ -654,6 +694,19 @@ void ALILConverter::visit_region_bin(PNode node) {
 
     make_bin.collect_into(commands);
 
+    // add cutflow and eventlist outputs here, we will remove them later if we do not need them.
+    AnalysisCommandBuilder do_cutflow(ALIL::DO_CUTFLOW_ON_REGION);
+    do_cutflow.add_source_argument(dest);
+    do_cutflow.add_empty_dest();
+
+    do_cutflow.collect_into(commands);
+
+    AnalysisCommandBuilder do_eventlist(ALIL::DO_EVENTLIST_ON_REGION);
+    do_eventlist.add_source_argument(dest);
+    do_eventlist.add_empty_dest();
+
+    do_eventlist.collect_into(commands);
+
     node->set_associated_string(last_region);
 }
 
@@ -666,6 +719,8 @@ void ALILConverter::visit_region_bins(PNode node) {
     std::string discriminant_expression = node->get_child(0)->consume_associated_string();
 
     std::optional<std::string> last_bound;
+
+    NameScope bins_name_scope("BINS", this);
 
     for (PNode bound : node->get_child(1)->get_children()) {
 
@@ -699,8 +754,21 @@ void ALILConverter::visit_region_bins(PNode node) {
         AnalysisCommandBuilder bin(ALIL::CREATE_BIN_OF_REGION);
         bin.add_source_argument(last_region);
         bin.add_source_argument(final_bound);
-        bin.reserve_dest_arg_value(this); // we do not need to know the name of this bin
+        std::string bin_name = bin.reserve_dest_arg_value(this); 
         bin.collect_into(commands);
+
+        // add cutflow and eventlist outputs here, we will remove them later if we do not need them.
+        AnalysisCommandBuilder do_cutflow(ALIL::DO_CUTFLOW_ON_REGION);
+        do_cutflow.add_source_argument(bin_name);
+        do_cutflow.add_empty_dest();
+
+        do_cutflow.collect_into(commands);
+
+        AnalysisCommandBuilder do_eventlist(ALIL::DO_EVENTLIST_ON_REGION);
+        do_eventlist.add_source_argument(bin_name);
+        do_eventlist.add_empty_dest();
+
+        do_eventlist.collect_into(commands);
     }
 
     node->set_associated_string(last_region);
@@ -1292,41 +1360,46 @@ void ALILConverter::visit_this_node(PNode node) {
     node->set_associated_string(what_object_is_this);
 }
 
-// void ALILConverter::clean_command_list() {
-//     std::deque<AnalysisCommandBuilder> new_list;
+void ALILConverter::clean_command_list() {
 
-//     bool do_last_cutflow = false;
-//     bool do_every_cutflow = false;
+    bool do_last_cutflow = false;
+    bool do_every_cutflow = false;
 
-//     bool do_last_eventlist = false;
-//     bool do_every_eventlist = false;
+    bool do_last_eventlist = false;
+    bool do_every_eventlist = false;
 
-//     if (config.get_argument("cutflow") == "all") do_every_cutflow = true;
-//     if (config.get_argument("cutflow") == "last") do_last_cutflow = true;
+    if (config.get_argument("cutflow") == "all") do_every_cutflow = true;
+    if (config.get_argument("cutflow") == "last") do_last_cutflow = true;
 
-//     if (config.get_argument("eventlist") == "all") do_every_eventlist = true;
-//     if (config.get_argument("eventlist") == "last") do_last_eventlist = true;
+    if (config.get_argument("eventlist") == "all") do_every_eventlist = true;
+    if (config.get_argument("eventlist") == "last") do_last_eventlist = true;
 
+    auto command_list = commands.get_commands();
 
-//     // backwards iteration pass
-//     for (auto it = command_list.rbegin(); it != command_list.rend(); ++it) {
-//         if (it->get_instruction() == DO_CUTFLOW_ON_REGION && !do_every_cutflow) {
-//             if (do_last_cutflow) do_last_cutflow = false;
-//             else continue;
-//         } else if (it->get_instruction() == DO_EVENTLIST_ON_REGION && !do_every_eventlist) {
-//             if (do_last_eventlist) do_last_eventlist = false;
-//             else continue;
-//         }
+    ALILCollection new_collection;
 
-//         new_list.push_front(*it);
-//     }
-//     command_list = std::vector<AnalysisCommandBuilder>(new_list.begin(), new_list.end());
+    // backwards iteration pass
+    for (auto command : command_list | std::views::reverse) {
+        if (command.get_instruction() == ALIL::DO_CUTFLOW_ON_REGION && !do_every_cutflow) {
+            if (do_last_cutflow) do_last_cutflow = false;
+            else continue;
+        } else if (command.get_instruction() == ALIL::DO_EVENTLIST_ON_REGION && !do_every_eventlist) {
+            if (do_last_eventlist) do_last_eventlist = false;
+            else continue;
+        }
 
-// }
+        AnalysisCommandBuilder new_command(command);
+        new_command.collect_into_reverse(new_collection);
+    }
+
+    commands = new_collection;
+
+    
+}
 
 void ALILConverter::visitation(PNode root) {
     visit(root);
-    // clean_command_list();
+    clean_command_list();
 }
 
 void ALILConverter::print_commands() {

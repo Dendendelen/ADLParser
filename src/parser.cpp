@@ -982,9 +982,11 @@ void Parser::parse_bool(PNode parent) {
 
     switch (tok->get_token_type()) {
         case TOK::TRUE:
+            lexer->expect_and_consume(TOK::TRUE);
             create_node(AST::TRUE, parent, tok);
             return;
         case TOK::FALSE:
+            lexer->expect_and_consume(TOK::FALSE);
             create_node(AST::FALSE, parent, tok);
             return;
         default:
@@ -1664,28 +1666,40 @@ PNode Parser::precedence_climber(PNode parent, int min_precedence) {
         lexer->expect_and_consume(next_op->get_token_type());
         // E -> E[INDEX]
         if (next_op->get_token_type() == TOK::OPEN_SQUARE_BRACE) {
-            PNode indexing(create_node(AST::INDEX_OPERATOR, parent, next_op));
+            PNode indexing(create_lost_node(AST::INDEX_OPERATOR, parent, next_op));
             indexing->add_child(lhs);
             lhs->set_parent(indexing);
             parse_index(indexing);
             lexer->expect_and_consume(TOK::CLOSE_SQUARE_BRACE);
-            return indexing;
+
+            lhs = indexing;
+            next_op = lexer->peek(0);
+            continue;
+
         } else if (next_op->get_token_type() == TOK::QUESTION) {
-            PNode if_statement(create_node(AST::IF_STATEMENT, parent, next_op));
+            PNode if_statement(create_lost_node(AST::IF_STATEMENT, parent, next_op));
             if_statement->add_child(lhs);
             lhs->set_parent(if_statement);
             if_statement->add_child(precedence_climber(if_statement, 0));
             lexer->expect_and_consume(TOK::COLON);
             if_statement->add_child(precedence_climber(if_statement, 0));
-            return if_statement;
+
+            lhs = if_statement;
+            next_op = lexer->peek(0);
+            continue;
+
         } else if (next_op->get_token_type() == TOK::WITHIN || next_op->get_token_type() == TOK::OUTSIDE) {
-            PNode interval_statement(create_node(next_op->get_token_type() == TOK::WITHIN ? AST::WITHIN_STATEMENT : AST::OUTSIDE_STATEMENT, parent, next_op));
+            PNode interval_statement(create_lost_node(next_op->get_token_type() == TOK::WITHIN ? AST::WITHIN_STATEMENT : AST::OUTSIDE_STATEMENT, parent, next_op));
             interval_statement->add_child(lhs);
             lhs->set_parent(interval_statement);
             interval_statement->add_child(precedence_climber(interval_statement, 0));
             lexer->expect_and_consume(TOK::COMMA);
             interval_statement->add_child(precedence_climber(interval_statement, 0));
-            return interval_statement;
+
+            lhs = interval_statement;
+            next_op = lexer->peek(0);
+            continue;
+
         }
 
         op_node = create_lost_node(AST::OPERATOR_TERMINAL, parent, next_op);
@@ -1699,9 +1713,9 @@ PNode Parser::precedence_climber(PNode parent, int min_precedence) {
         lhs->set_parent(op_node);
 
         op_node->add_child(rhs);
+        rhs->set_parent(op_node);
 
         lhs = op_node;
-
         next_op = lexer->peek(0);
     }
         

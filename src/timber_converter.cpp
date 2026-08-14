@@ -13,17 +13,21 @@
 void TimberConverter::add_mapping(std::string source, std::string dest) {
     var_mappings.emplace(source, dest);
 }
+
+bool is_string(std::string in) {
+    static const std::regex reg_string("\"[^\"]*\"");
+    return (std::regex_match(in, reg_string));
+}
+
+bool is_number(std::string in) {
+    static const std::regex reg_number("-{0,1}[0-9]*\\.{0,1}[0-9]*([Ee][-+]{0,1}[0-9]+){0,1}");
+    return (std::regex_match(in, reg_number));
+}
+
 std::string TimberConverter::get_mapping(std::string in) {
 
-    std::regex reg_string;
-    std::regex reg_number;
-
-    reg_number = std::regex("-{0,1}[0-9]*\\.{0,1}[0-9]*([Ee][-+]{0,1}[0-9]+){0,1}");
-    reg_string= std::regex("\"[^\"]*\"");
-
-    if (std::regex_match(in, reg_string)) return in;
-    if (std::regex_match(in, reg_number)) return in;
-
+    if (is_string(in) || is_number(in)) return in;
+    
     std::string mapped = var_mappings[in];
 
     if (mapped == in) return in;
@@ -37,7 +41,16 @@ std::string TimberConverter::get_mapped_source(const AnalysisCommand &command, s
 
     // before mapping, apply a regex to remove all special characters from variable names which are allowed in ALIL but forbidden in C++/Python
     std::regex e("[_\\->]");
-    std::string mapped_source = get_mapping(std::regex_replace(orig_source, e, ""));
+
+    std::string escaped_source;
+
+    if (is_string(orig_source) || is_number(orig_source)) {
+        escaped_source = orig_source;
+    } else {
+        escaped_source = std::regex_replace(orig_source, e, "");
+    }
+
+    std::string mapped_source = get_mapping(escaped_source);
     return mapped_source;
 }
 
@@ -46,12 +59,21 @@ std::string TimberConverter::get_mapped_dest(const AnalysisCommand &command) {
     
     // apply a regex to remove all special characters from variable names which are allowed in ALIL but forbidden in C++/Python
     std::regex e("[_\\->]");
-    std::string mapped_dest = std::regex_replace(orig_dest, e, "");
-    return mapped_dest;
+
+
+    std::string escaped_dest;
+
+    if (is_string(orig_dest) || is_number(orig_dest)) {
+        escaped_dest = orig_dest;
+    } else {
+        escaped_dest = std::regex_replace(orig_dest, e, "");
+    }
+
+    return escaped_dest;
 }
 
 
-std::string TimberConverter::list_append(std::string list_end, char delimiter, const AnalysisCommand &command, std::string to_add) {
+std::string TimberConverter::list_append(std::string list_end, std::string delimiter, const AnalysisCommand &command, std::string to_add) {
     std::string old_list = get_mapped_source(command, 0);
 
     std::regex sanitize{R"([-[\]{}()*+?.,\^$|#\s])"};
@@ -172,8 +194,8 @@ std::string TimberConverter::add_subtract_particles(const AnalysisCommand &comma
         lorentz_addition << "(" << lorentzify(last_val) << (is_subtraction ? "-" : "+") << lorentzify(this_val) << ")";
         
         emit_newline();
-        emit_comment("Particle ", is_subtraction ? "subtraction" : "addition", ": combining Lorentz vectors");
-        emit("a.Define('",dest,"_lorentzvector',\"",lorentz_addition.str(),"')");
+        emit_comment("Particle ", is_subtraction ? "subtraction" : "addition", "by combining Lorentz vectors");
+        emit("a.Define('",dest,"_lorentzvector','",lorentz_addition.str(),"')");
         
         emit_comment("Get NanoAOD equivalent variables from Lorentz vector");
         emit("a.Define('",dest,"_pt', 'Pt(",dest,"_lorentzvector)')");
@@ -219,7 +241,7 @@ std::string TimberConverter::convert_create_empty_info_list(const AnalysisComman
 std::string TimberConverter::convert_add_to_info_list(const AnalysisCommand &command) {
     std::stringstream info_pair;
     info_pair << "'" << command.get_source_argument(1) << "':'" << command.get_source_argument(2) << "'";
-    return list_append("}", ',', command, info_pair.str());
+    return list_append("}", ",", command, info_pair.str());
 }
 std::string TimberConverter::convert_display_info(const AnalysisCommand &command) {
     std::string info_list = get_mapped_source(command,0);
@@ -264,9 +286,9 @@ std::string TimberConverter::convert_create_bin_of_region(const AnalysisCommand 
     
     emit_comment("Create bin of region");
     emit(get_mapped_dest(command), " = [",prev,"[0].Add('",get_mapped_dest(command),"','",cut,"', makeCopy=True), ",prev,"[1]","]");
-    return get_mapped_dest(command); //TODO: check
-
+    return get_mapped_dest(command);
 }
+
 std::string TimberConverter::convert_add_alias(const AnalysisCommand &command) {
     return command.get_source_argument(0);
 }
@@ -300,7 +322,7 @@ std::string TimberConverter::convert_add_correctionlib(const AnalysisCommand &co
 }
 std::string TimberConverter::convert_create_mask(const AnalysisCommand &command) {
     emit_newline();
-    emit_comment("Create selection mask ", command.get_dest_argument(), " from shape of ", get_mapped_source(command, 0));
+    emit_comment("Create selection mask ", command.get_dest_argument(), " from shape of ", command.get_source_argument(0));
     emit(get_mapped_dest(command)
         , " = VarGroup('"
         , get_mapped_dest(command)
@@ -364,7 +386,7 @@ std::string TimberConverter::convert_create_empty_hist_list(const AnalysisComman
     return "[]";
 }
 std::string TimberConverter::convert_add_hist_to_list(const AnalysisCommand &command) {
-    return list_append("]", ',', command);
+    return list_append("]", ",", command);
 }
 std::string TimberConverter::convert_use_hist(const AnalysisCommand &command) {
     emit_comment("Use histogram in region");
@@ -422,7 +444,7 @@ std::string TimberConverter::convert_do_cutflow_on_region(const AnalysisCommand 
     emit("print('\\n---\\n \\\\begin{tabular}{c c c c} \\\\multicolumn{4}{c}{Cutflow report for region "
         , reg_name
         ,"}\\\\\\\\ \\\\hline Cut & Events left & Eff from previous & Eff from initial \\\\\\\\ \\\\hline')");
-    emit("for _cutflow_k, _cutflow_v in CutflowDict(_cutflow_node_", reg_name, ").iterms():");
+    emit("for _cutflow_k, _cutflow_v in CutflowDict(_cutflow_node_", reg_name, ").items():");
     emit("    _this_name = _cutflow_k");
     emit("    if _this_name != 'Initial':");
     emit("        _this_name = ", reg_name, "[0].items[_cutflow_k]");
@@ -466,13 +488,44 @@ std::string TimberConverter::convert_do_eventlist_on_region(const AnalysisComman
 
     return "";
 }
-std::string TimberConverter::convert_create_table(const AnalysisCommand &command) {}
-std::string TimberConverter::convert_create_table_errored_value(const AnalysisCommand &command) {}
-std::string TimberConverter::convert_create_table_value(const AnalysisCommand &command) {}
-std::string TimberConverter::convert_create_table_lower_bounds(const AnalysisCommand &command) {}
-std::string TimberConverter::convert_create_table_upper_bounds(const AnalysisCommand &command) {}
-std::string TimberConverter::convert_append_to_table(const AnalysisCommand &command) {}
-std::string TimberConverter::convert_finish_table(const AnalysisCommand &command) {}
+std::string TimberConverter::convert_create_table(const AnalysisCommand &command) {
+    assert(command.get_num_source_arguments() == 0);
+    return "[ ]";
+}
+std::string TimberConverter::convert_create_table_errored_value(const AnalysisCommand &command) {
+    std::stringstream errored_val;
+    errored_val << "(" << get_mapped_source(command, 0) << "," << get_mapped_source(command, 1) << "," << get_mapped_source(command, 2) << ")";
+    return errored_val.str();
+}
+std::string TimberConverter::convert_create_table_value(const AnalysisCommand &command) {
+    return get_mapped_source(command, 0);
+}
+std::string TimberConverter::convert_append_to_table(const AnalysisCommand &command) {
+    std::string last_table = get_mapped_source(command, 0);
+    std::string value = get_mapped_source(command, 1);
+    std::string lower_bounds = get_mapped_source(command, 2);
+    std::string upper_bounds = get_mapped_source(command, 3);
+
+    std::regex open("\\{");
+    std::regex close("\\}");
+    std::string lower_bounds_brackets = std::regex_replace(std::regex_replace(lower_bounds, open, "("), close, ")");
+    std::string upper_bounds_brackets = std::regex_replace(std::regex_replace(upper_bounds, open, "("), close, ")");
+
+    std::regex end_table("\\s+\\]");
+    std::string unended_table = std::regex_replace(last_table, end_table, "");
+
+    std::stringstream new_table;
+    new_table << unended_table << "\n    (" << value << "," << lower_bounds_brackets << "," << upper_bounds_brackets << "),  ]";
+    return new_table.str();
+}
+std::string TimberConverter::convert_finish_table(const AnalysisCommand &command) {
+    emit_newline();
+    emit_comment("Creating a multi-argument function ", command.get_dest_argument(), " out of a table");
+    emit("create_function_out_of_table('",get_mapped_dest(command), "', ", get_mapped_source(command, 0), ")");
+    return get_mapped_dest(command); 
+}
+
+
 std::string TimberConverter::convert_obj_sort_ascend(const AnalysisCommand &command) {
     emit_comment("Sort collection in ascending order");
     emit("a.SubCollection('"
@@ -630,9 +683,17 @@ std::string TimberConverter::convert_func_deta_hadamard(const AnalysisCommand &c
     return multi_arg_lorentz_function("DeltaEtaHadamard", 2, command);
 }
 std::string TimberConverter::convert_func_size(const AnalysisCommand &command) {
+    std::string momentum_of_part = attribute("pt", command.get_source_argument(0));
+    std::stringstream computation;
+    computation << "(size(" << momentum_of_part << "))";
+    return computation.str();
 }
-std::string TimberConverter::convert_func_anyof(const AnalysisCommand &command) {}
-std::string TimberConverter::convert_func_allof(const AnalysisCommand &command) {}
+std::string TimberConverter::convert_func_anyof(const AnalysisCommand &command) {
+    return multi_arg_function("AnyOf", 1, command);
+}
+std::string TimberConverter::convert_func_allof(const AnalysisCommand &command) {
+    return multi_arg_function("AllOf", 1, command);
+}
 std::string TimberConverter::convert_func_sqrt(const AnalysisCommand &command) {
     return multi_arg_function("sqrt", 1, command);
 }
@@ -664,10 +725,10 @@ std::string TimberConverter::convert_func_log(const AnalysisCommand &command) {
     return multi_arg_function("log", 1, command);
 }
 std::string TimberConverter::convert_func_ave(const AnalysisCommand &command) {
-    
+    return multi_arg_function("ROOT::VecOps::Mean", 1, command);
 }
 std::string TimberConverter::convert_func_sum(const AnalysisCommand &command) {
-    
+    return multi_arg_function("ROOT::VecOps::Sum", 1, command);
 }
 std::string TimberConverter::convert_func_min_of_pair(const AnalysisCommand &command) {
     return multi_arg_function("std::min", 2, command);
@@ -700,7 +761,7 @@ std::string TimberConverter::convert_create_empty_value_list(const AnalysisComma
     return "{}";
 }
 std::string TimberConverter::convert_add_value_to_list(const AnalysisCommand &command) {
-    return list_append("}", ',', command);
+    return list_append("}", ",", command);
 }
 std::string TimberConverter::convert_create_empty_union(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
@@ -714,7 +775,7 @@ std::string TimberConverter::convert_add_part_to_union(const AnalysisCommand &co
         return new_to_add;
     } else {
         emit_newline();
-        emit_comment("Create object ", get_mapped_dest(command), " from a union");
+        emit_comment("Create object ", command.get_dest_argument(), " from a union");
         emit("a.MergeCollections('"
             , get_mapped_dest(command)
             , "', ['"
@@ -739,7 +800,7 @@ std::string TimberConverter::convert_create_empty_direct(const AnalysisCommand &
     return "Direct({})";
 }
 std::string TimberConverter::convert_add_part_to_composite(const AnalysisCommand &command) {
-    return list_append("})", ',', command, attribute("pt", get_mapped_source(command,1)));
+    return list_append("})", ",", command, attribute("pt", get_mapped_source(command,1)));
 }
 std::string TimberConverter::convert_name_element_of_composite(const AnalysisCommand &command) {
 
@@ -810,7 +871,7 @@ void TimberConverter::print() {
     emit("from adl_helpers import combine_without_duplicates, use_histo, use_histo_list");
         
     // compile the cpp helper functions into this
-    emit("CompileCpp('", path_to_helper_cpp.string(), "'))");
+    emit("CompileCpp('", path_to_helper_cpp.string(), "')");
         
     // open up the input file and an output file
     emit("a = analyzer('", in_file, "')\nout = ROOT.TFile.Open('", out_file, "','UPDATE')");

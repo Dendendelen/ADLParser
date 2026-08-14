@@ -22,3 +22,33 @@ def use_histo(histo_params, node):
 def use_histo_list(histo_list, node):
     for histo in histo_list:
         use_histo(histo, node)
+
+
+def create_function_out_of_table(name, table) {
+
+    num_entries = len(table)
+    num_bounds_per_entry = len(table[0][1])
+    num_vals_per_entry = len(table[0][0])
+
+    lower_bounds_list = np.empty((num_entries, num_bounds_per_entry))
+    upper_bounds_list = np.empty((num_entries, num_bounds_per_entry))
+    values_list = np.empty((num_entries, num_vals_per_entry))
+
+    for entry, i in zip(table, range(num_entries)):
+        value = entry[0]
+        lower_bounds = entry[1]
+        upper_bounds = entry[2]
+
+        for val, j in zip(value, range(num_vals_per_entry)):
+            values_list[i,j] = val
+        for lower, j in zip(lower_bounds, range(num_bounds_per_entry)):
+            lower_bounds_list[i,j] = lower
+        for upper, j in zip(upper_bounds, range(num_bounds_per_entry)):
+            upper_bounds_list = upper
+
+    lower_bounds_array = ROOT.ROOT::VecOps.AsRVec(lower_bounds_list)
+    upper_bounds_array = ROOT.ROOT::VecOps.AsRVec(upper_bounds_list)
+    values_array = ROOT.ROOT::VecOps.AsRVec(values_list)
+
+    ROOT.gInterpreter.Declare(name + ' = create_table_function('+num_bounds_per_entry + ', lower_bounds_array, upper_bounds_array, values_array);')
+}

@@ -14,23 +14,6 @@ AnalysisCommand::AnalysisCommand(const AnalysisCommand &other): instruction(othe
 AnalysisLevelInstruction AnalysisCommand::get_instruction() const {
     return instruction;
 }
-// const std::string AnalysisCommand::get_argument(std::size_t pos) const{
-//     assert(pos >= 0);
-    
-//     if (pos == 0) {
-//         if (dest_argument) return *dest_argument;
-//         assert(source_arguments.size() >= 1);
-//         return source_arguments[0];
-//     } else if (dest_argument) {
-//         size_t pos_in_vec = pos - 1;
-//         assert(pos_in_vec < source_arguments.size());
-//         return source_arguments[pos_in_vec];
-//     } else {
-//         assert(pos < source_arguments.size());
-//         return source_arguments[pos];
-//     }
-
-// }
 
 bool AnalysisCommand::has_dest_argument() const {
     return dest_argument.has_value();
@@ -105,6 +88,8 @@ AnalysisCommandBuilder::AnalysisCommandBuilder(AnalysisLevelInstruction inst) MA
 
 AnalysisCommandBuilder::AnalysisCommandBuilder(const AnalysisCommandBuilder &other): AnalysisCommand(other), has_been_collected(other.has_been_collected), dest_declared(other.dest_declared), source_declared(other.source_declared) {}
 
+AnalysisCommandBuilder::AnalysisCommandBuilder(const AnalysisCommand &other): AnalysisCommand(other), has_been_collected(false), dest_declared(true), source_declared(true) {}
+
 AnalysisCommandBuilder::~AnalysisCommandBuilder() CALLABLE_CONSUMED{
     assert(has_been_collected);
 }
@@ -140,6 +125,11 @@ void AnalysisCommandBuilder::collect_into(ALILCollection &target) CALLABLE_UNCON
     mark_collected();
 }
 
+void AnalysisCommandBuilder::collect_into_reverse(ALILCollection &target) CALLABLE_UNCONSUMED SET_CONSUMED{
+    target.collect_command_reverse(*this);
+    mark_collected();
+}
+
 void AnalysisCommandBuilder::mark_collected() CALLABLE_UNCONSUMED SET_CONSUMED{
     has_been_collected = true;
 }
@@ -154,8 +144,9 @@ void ALILCollection::collect_command(AnalysisCommandBuilder &in PARAM_UNCONSUMED
     command_list.push_back(in);
 }
 
-const std::span<const AnalysisCommand> ALILCollection::get_commands() const {
-    return command_list;
+void ALILCollection::collect_command_reverse(AnalysisCommandBuilder &in PARAM_UNCONSUMED) {
+    assert(in.source_declared && in.dest_declared);
+    command_list.push_front(in);
 }
 
 void ALILCollection::print_collected_commands() {
