@@ -121,6 +121,10 @@ std::string TimberConverter::attribute(std::string attr, std::string object, std
 
 }
 
+std::string TimberConverter::attribute(std::string attr, std::string object) {
+    return attribute(attr, object, attribute_delimiter);
+}
+
 std::string TimberConverter::lorentzify(std::string object) {
     std::stringstream lorentz;
     lorentz << "TLV(" << attribute("pt", object);
@@ -851,6 +855,20 @@ void TimberConverter::print() {
     std::string in_file = config.get_argument("infile");
     std::string out_file = config.get_argument("outfile");
 
+    std::string format = config.get_argument("format");
+
+    std::transform(format.begin(), format.end(), format.begin(), [](unsigned char c) {
+        return std::toupper(c);
+    });
+
+
+    attribute_delimiter = "_";
+    if (format == "NANOAOD") {
+        attribute_delimiter = "_";
+    } else if (format == "DELPHES") {
+        attribute_delimiter = ".";
+    }
+
     // get the path for our helper functions, relying on the "ROOT DIR" macro which we set during compile time
     std::filesystem::path abs_path = std::filesystem::absolute(ROOT_DIR);
     std::filesystem::path path_to_helper_cpp = abs_path / "helpers" / "adl_helpers.cc";
@@ -879,15 +897,15 @@ void TimberConverter::print() {
     emit_newline();
 
     // predefine MET to have the requisite variables to be a Lorentz vector
-    emit("a.Define('METV_pt','RVec<float> {", met_name, "_pt}')");
-    emit("a.Define('METV_phi','RVec<float> {", met_name, "_phi}')");
+    emit("a.Define('METV", attribute_delimiter, "pt','RVec<float> {", met_name, attribute_delimiter, "pt}')");
+    emit("a.Define('METV", attribute_delimiter, "phi','RVec<float> {", met_name, attribute_delimiter, "phi}')");
 
     met_name.clear();
     met_name = "METV";
 
     // a trick to get the eta and m to be an arraay of zeros in the right shape
-    emit("a.Define('", met_name, "_eta','", met_name, "_pt - ", met_name, "_pt')");
-    emit("a.Define('", met_name, "_mass', '", met_name, "_eta')");
+    emit("a.Define('", met_name, attribute_delimiter, "eta','", met_name, attribute_delimiter, "pt - ", met_name, attribute_delimiter, "pt')");
+    emit("a.Define('", met_name, attribute_delimiter, "mass', '", met_name, attribute_delimiter, "eta')");
 
     ALILCollection &commands = alil->get_commands();
     for (auto &command : commands.get_commands()) {

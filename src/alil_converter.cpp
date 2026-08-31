@@ -3,6 +3,7 @@
 #include "lexer.hpp"
 #include "node.hpp"
 #include "exceptions.hpp"
+#include "tokens.hpp"
 #include <algorithm>
 #include <cassert>
 #include <memory>
@@ -1287,20 +1288,18 @@ void ALILConverter::visit_builtin_func_terminal(PNode node) {
     }
 
     switch (node->get_token()->get_token_type()) {
-        case CASE_BUILT_IN_PARTICLE_FUN_ONE_ARG:
+        case CASE_BUILT_IN_PARTICLE_FUN_ONE_ARG: case CASE_BUILT_IN_PARTICLE_FUN_TWO_ARG:
         {
-            PNode particle_node = input_node->get_child(0);
-            visit(particle_node);
-            func.add_source_argument(particle_node->consume_associated_string());
+            visit(input_node);
+            // particle functions are always parsed to a particle list, we want to extract the internals of this list
+
+            auto children = input_node->get_children();
+            for (auto child : children) {
+                func.add_source_argument(child->consume_associated_string());
+            }
+
         } break;
-        case CASE_BUILT_IN_PARTICLE_FUN_TWO_ARG:
-        {
-            PNode particle_node_1 = input_node->get_child(0);
-            PNode particle_node_2 = input_node->get_child(1);
-            visit_children(input_node);
-            func.add_source_argument(particle_node_1->consume_associated_string());
-            func.add_source_argument(particle_node_2->consume_associated_string());
-        }   break;
+
         case CASE_BUILT_IN_MATH_FUN:
         {
             func.add_source_argument(input_node->consume_associated_string());

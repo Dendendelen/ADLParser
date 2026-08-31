@@ -26,6 +26,7 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::unordered_set<std::string> is_lorentz;
 
         std::string met_name;
+        std::string attribute_delimiter;
  
         void add_mapping(std::string source, std::string dest);
         std::string get_mapping(std::string);
@@ -33,7 +34,8 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::string get_mapped_dest(const AnalysisCommand &command);
 
         std::string list_append(std::string list_end, std::string delimiter, const AnalysisCommand &command, std::string to_add = "");
-        std::string attribute(std::string attr, std::string object, std::string separator_chars = "_");
+        std::string attribute(std::string attr, std::string object, std::string separator_chars);
+        std::string attribute(std::string attr, std::string object);
         std::string lorentzify(std::string object);
         std::string multi_arg_function(std::string func_name, int num_args, const AnalysisCommand &command, std::string ending_tok = "", bool is_lorentz = false);
         std::string multi_arg_lorentz_function(std::string func_name, int num_args, const AnalysisCommand &command, std::string ending_tok = "");
