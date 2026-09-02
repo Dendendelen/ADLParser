@@ -46,8 +46,8 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::string met_name;
         std::string attribute_delimiter;
 
-        FourVectorNames main_names;
-        FourVectorNames met_names;
+        std::optional<FourVectorNames> main_names;
+        std::optional<FourVectorNames> met_names;
  
         void add_mapping(std::string source, std::string dest);
         std::string get_mapping(std::string);
