@@ -24,7 +24,7 @@ def use_histo_list(histo_list, node):
         use_histo(histo, node)
 
 
-def create_function_out_of_table(name, table) {
+def create_function_out_of_table(name, table):
 
     num_entries = len(table)
     num_bounds_per_entry = len(table[0][1])
@@ -51,4 +51,3 @@ def create_function_out_of_table(name, table) {
     values_array = ROOT.ROOT::VecOps.AsRVec(values_list)
 
     ROOT.gInterpreter.Declare(name + ' = create_table_function('+num_bounds_per_entry + ', lower_bounds_array, upper_bounds_array, values_array);')
-}
