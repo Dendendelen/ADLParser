@@ -46,8 +46,14 @@ def create_function_out_of_table(name, table):
         for upper, j in zip(upper_bounds, range(num_bounds_per_entry)):
             upper_bounds_list = upper
 
-    lower_bounds_array = ROOT.ROOT::VecOps.AsRVec(lower_bounds_list)
-    upper_bounds_array = ROOT.ROOT::VecOps.AsRVec(upper_bounds_list)
-    values_array = ROOT.ROOT::VecOps.AsRVec(values_list)
+    lower_bounds_array = ROOT.VecOps.AsRVec(lower_bounds_list)
+    upper_bounds_array = ROOT.VecOps.AsRVec(upper_bounds_list)
+    values_array = ROOT.VecOps.AsRVec(values_list)
 
-    ROOT.gInterpreter.Declare(name + ' = create_table_function('+num_bounds_per_entry + ', lower_bounds_array, upper_bounds_array, values_array);')
+    ROOT.gInterpreter.Declare(f"""
+        auto& lower_bounds_rvec = *reinterpret_cast<ROOT::RVec<ROOT::RVec<double>>*>({ROOT.AddressOf(lower_bounds_array)[0]});
+        auto& upper_bounds_rvec = *reinterpret_cast<ROOT::RVec<ROOT::RVec<double>>*>({ROOT.AddressOf(upper_bounds_array)[0]});
+        auto& values_rvec = *reinterpret_cast<ROOT::RVec<ROOT::RVec<double>>*>({ROOT.AddressOf(values_array)[0]});
+    """)
+
+    ROOT.gInterpreter.Declare(name + ' = create_table_function('+num_bounds_per_entry + ', lower_bounds_rvec, upper_bounds_rvec, values_rvec);')

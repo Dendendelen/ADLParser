@@ -127,10 +127,10 @@ std::string TimberConverter::attribute(std::string attr, std::string object) {
 
 std::string TimberConverter::lorentzify(std::string object) {
     std::stringstream lorentz;
-    lorentz << "TLV(" << attribute("pt", object);
-    lorentz << "," << attribute("eta", object);
-    lorentz << "," << attribute("phi", object);
-    lorentz << "," << attribute("mass", object);
+    lorentz << "TLV(" << attribute(main_names.pt(), object);
+    lorentz << "," << attribute(main_names.eta(), object);
+    lorentz << "," << attribute(main_names.phi(), object);
+    lorentz << "," << attribute(main_names.mass(), object);
     lorentz << ")";
 
     return lorentz.str();
@@ -332,7 +332,7 @@ std::string TimberConverter::convert_create_mask(const AnalysisCommand &command)
         , get_mapped_dest(command)
         , "')");
 
-    std::string shape_of_out = attribute("pt", get_mapped_source(command, 0));
+    std::string shape_of_out = attribute(main_names.pt(), get_mapped_source(command, 0));
 
     emit(get_mapped_dest(command)
         , ".Add('"
@@ -640,19 +640,19 @@ std::string TimberConverter::convert_expr_index_from(const AnalysisCommand &comm
     return multi_arg_function("index_from", 2, command);
 }
 std::string TimberConverter::convert_func_charge(const AnalysisCommand &command) {
-    return attribute("charge", get_mapped_source(command,0));
+    return attribute(main_names.charge(), get_mapped_source(command,0));
 }
 std::string TimberConverter::convert_func_pt(const AnalysisCommand &command) {
-    return attribute("pt", get_mapped_source(command,0));
+    return attribute(main_names.pt(), get_mapped_source(command,0));
 }
 std::string TimberConverter::convert_func_eta(const AnalysisCommand &command) {
-    return attribute("eta", get_mapped_source(command,0));
+    return attribute(main_names.eta(), get_mapped_source(command,0));
 }
 std::string TimberConverter::convert_func_phi(const AnalysisCommand &command) {
-    return attribute("phi", get_mapped_source(command,0));
+    return attribute(main_names.phi(), get_mapped_source(command,0));
 }
 std::string TimberConverter::convert_func_mass(const AnalysisCommand &command) {
-    return attribute("mass", get_mapped_source(command,0));
+    return attribute(main_names.mass(), get_mapped_source(command,0));
 }
 std::string TimberConverter::convert_func_energy(const AnalysisCommand &command) {
     std::stringstream energy;
@@ -687,7 +687,7 @@ std::string TimberConverter::convert_func_deta_hadamard(const AnalysisCommand &c
     return multi_arg_lorentz_function("DeltaEtaHadamard", 2, command);
 }
 std::string TimberConverter::convert_func_size(const AnalysisCommand &command) {
-    std::string momentum_of_part = attribute("pt", command.get_source_argument(0));
+    std::string momentum_of_part = attribute(main_names.pt(), command.get_source_argument(0));
     std::stringstream computation;
     computation << "(size(" << momentum_of_part << "))";
     return computation.str();
@@ -804,7 +804,7 @@ std::string TimberConverter::convert_create_empty_direct(const AnalysisCommand &
     return "Direct({})";
 }
 std::string TimberConverter::convert_add_part_to_composite(const AnalysisCommand &command) {
-    return list_append("})", ",", command, attribute("pt", get_mapped_source(command,1)));
+    return list_append("})", ",", command, attribute(main_names.pt(), get_mapped_source(command,1)));
 }
 std::string TimberConverter::convert_name_element_of_composite(const AnalysisCommand &command) {
 
@@ -863,10 +863,21 @@ void TimberConverter::print() {
 
 
     attribute_delimiter = "_";
+
+    std::string events_tree_name;
+
     if (format == "NANOAOD") {
         attribute_delimiter = "_";
+        events_tree_name = "Events";
+        main_names = FourVectorNames("pt", "eta", "phi", "mass", "charge");
+        met_names = main_names;
     } else if (format == "DELPHES") {
         attribute_delimiter = ".";
+        events_tree_name = "Delphes";
+        main_names = FourVectorNames("PT", "Eta", "Phi", "Mass", "Charge");
+        met_names = FourVectorNames("MET", "Eta", "Phi", "fBits", "fBits"); // hacky solution
+    } else {
+        assert(false);
     }
 
     // get the path for our helper functions, relying on the "ROOT DIR" macro which we set during compile time
@@ -892,20 +903,24 @@ void TimberConverter::print() {
     emit("CompileCpp('", path_to_helper_cpp.string(), "')");
         
     // open up the input file and an output file
-    emit("a = analyzer('", in_file, "')\nout = ROOT.TFile.Open('", out_file, "','UPDATE')");
+    emit("a = analyzer('", in_file, "', eventsTreeName='", events_tree_name ,"')\nout = ROOT.TFile.Open('", out_file, "','UPDATE')");
 
     emit_newline();
 
-    // predefine MET to have the requisite variables to be a Lorentz vector
-    emit("a.Define('METV", attribute_delimiter, "pt','RVec<float> {", met_name, attribute_delimiter, "pt}')");
-    emit("a.Define('METV", attribute_delimiter, "phi','RVec<float> {", met_name, attribute_delimiter, "phi}')");
+    if (format == "NANOAOD") {
 
-    met_name.clear();
-    met_name = "METV";
+        // predefine MET to have the requisite variables to be a Lorentz vector
+        emit("a.Define('METV", attribute_delimiter, "pt','RVec<float> {", met_name, attribute_delimiter, "pt}')");
+        emit("a.Define('METV", attribute_delimiter, "phi','RVec<float> {", met_name, attribute_delimiter, "phi}')");
 
-    // a trick to get the eta and m to be an arraay of zeros in the right shape
-    emit("a.Define('", met_name, attribute_delimiter, "eta','", met_name, attribute_delimiter, "pt - ", met_name, attribute_delimiter, "pt')");
-    emit("a.Define('", met_name, attribute_delimiter, "mass', '", met_name, attribute_delimiter, "eta')");
+        met_name.clear();
+        met_name = "METV";
+
+        // a trick to get the eta and m to be an arraay of zeros in the right shape
+        emit("a.Define('", met_name, attribute_delimiter, "eta','", met_name, attribute_delimiter, "pt - ", met_name, attribute_delimiter, "pt')");
+        emit("a.Define('", met_name, attribute_delimiter, "mass', '", met_name, attribute_delimiter, "eta')");
+
+    }
 
     ALILCollection &commands = alil->get_commands();
     for (auto &command : commands.get_commands()) {

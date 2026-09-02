@@ -15,6 +15,24 @@
 #define CONVERTER_FUNCS_DECLARE(ENUM, NAME) \
     std::string convert_##NAME(const AnalysisCommand &) override;
 
+
+class FourVectorNames {
+    private:
+        std::string name_pt;
+        std::string name_eta;
+        std::string name_phi;
+        std::string name_mass;
+        std::string name_charge;  
+    
+    public:
+        FourVectorNames(std::string pt_in, std::string eta_in, std::string phi_in, std::string mass_in, std::string charge_in): name_pt(pt_in), name_eta(eta_in), name_phi(phi_in), name_mass(mass_in), name_charge(charge_in) {}
+        std::string pt() {return name_pt;}
+        std::string eta() {return name_eta;}
+        std::string phi() {return name_phi;}
+        std::string mass() {return name_mass;}
+        std::string charge() {return name_charge;}
+};
+
 class TimberConverter : public ALILToFrameworkCompiler {
 
     private:
@@ -27,6 +45,9 @@ class TimberConverter : public ALILToFrameworkCompiler {
 
         std::string met_name;
         std::string attribute_delimiter;
+
+        FourVectorNames main_names;
+        FourVectorNames met_names;
  
         void add_mapping(std::string source, std::string dest);
         std::string get_mapping(std::string);
