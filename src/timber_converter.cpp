@@ -896,7 +896,12 @@ void TimberConverter::print() {
 
     // import all our needed python helper functions
     emit("from adl_helpers import combine_without_duplicates, use_histo, use_histo_list");
-        
+    
+    if (format == "DELPHES") {
+        // load the Delphes helper script           
+        emit("from adl_flatten_delphes import enable_delphes");
+    }
+
     // compile the cpp helper functions into this
     emit("CompileCpp('", path_to_helper_cpp.string(), "')");
 
@@ -905,9 +910,6 @@ void TimberConverter::print() {
 
     // if we are using Delphes, we need to pre-flatten the tree, since unfortunately RDataFrame categorically refuses to deal with the TCloneArrays correctly
     if (format == "DELPHES") {
-        // load the Delphes helper script   
-        emit("from adl_flatten_delphes import enable_delphes");
-        
         // use the flattening function to produce a new analyzer
         emit("a = enable_delphes(a)");
     }
