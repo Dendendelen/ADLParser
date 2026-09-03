@@ -1,3 +1,11 @@
+#import an extra file that can contain any user functions
+#such functions should be put into the main body to be run, if needed
+import extra
+
+
+import ROOT
+import numpy as np
+
 def combine_without_duplicates(list1, list2):
     list1_set = set(list1)
     list2_set = set(list2)

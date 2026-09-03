@@ -896,26 +896,21 @@ void TimberConverter::print() {
 
     // import all our needed python helper functions
     emit("from adl_helpers import combine_without_duplicates, use_histo, use_histo_list");
-
-    // if we are using Delphes, we need to pre-flatten the tree, since unfortunately RDataFrame categorically refuses to deal with the TCloneArrays correctly
-    if (format == "DELPHES") {
-        // load the Delphes helper script as well   
-        emit("from adl_flatten_delphes import flatten_delphes");
-
-        std::stringstream flatname;
-        flatname << in_file << ".flat.root";
-        
-        // use the flattening function to produce a new file
-        emit("flatten_delphes(", in_file, ", output_file=",flatname.str(), ")");
-
-        in_file = flatname.str();
-    }
         
     // compile the cpp helper functions into this
     emit("CompileCpp('", path_to_helper_cpp.string(), "')");
 
     // open up the input file and an output file
     emit("a = analyzer('", in_file, "', eventsTreeName='", events_tree_name ,"')\nout = ROOT.TFile.Open('", out_file, "','UPDATE')");
+
+    // if we are using Delphes, we need to pre-flatten the tree, since unfortunately RDataFrame categorically refuses to deal with the TCloneArrays correctly
+    if (format == "DELPHES") {
+        // load the Delphes helper script   
+        emit("from adl_flatten_delphes import enable_delphes");
+        
+        // use the flattening function to produce a new analyzer
+        emit("a = enable_delphes(a)");
+    }
 
     emit_newline();
 
