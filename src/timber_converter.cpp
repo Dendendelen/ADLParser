@@ -202,34 +202,60 @@ std::string TimberConverter::add_subtract_particles(const AnalysisCommand &comma
         emit("a.Define('",dest,"_lorentzvector','",lorentz_addition.str(),"')");
         
         emit_comment("Get NanoAOD equivalent variables from Lorentz vector");
-        emit("a.Define('",dest,"_pt', 'Pt(",dest,"_lorentzvector)')");
-        emit("a.Define('",dest,"_eta', 'Eta(",dest,"_lorentzvector)')");
-        emit("a.Define('",dest,"_phi', 'Phi(",dest,"_lorentzvector)')");
-        emit("a.Define('",dest,"_mass', 'M(",dest,"_lorentzvector)')");
+        emit("a.Define('",dest, attribute_delimiter, main_names->pt(), "', 'Pt(",dest,"_lorentzvector)')");
+        emit("a.Define('",dest, attribute_delimiter, main_names->eta(), "', 'Eta(",dest,"_lorentzvector)')");
+        emit("a.Define('",dest, attribute_delimiter, main_names->phi(),"', 'Phi(",dest,"_lorentzvector)')");
+        emit("a.Define('",dest, attribute_delimiter, main_names->mass(), "', 'M(",dest,"_lorentzvector)')");
 
         emit_comment("Add charges manually");
-        emit("a.Define('",dest,"_charge', '", attribute("charge", last_val), "+", attribute("charge", this_val), "')");
+        emit("a.Define('",dest, attribute_delimiter, main_names->charge(),  "', '", attribute(main_names->charge(), last_val), "+", attribute(main_names->charge(), this_val), "')");
 
         return dest;
     }
 } 
 
-std::string TimberConverter::use_within_region(std::string fun_within_node, const AnalysisCommand &command) {
-    emit_newline();
-    emit_comment("Save current node before applying region");
-    emit("_old_node = a.GetActiveNode()");
-    
-    emit_comment("Apply region cuts and corrections");
-    emit("_this_reg_node_", command.get_source_argument(1), " = a.Apply(", get_mapped_source(command,1), "[0])");
-    emit("_this_reg_node_", command.get_source_argument(1), " = a.AddCorrections(", get_mapped_source(command,1), "[1])");
-    
-    emit_comment("Execute function within region context");
-    emit(fun_within_node, "(", get_mapped_source(command,0), ", _this_reg_node_", command.get_source_argument(1), ")");
-    
-    emit_comment("Restore previous node");
-    emit("a.SetActiveNode(_old_node)");
+std::string TimberConverter::use_within_region(std::string fun_within_node,  std::string extra_arg, const AnalysisCommand &command) {
 
-    return get_mapped_dest(command);
+    std::string reg_name;
+    std::string reg_mapped;
+
+
+    if (command.get_num_source_arguments() == 1) {
+        reg_name = command.get_source_argument(0);
+        reg_mapped = get_mapped_source(command, 0);
+    } else {
+        reg_name = command.get_source_argument(1);
+        reg_mapped = get_mapped_source(command, 1);
+    }
+
+    emit_newline();
+    
+    bool need_to_set_back_to_old = false;
+
+    if (region_already_has_node.contains(reg_name)) {
+        emit_comment("We have already defined this region as node _this_reg_node_",reg_name);
+    } else {
+        need_to_set_back_to_old = true;
+        region_already_has_node.emplace(reg_name);
+
+        emit_comment("Save current node before applying region");
+        emit("_old_node = a.GetActiveNode()");
+        
+        emit_comment("Apply region cuts and corrections");
+        emit("_this_reg_node_", reg_name, " = a.Apply(", reg_mapped, "[0])");
+        emit("_this_reg_node_", reg_name, " = a.AddCorrections(", reg_mapped, "[1])");
+    
+    }
+
+    emit_comment("Execute function within region context");
+    emit(fun_within_node, "(", extra_arg, ", _this_reg_node_", reg_name, ")");
+    
+    if (need_to_set_back_to_old) {
+        emit_comment("Restore previous node");
+        emit("a.SetActiveNode(_old_node)");
+    }
+
+    return command.has_dest_argument() ? get_mapped_dest(command) : "";
 }
 
 
@@ -322,8 +348,17 @@ std::string TimberConverter::convert_add_extern_particle(const AnalysisCommand &
     return extern_part.str();
 }
 std::string TimberConverter::convert_add_correctionlib(const AnalysisCommand &command) {
-    //TODO:
+    //TODO: check this
+    std::string filename_with_quotes = command.get_source_argument(0);
+    std::string keyname_with_quotes = command.get_source_argument(1);
+    
+    std::stringstream correctionlib_func_name;
+    correctionlib_func_name << command.get_dest_argument() << "->evaluate";
+
+    emit("ROOT.gInterpreter.Declare('auto ", command.get_dest_argument(), " = correction::CorrectionSet::from_file(", filename_with_quotes, ")->at(", keyname_with_quotes, ")')");
+    return correctionlib_func_name.str();
 }
+
 std::string TimberConverter::convert_create_mask(const AnalysisCommand &command) {
     emit_newline();
     emit_comment("Create selection mask ", command.get_dest_argument(), " from shape of ", command.get_source_argument(0));
@@ -369,10 +404,17 @@ std::string TimberConverter::convert_apply_mask(const AnalysisCommand &command) 
 
     emit_newline();
     emit_comment("Create object ", command.get_dest_argument(), " from mask");
-    emit("a.Apply("
-        , last_mask
-        , ")"
-    );
+    
+    if (!mask_already_defined.contains(last_mask)) {
+        emit("a.Apply("
+            , last_mask
+            , ")"
+        );
+        mask_already_defined.emplace(last_mask);
+    } else {
+        emit_comment("Mask ", last_mask, " already defined as a variable, we just use it now");
+    }
+
 
     emit("a.SubCollection('"
         , get_mapped_dest(command)
@@ -383,7 +425,7 @@ std::string TimberConverter::convert_apply_mask(const AnalysisCommand &command) 
         , "', useTake=False, skip=[\"idx\"])"
     );
 
-    return get_mapped_dest(command);
+    return get_mapped_dest(command) + "\x1d";
 }
 std::string TimberConverter::convert_create_empty_hist_list(const AnalysisCommand &command) {
     assert(command.get_num_arguments() == 0);
@@ -394,19 +436,32 @@ std::string TimberConverter::convert_add_hist_to_list(const AnalysisCommand &com
 }
 std::string TimberConverter::convert_use_hist(const AnalysisCommand &command) {
     emit_comment("Use histogram in region");
-    return use_within_region("use_histo", command);
+    return use_within_region("use_histo", get_mapped_source(command, 0), command);
 }
 std::string TimberConverter::convert_use_hist_list(const AnalysisCommand &command) {
     emit_comment("Use histogram list in region");
-    return use_within_region("use_histo_list",command);
+    return use_within_region("use_histo_list", get_mapped_source(command, 0), command);
 }
 std::string TimberConverter::convert_hist_1d(const AnalysisCommand &command) {
     emit_newline();
     emit_comment("Define 1D histogram: ", command.get_dest_argument());
     emit(get_mapped_dest(command), " = []");
     emit(get_mapped_dest(command), ".append('", get_mapped_dest(command), "')");
-    for (int i = 0; i < 4; i++) {
-        emit(get_mapped_dest(command), ".append('", get_mapped_source(command,i), "')");
+    for (int i = 0; i < 5; i++) {
+        std::string to_add;
+        if (i == 0) {
+            std::regex e1(",\"");
+            std::regex e2("\\[\"");
+            to_add = get_mapped_source(command, i);
+            to_add = std::regex_replace(to_add, e1, ",r\"");
+            to_add = std::regex_replace(to_add, e2, "[r\"");
+        }
+        else if (i < 4) {
+            to_add = get_mapped_source(command,i);
+        } else {
+            to_add = "'" + get_mapped_source(command,i) + "'";
+        }
+        emit(get_mapped_dest(command), ".append(", to_add, ")");
     }
     return get_mapped_dest(command);
 }
@@ -415,8 +470,20 @@ std::string TimberConverter::convert_hist_2d(const AnalysisCommand &command) {
     emit_comment("Define 2D histogram: ", command.get_dest_argument());
     emit(get_mapped_dest(command), " = []");
     emit(get_mapped_dest(command), ".append('", get_mapped_dest(command), "')");
-    for (int i = 0; i < 7; i++) { //TODO: check that this is the correct ordering
-        emit(get_mapped_dest(command), ".append('", get_mapped_source(command,i), "')");
+    for (int i = 0; i < 9; i++) { 
+        std::string to_add;
+        if (i == 0) {
+            std::regex e1(",\"");
+            std::regex e2("\\[\"");
+            to_add = get_mapped_source(command, i);
+            to_add = std::regex_replace(to_add, e1, ",r\"");
+            to_add = std::regex_replace(to_add, e2, "[r\"");
+        } else if (i < 4 || (i > 4 && i < 8)) {
+            to_add = get_mapped_source(command,i);
+        } else {
+            to_add = "'" + get_mapped_source(command,i) + "'";
+        }
+        emit(get_mapped_dest(command), ".append(", to_add, ")");
     }
     return get_mapped_dest(command);  
 }
@@ -434,35 +501,41 @@ std::string TimberConverter::convert_do_cutflow_on_region(const AnalysisCommand 
 
     std::string reg_name = get_mapped_source(command,0);
 
+    std::regex e("^V[0-9]+REG");
+    std::string clean_reg_name = std::regex_replace(reg_name, e, "");
+
     emit_newline();
     emit_comment("Generate cutflow report for region: ", reg_name);
-    emit("_old_node = a.GetActiveNode()");
-    std::stringstream line;
 
-    emit_comment("Apply region cuts and corrections for cutflow");
-    emit("_cutflow_node_", reg_name, " = a.Apply(", reg_name, "[0])");
-    emit("_cutflow_node_", reg_name, " = a.AddCorrections(", reg_name, "[1])");
+    return use_within_region("cutflow_generate", reg_name + ",'" + clean_reg_name + "'", command);
     
-    emit_newline();
-    emit_comment("Print cutflow table in LaTeX format");
-    emit("print('\\n---\\n \\\\begin{tabular}{c c c c} \\\\multicolumn{4}{c}{Cutflow report for region "
-        , reg_name
-        ,"}\\\\\\\\ \\\\hline Cut & Events left & Eff from previous & Eff from initial \\\\\\\\ \\\\hline')");
-    emit("for _cutflow_k, _cutflow_v in CutflowDict(_cutflow_node_", reg_name, ").items():");
-    emit("    _this_name = _cutflow_k");
-    emit("    if _this_name != 'Initial':");
-    emit("        _this_name = ", reg_name, "[0].items[_cutflow_k]");
-    emit("        _this_name = re.sub('[A-Za-z0-9]*UNION','',_this_name)");
-    emit("    else:");
-    emit("        _init = _cutflow_v\n        _prev = _init");
-    emit("    print('\\\\verb`' + _this_name + '` "
-        , "& ' + str(_cutflow_v) + ' & ' + f'{(_cutflow_v/(_prev+1e-9)):.2%}'[:-1] + '\\\\% & ' + f'{(_cutflow_v/_init):.4%}'[:-1] + '\\\\%\\\\\\\\')");
-    emit("    _prev = _cutflow_v");
-    emit("print('\\\\end{tabular} \\n---\\n')");
+    // emit("_old_node = a.GetActiveNode()");
+    // std::stringstream line;
+
+    // emit_comment("Apply region cuts and corrections for cutflow");
+    // emit("_cutflow_node_", reg_name, " = a.Apply(", reg_name, "[0])");
+    // emit("_cutflow_node_", reg_name, " = a.AddCorrections(", reg_name, "[1])");
     
-    emit_newline();
-    emit_comment("Restore previous node after cutflow");
-    emit("a.SetActiveNode(_old_node)");
+    // emit_newline();
+    // emit_comment("Print cutflow table in LaTeX format");
+    // emit("print('\\n---\\n \\\\begin{tabular}{c c c c} \\\\multicolumn{4}{c}{Cutflow report for region "
+    //     , clean_reg_name
+    //     ,"}\\\\\\\\ \\\\hline Cut & Events left & Eff from previous & Eff from initial \\\\\\\\ \\\\hline')");
+    // emit("for _cutflow_k, _cutflow_v in CutflowDict(_cutflow_node_", reg_name, ").items():");
+    // emit("    _this_name = _cutflow_k");
+    // emit("    if _this_name != 'Initial':");
+    // emit("        _this_name = ", reg_name, "[0].items[_cutflow_k]");
+    // emit("        _this_name = re.sub('[A-Za-z0-9]*UNION','',_this_name)");
+    // emit("    else:");
+    // emit("        _init = _cutflow_v\n        _prev = _init");
+    // emit("    print('\\\\verb`' + _this_name + '` "
+    //     , "& ' + str(_cutflow_v) + ' & ' + f'{(_cutflow_v/(_prev+1e-9)):.2%}'[:-1] + '\\\\% & ' + f'{(_cutflow_v/_init):.4%}'[:-1] + '\\\\%\\\\\\\\')");
+    // emit("    _prev = _cutflow_v");
+    // emit("print('\\\\end{tabular} \\n---\\n')");
+    
+    // emit_newline();
+    // emit_comment("Restore previous node after cutflow");
+    // emit("a.SetActiveNode(_old_node)");
 
     return "";
 }
@@ -619,9 +692,13 @@ std::string TimberConverter::convert_expr_logical_not(const AnalysisCommand &com
     return multi_arg_function("!", 1, command);
 }
 std::string TimberConverter::convert_expr_if_ternary(const AnalysisCommand &command) {
+
+    std::string bin_infix_question = binary_infix_operation("?", command);
+    bin_infix_question.pop_back();
+
     std::stringstream ternary;
-    ternary << binary_infix_operation("?", command);
-    ternary << ":" << get_mapped_source(command,2);
+    ternary << bin_infix_question;
+    ternary << ":" << get_mapped_source(command,2) << ")";
     return ternary.str();
 }
 std::string TimberConverter::convert_expr_index(const AnalysisCommand &command) {
@@ -669,25 +746,25 @@ std::string TimberConverter::convert_func_distinct(const AnalysisCommand &comman
     return computation.str();
 }
 std::string TimberConverter::convert_func_dr(const AnalysisCommand &command) {
-    return multi_arg_lorentz_function("DeltaR", 2, command);
+    return multi_arg_lorentz_function("LVDeltaR", 2, command);
 }
 std::string TimberConverter::convert_func_dphi(const AnalysisCommand &command) {
-    return multi_arg_lorentz_function("DeltaPhi", 2, command);
+    return multi_arg_lorentz_function("LVDeltaPhi", 2, command);
 }
 std::string TimberConverter::convert_func_deta(const AnalysisCommand &command) {
-    return multi_arg_lorentz_function("DeltaEta", 2, command);
+    return multi_arg_lorentz_function("LVDeltaEta", 2, command);
 }
 std::string TimberConverter::convert_func_dr_hadamard(const AnalysisCommand &command) {
-    return multi_arg_lorentz_function("DeltaRHadamard", 2, command);
+    return multi_arg_lorentz_function("LVDeltaRHadamard", 2, command);
 }
 std::string TimberConverter::convert_func_dphi_hadamard(const AnalysisCommand &command) {
-    return multi_arg_lorentz_function("DeltaPhiHadamard", 2, command);
+    return multi_arg_lorentz_function("LVDeltaPhiHadamard", 2, command);
 }
 std::string TimberConverter::convert_func_deta_hadamard(const AnalysisCommand &command) {
-    return multi_arg_lorentz_function("DeltaEtaHadamard", 2, command);
+    return multi_arg_lorentz_function("LVDeltaEtaHadamard", 2, command);
 }
 std::string TimberConverter::convert_func_size(const AnalysisCommand &command) {
-    std::string momentum_of_part = attribute(main_names->pt(), command.get_source_argument(0));
+    std::string momentum_of_part = attribute(main_names->pt(), get_mapped_source(command, 0));
     std::stringstream computation;
     computation << "(size(" << momentum_of_part << "))";
     return computation.str();
@@ -729,10 +806,10 @@ std::string TimberConverter::convert_func_log(const AnalysisCommand &command) {
     return multi_arg_function("log", 1, command);
 }
 std::string TimberConverter::convert_func_ave(const AnalysisCommand &command) {
-    return multi_arg_function("ROOT::VecOps::Mean", 1, command);
+    return multi_arg_function("MeanOf", 1, command);
 }
 std::string TimberConverter::convert_func_sum(const AnalysisCommand &command) {
-    return multi_arg_function("ROOT::VecOps::Sum", 1, command);
+    return multi_arg_function("SumOf", 1, command);
 }
 std::string TimberConverter::convert_func_min_of_pair(const AnalysisCommand &command) {
     return multi_arg_function("std::min", 2, command);
@@ -741,10 +818,10 @@ std::string TimberConverter::convert_func_max_of_pair(const AnalysisCommand &com
     return multi_arg_function("std::max", 2, command);
 }
 std::string TimberConverter::convert_func_min_of_list(const AnalysisCommand &command) {
-    return multi_arg_function("ROOT::VecOps::Min", 1, command);
+    return multi_arg_function("MinOf", 1, command);
 }
 std::string TimberConverter::convert_func_max_of_list(const AnalysisCommand &command) {
-    return multi_arg_function("ROOT::VecOps::Max", 1, command);
+    return multi_arg_function("MaxOf", 1, command);
 }
 std::string TimberConverter::convert_func_sort_ascend(const AnalysisCommand &command) {
     return multi_arg_function("ROOT::VecOps::Sort", 1, command);
@@ -760,6 +837,16 @@ std::string TimberConverter::convert_func_named(const AnalysisCommand &command) 
         return multi_arg_function(name, 1, command);
     }
 }
+
+std::string TimberConverter::convert_create_empty_string_list(const AnalysisCommand &command) {
+    assert(command.get_num_source_arguments() == 0);
+    return "[]";
+}
+
+std::string TimberConverter::convert_add_string_to_list(const AnalysisCommand &command) {
+    return list_append("]", ",", command);
+}
+
 std::string TimberConverter::convert_create_empty_value_list(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
     return "{}";
@@ -788,20 +875,20 @@ std::string TimberConverter::convert_add_part_to_union(const AnalysisCommand &co
             , attribute("", new_to_add, "")
             , "'])"
         );
-        return get_mapped_dest(command);
+        return get_mapped_dest(command) + "\x1d";
     }
 }
 std::string TimberConverter::convert_create_empty_cartesian(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
-    return "Comb({})";
+    return "GeneralComb({})";
 }
 std::string TimberConverter::convert_create_empty_disjoint(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
-    return "Disjoint({})";
+    return "GeneralDisjoint({})";
 }
 std::string TimberConverter::convert_create_empty_direct(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
-    return "Direct({})";
+    return "GeneralDirect({})";
 }
 std::string TimberConverter::convert_add_part_to_composite(const AnalysisCommand &command) {
     return list_append("})", ",", command, attribute(main_names->pt(), get_mapped_source(command,1)));
@@ -825,8 +912,7 @@ std::string TimberConverter::convert_name_element_of_composite(const AnalysisCom
         , "]"
         , "', useTake=True, skip=[\"idx\"])"
     );
-
-    return get_mapped_dest(command);
+    return get_mapped_dest(command) + "\x1d";
 }
 std::string TimberConverter::convert_create_empty_particle(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
@@ -895,7 +981,7 @@ void TimberConverter::print() {
     emit("    sys.path.append(adl_help_dir)");
 
     // import all our needed python helper functions
-    emit("from adl_helpers import combine_without_duplicates, use_histo, use_histo_list");
+    emit("from adl_helpers import combine_without_duplicates, use_histo, use_histo_list, cutflow_generate");
     
     if (format == "DELPHES") {
         // load the Delphes helper script           
@@ -918,15 +1004,15 @@ void TimberConverter::print() {
 
 
     // predefine MET to have the requisite variables to be a Lorentz vector
-    emit("a.Define('METV", attribute_delimiter, "pt','RVec<float> {", met_name, attribute_delimiter, "pt}')");
-    emit("a.Define('METV", attribute_delimiter, "phi','RVec<float> {", met_name, attribute_delimiter, "phi}')");
+    emit("a.Define('METV", attribute_delimiter, main_names->pt(), "','RVec<float> {", met_name, attribute_delimiter, met_names->pt(), "}')");
+    emit("a.Define('METV", attribute_delimiter, main_names->phi(), "','RVec<float> {", met_name, attribute_delimiter, met_names->phi(), "}')");
 
     met_name.clear();
     met_name = "METV";
 
     // a trick to get the eta and m to be an arraay of zeros in the right shape
-    emit("a.Define('", met_name, attribute_delimiter, "eta','", met_name, attribute_delimiter, "pt - ", met_name, attribute_delimiter, "pt')");
-    emit("a.Define('", met_name, attribute_delimiter, "mass', '", met_name, attribute_delimiter, "eta')");
+    emit("a.Define('", met_name, attribute_delimiter, main_names->eta(), "','", met_name, attribute_delimiter, main_names->pt(), " - ", met_name, attribute_delimiter, main_names->pt(), "')");
+    emit("a.Define('", met_name, attribute_delimiter, main_names->mass(), "', '", met_name, attribute_delimiter, main_names->eta(), "')");
 
     
 

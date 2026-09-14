@@ -376,13 +376,13 @@ void ALILConverter::visit_region(PNode node) {
 
     // add cutflow and eventlist outputs here, we will remove them later if we do not need them.
     AnalysisCommandBuilder do_cutflow(ALIL::DO_CUTFLOW_ON_REGION);
-    do_cutflow.add_source_argument(final_reg_name);
+    do_cutflow.add_source_argument(final_name_of_region.get_source_argument(0));
     do_cutflow.add_empty_dest();
 
     do_cutflow.collect_into(commands);
 
     AnalysisCommandBuilder do_eventlist(ALIL::DO_EVENTLIST_ON_REGION);
-    do_eventlist.add_source_argument(final_reg_name);
+    do_eventlist.add_source_argument(final_name_of_region.get_source_argument(0));
     do_eventlist.add_empty_dest();
 
     do_eventlist.collect_into(commands);
@@ -727,7 +727,7 @@ void ALILConverter::visit_region_bins(PNode node) {
 
         std::string lower_bound;
 
-        if (!last_bound) {
+        if (last_bound) {
 
             AnalysisCommandBuilder ge(ALIL::EXPR_GE);
             ge.add_source_argument(discriminant_expression);
@@ -746,11 +746,18 @@ void ALILConverter::visit_region_bins(PNode node) {
         std::string upper_bound = lt.reserve_dest_arg_value(this);
         lt.collect_into(commands);
 
-        AnalysisCommandBuilder both_bounds(ALIL::EXPR_AND);
-        both_bounds.add_source_argument(lower_bound);
-        both_bounds.add_source_argument(upper_bound);
-        std::string final_bound = both_bounds.reserve_dest_arg_value(this);
-        both_bounds.collect_into(commands);
+        std::string final_bound;
+
+        if (lower_bound != "true") {
+            AnalysisCommandBuilder both_bounds(ALIL::EXPR_AND);
+            both_bounds.add_source_argument(lower_bound);
+            both_bounds.add_source_argument(upper_bound);
+            final_bound = both_bounds.reserve_dest_arg_value(this);
+            both_bounds.collect_into(commands);
+        } else {
+            final_bound = upper_bound;
+        }
+       
 
         AnalysisCommandBuilder bin(ALIL::CREATE_BIN_OF_REGION);
         bin.add_source_argument(last_region);
@@ -771,6 +778,31 @@ void ALILConverter::visit_region_bins(PNode node) {
 
         do_eventlist.collect_into(commands);
     }
+
+    AnalysisCommandBuilder ge(ALIL::EXPR_GE);
+    ge.add_source_argument(discriminant_expression);
+    ge.add_source_argument(*last_bound);
+    std::string lower_bound = ge.reserve_dest_arg_value(this);
+    ge.collect_into(commands);
+
+    AnalysisCommandBuilder bin(ALIL::CREATE_BIN_OF_REGION);
+    bin.add_source_argument(last_region);
+    bin.add_source_argument(lower_bound);
+    std::string bin_name = bin.reserve_dest_arg_value(this); 
+    bin.collect_into(commands);
+
+    // add cutflow and eventlist outputs here, we will remove them later if we do not need them.
+    AnalysisCommandBuilder do_cutflow(ALIL::DO_CUTFLOW_ON_REGION);
+    do_cutflow.add_source_argument(bin_name);
+    do_cutflow.add_empty_dest();
+
+    do_cutflow.collect_into(commands);
+
+    AnalysisCommandBuilder do_eventlist(ALIL::DO_EVENTLIST_ON_REGION);
+    do_eventlist.add_source_argument(bin_name);
+    do_eventlist.add_empty_dest();
+
+    do_eventlist.collect_into(commands);
 
     node->set_associated_string(last_region);
 
@@ -798,7 +830,7 @@ void ALILConverter::visit_region_histogram(PNode node) {
 
     visit_children(node);
 
-    std::string hist_name = node->consume_associated_string();
+    std::string hist_name = node->get_child(0)->consume_associated_string();
     AnalysisCommandBuilder use_hist(ALIL::USE_HIST);
 
     use_hist.add_source_argument(hist_name);
@@ -822,11 +854,18 @@ void ALILConverter::visit_histogram(PNode node) {
     std::string name = node->get_child(0)->consume_associated_string();
 
     hist.add_dest_argument(name);
-    hist.add_source_argument(node->get_child(1)->consume_associated_string()); //TODO:check this
+    
+    //string list for titles
+    hist.add_source_argument(node->get_child(1)->consume_associated_string());
 
+    //binning number
     hist.add_source_argument(node->get_child(2)->consume_associated_string());
+
+    // bounds
     hist.add_source_argument(node->get_child(3)->consume_associated_string());
     hist.add_source_argument(node->get_child(4)->consume_associated_string());
+
+    // value
     hist.add_source_argument(node->get_child(5)->consume_associated_string());
 
     if (is_2d) {
@@ -865,6 +904,26 @@ void ALILConverter::visit_particle_sum(PNode node) {
     }
 
     node->set_associated_string(last_added_particle);
+}
+
+void ALILConverter::visit_string_list(PNode node) {
+    AnalysisCommandBuilder list_create(ALIL::CREATE_EMPTY_STRING_LIST);
+    list_create.add_empty_source();
+    std::string last_list = list_create.reserve_dest_arg_value(this);
+    list_create.collect_into(commands);
+
+    visit_children(node);
+
+    for (PNode value : node->get_children()) {
+        AnalysisCommandBuilder add_to_list(ALIL::ADD_STRING_TO_LIST);
+        add_to_list.add_source_argument(last_list);
+        add_to_list.add_source_argument(value->consume_associated_string());
+        last_list = add_to_list.reserve_dest_arg_value(this);
+
+        add_to_list.collect_into(commands);
+    }
+
+    node->set_associated_string(last_list);
 }
 
 void ALILConverter::visit_variable_list(PNode node) {
@@ -1093,7 +1152,7 @@ void ALILConverter::visit_if_statement(PNode node) {
 
     AnalysisCommandBuilder if_statement(ALIL::EXPR_IF_TERNARY);
     if_statement.add_source_argument(discriminant);
-    if_statement.add_source_argument(result_if_false);
+    if_statement.add_source_argument(result_if_true);
     if_statement.add_source_argument(result_if_false);
     node->set_associated_string(if_statement.reserve_dest_arg_value(this));
 
@@ -1286,11 +1345,11 @@ void ALILConverter::visit_builtin_func_terminal(PNode node) {
     } else {
         input_node = node->get_child(0);
     }
+    visit(input_node);
 
     switch (node->get_token()->get_token_type()) {
         case CASE_BUILT_IN_PARTICLE_FUN_ONE_ARG: case CASE_BUILT_IN_PARTICLE_FUN_TWO_ARG:
         {
-            visit(input_node);
             // particle functions are always parsed to a particle list, we want to extract the internals of this list
 
             auto children = input_node->get_children();

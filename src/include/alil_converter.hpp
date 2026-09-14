@@ -80,6 +80,7 @@ class ALILConverter : ASTVisitor {
 
         void visit_histogram(PNode node) override;
         void visit_particle_sum(PNode node) override;
+        void visit_string_list(PNode node) override;
         void visit_variable_list(PNode node) override;
 
         void visit_expression(PNode node) override;

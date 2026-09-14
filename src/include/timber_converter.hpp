@@ -40,6 +40,9 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::unordered_map<std::string, std::string> var_mappings;
 
         std::unordered_set<std::string> particle_already_has_provenance;
+        std::unordered_set<std::string> mask_already_defined;
+        std::unordered_set<std::string> region_already_has_node;
+
         std::unordered_set<std::string> is_attribute;
         std::unordered_set<std::string> is_lorentz;
 
@@ -63,7 +66,7 @@ class TimberConverter : public ALILToFrameworkCompiler {
         std::string binary_infix_operation(std::string op_name, const AnalysisCommand &command);
         std::string interval(std::string left_bound_op, std::string right_bound_op, const AnalysisCommand &command);
         std::string add_subtract_particles(const AnalysisCommand &command, bool is_subtraction = false);
-        std::string use_within_region(std::string fun_within_node, const AnalysisCommand &command);
+        std::string use_within_region(std::string fun_within_node, std::string extra_arg, const AnalysisCommand &command);
 
         template<typename... Args>
         void emit(Args... args) {

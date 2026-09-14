@@ -962,7 +962,9 @@ void Parser::parse_binning(PNode parent) {
 
     // BINNING -> INTEGER, NUMBER, NUMBER
     parse_integer(parent, "Only literal integers are allowed to specify binning quantity on histograms");
+    lexer->expect_and_consume(Token_type::COMMA);
     parse_number(parent, "Only literal numbers are allowed for the lower bound of a histogram");
+    lexer->expect_and_consume(Token_type::COMMA);
     parse_number(parent, "Only literal numbers are allowed for the upper bound of a histogram");
 
 }

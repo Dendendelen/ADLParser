@@ -135,6 +135,9 @@ class ALILConverter;
                                                                                \
     X(FUNC_NAMED,                       func_named)                            \
                                                                                \
+    X(CREATE_EMPTY_STRING_LIST,          create_empty_string_list)             \
+    X(ADD_STRING_TO_LIST,                add_string_to_list)                   \
+                                                                               \
     X(CREATE_EMPTY_VALUE_LIST,          create_empty_value_list)               \
     X(ADD_VALUE_TO_LIST,                add_value_to_list)                     \
                                                                                \
