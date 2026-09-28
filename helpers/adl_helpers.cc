@@ -100,6 +100,9 @@ float LVDeltaR(ROOT::Math::PtEtaPhiMVector v1, ROOT::Math::PtEtaPhiMVector v2) {
 }
 
 RVec<float> LVDeltaRHadamard(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+    if (v1.size() != v2.size()) {
+        throw std::runtime_error("LVDeltaRHadamard: input vectors have different lengths");
+    }
     auto dR_lamb = [](ROOT::Math::PtEtaPhiMVector vec1, ROOT::Math::PtEtaPhiMVector vec2) {
         return LVDeltaR(vec1, vec2);
     };
@@ -235,6 +238,9 @@ float LVDeltaPhi(ROOT::Math::PtEtaPhiMVector v1, ROOT::Math::PtEtaPhiMVector v2)
 }
 
 RVec<float> LVDeltaPhiHadamard(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+    if (v1.size() != v2.size()) {
+        throw std::runtime_error("LVDeltaPhiHadamard: input vectors have different lengths");
+    }
     auto dR_lamb = [](ROOT::Math::PtEtaPhiMVector vec1, ROOT::Math::PtEtaPhiMVector vec2) {
         return LVDeltaPhi(vec1, vec2);
     };
@@ -260,6 +266,9 @@ float LVDeltaEta(ROOT::Math::PtEtaPhiMVector v1, ROOT::Math::PtEtaPhiMVector v2)
 }
 
 RVec<float> LVDeltaEtaHadamard(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+    if (v1.size() != v2.size()) {
+        throw std::runtime_error("LVDeltaEtaHadamard: input vectors have different lengths");
+    }
     auto dR_lamb = [](ROOT::Math::PtEtaPhiMVector vec1, ROOT::Math::PtEtaPhiMVector vec2) {
         return LVDeltaEta(vec1, vec2);
     };
@@ -284,6 +293,9 @@ ROOT::Math::PtEtaPhiMVector TLV(float pt, float eta, float phi, float m) {
 }
 
 RVec<ROOT::Math::PtEtaPhiMVector> TLV(RVec<float> pt,RVec<float> eta,RVec<float> phi,RVec<float> m) {
+    if (pt.size() != eta.size() || pt.size() != phi.size() || pt.size() != m.size()) {
+        throw std::runtime_error("TLV: input component vectors have different lengths");
+    }
     RVec<ROOT::Math::PtEtaPhiMVector> vs;
     vs.reserve(pt.size());
     for (size_t i = 0; i < pt.size(); i++) {

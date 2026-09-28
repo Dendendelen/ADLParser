@@ -242,6 +242,7 @@ std::string TimberConverter::use_within_region(std::string fun_within_node,  std
         emit("_old_node = a.GetActiveNode()");
         
         emit_comment("Apply region cuts and corrections");
+        emit("print('Applying region ", reg_name, "')");
         emit("_this_reg_node_", reg_name, " = a.Apply(", reg_mapped, "[0])");
         emit("_this_reg_node_", reg_name, " = a.AddCorrections(", reg_mapped, "[1])");
     
@@ -711,7 +712,7 @@ std::string TimberConverter::convert_expr_index_range(const AnalysisCommand &com
     return multi_arg_function("index_get", 3, command);
 }
 std::string TimberConverter::convert_expr_index_until(const AnalysisCommand &command) {
-    return multi_arg_function("index_unti", 2, command);
+    return multi_arg_function("index_until", 2, command);
 }
 std::string TimberConverter::convert_expr_index_from(const AnalysisCommand &command) {
     return multi_arg_function("index_from", 2, command);
