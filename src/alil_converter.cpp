@@ -4,7 +4,6 @@
 #include "node.hpp"
 #include "exceptions.hpp"
 #include "tokens.hpp"
-#include <algorithm>
 #include <cassert>
 #include <memory>
 #include <optional>
@@ -280,7 +279,7 @@ void ALILConverter::visit_table_def(PNode node) {
     // 1 or 3 for actual values, 2*num_vars for the upper and lower bounds for every variable
     int num_columns_per_row = (do_errors ? 3 : 1) + 2*num_vars;
     if ((table_size % num_columns_per_row) != 0) {
-        raise_analysis_conversion_exception("Invalid table, it is not square: likely at least one row is missing at least one component", nvars_node->get_token());
+        raise_analysis_conversion_exception("Invalid table, the number of elements provided is not divisible by the number expected in a row, likely at least one row is missing at least one component", table_list_node->get_token());
     }
     int num_entries = table_size / num_columns_per_row;
 
@@ -972,6 +971,8 @@ AnalysisLevelInstruction inst_for_binary(PToken tok) {
             return ALIL::EXPR_BITWISE_OR;
         case TOK::EQ: case TOK::ASSIGN:
             return ALIL::EXPR_EQ;
+        case TOK::NE:
+            return ALIL::EXPR_NE;
         case TOK::LT:
             return ALIL::EXPR_LT;
         case TOK::GT:
@@ -985,7 +986,7 @@ AnalysisLevelInstruction inst_for_binary(PToken tok) {
         case TOK::OR:
             return ALIL::EXPR_OR;
         default:
-            assert(false);
+            raise_analysis_conversion_exception("Failed to understand this binary operator", tok);
             return ALIL::CONVERSION_ERROR;
     }
 }
@@ -1340,16 +1341,30 @@ void ALILConverter::visit_builtin_func_terminal(PNode node) {
     AnalysisCommandBuilder func(inst_for_builtin(node->get_token()));
 
     PNode input_node;
+    bool is_implicit = false;
+
     if (node->get_parent().lock()->get_ast_type() == AST::OPERATOR_TERMINAL && node->get_parent().lock()->get_token()->get_token_type() == TOK::DOT_INDEX) {
         input_node = node->get_parent().lock();
-    } else {
+    } else if (node->get_children().size() > 0) {
         input_node = node->get_child(0);
+        visit(input_node);
+    } else {
+        // this must be implicit then - we assume the target is "this"
+        if (what_object_is_this == "") {
+            raise_analysis_conversion_exception("Unspecified target for the function in a context where it cannot be implicit.", node->get_token());
+        }
+
+        is_implicit = true;
     }
-    visit(input_node);
 
     switch (node->get_token()->get_token_type()) {
         case CASE_BUILT_IN_PARTICLE_FUN_ONE_ARG: case CASE_BUILT_IN_PARTICLE_FUN_TWO_ARG:
         {
+
+            if (is_implicit) {
+                func.add_source_argument(what_object_is_this);
+                break;
+            }
             // particle functions are always parsed to a particle list, we want to extract the internals of this list
 
             auto children = input_node->get_children();
@@ -1361,6 +1376,7 @@ void ALILConverter::visit_builtin_func_terminal(PNode node) {
 
         case CASE_BUILT_IN_MATH_FUN:
         {
+            if (is_implicit) raise_analysis_conversion_exception("Cannot use an implicit mathematical function on a particle object", node->get_token());
             func.add_source_argument(input_node->consume_associated_string());
         } break;
         default:

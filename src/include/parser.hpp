@@ -48,9 +48,8 @@ class Parser {
         void parse_binning(PNode parent);
 
         void parse_bool(PNode parent);
-        void parse_id(PNode parent);
         void parse_string(PNode parent, std::string error = "");
-        void parse_varname(PNode parent, std::string error = "");
+        void parse_id(PNode parent, std::string error = "");
         void parse_number(PNode parent, std::string error = "");
         void parse_integer(PNode parent, std::string error = "");
         void parse_scientific(PNode parent, std::string error = "");

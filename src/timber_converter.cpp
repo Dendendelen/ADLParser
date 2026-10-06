@@ -198,7 +198,7 @@ std::string TimberConverter::add_subtract_particles(const AnalysisCommand &comma
         lorentz_addition << "(" << lorentzify(last_val) << (is_subtraction ? "-" : "+") << lorentzify(this_val) << ")";
         
         emit_newline();
-        emit_comment("Particle ", is_subtraction ? "subtraction" : "addition", "by combining Lorentz vectors");
+        emit_comment("Particle ", is_subtraction ? "subtraction" : "addition", " by combining Lorentz vectors");
         emit("a.Define('",dest,"_lorentzvector','",lorentz_addition.str(),"')");
         
         emit_comment("Get NanoAOD equivalent variables from Lorentz vector");
@@ -262,7 +262,7 @@ std::string TimberConverter::use_within_region(std::string fun_within_node,  std
 
 
 std::string TimberConverter::convert_conversion_error(const AnalysisCommand &command) {
-    assert(command.get_num_arguments() == 0);
+    assert(command.get_num_source_arguments() == 0);
     assert(false);
 }
 std::string TimberConverter::convert_create_empty_info_list(const AnalysisCommand &command) {
@@ -429,7 +429,7 @@ std::string TimberConverter::convert_apply_mask(const AnalysisCommand &command) 
     return get_mapped_dest(command) + "\x1d";
 }
 std::string TimberConverter::convert_create_empty_hist_list(const AnalysisCommand &command) {
-    assert(command.get_num_arguments() == 0);
+    assert(command.get_num_source_arguments() == 0);
     return "[]";
 }
 std::string TimberConverter::convert_add_hist_to_list(const AnalysisCommand &command) {

@@ -209,7 +209,7 @@ void Parser::parse_initializations(PNode parent) {
 /* INITIALIZATION productions:
 ---
 
-    INITIALIZATION -> ID ID
+    INITIALIZATION -> ID STRING
 
 */
 void Parser::parse_initialization(PNode parent) {
@@ -218,7 +218,7 @@ void Parser::parse_initialization(PNode parent) {
 
     // assume we just want two strings or names to be an arbitrary extra info statement
     parse_id(initialization);
-    parse_id(initialization);
+    parse_string(initialization);
 
 }
 
@@ -771,7 +771,7 @@ void Parser::parse_region_command(PNode parent) {
 
             // REGION_COMMAND -> reject E
             lexer->expect_and_consume(TOK::REJEC);
-            parse_expression(parent);
+            parse_expression(reject);
             return;
         }
         
@@ -998,31 +998,6 @@ void Parser::parse_bool(PNode parent) {
 }
 
 
-/* ID productions:
----
-
-    ID -> STRING
-
-    ID -> VARNAME
-
- */
-void Parser::parse_id(PNode parent) {
-
-    PToken tok = lexer->peek(0);
-
-    if (tok->get_token_type() == TOK::VARNAME) {
-        // ID -> VARNAME
-        parse_varname(parent);
-    } else if (tok->get_token_type() == TOK::STRING) {
-        // ID -> STRING
-        parse_string(parent);
-    } else {
-        raise_parsing_exception("Invalid ID, allowed types are variable-type names and strings", tok);
-    }
-
-}
-
-
 /* STRING productions
 ---
 
@@ -1040,20 +1015,21 @@ void Parser::parse_string(PNode parent, std::string error) {
 }
 
 
-/* VARNAME productions
+/* ID productions 
 
-    VARNAME -> [varname token]
+    ID -> [varname token]
 
 */
-void Parser::parse_varname(PNode parent, std::string error) {
-
+void Parser::parse_id(PNode parent, std::string error) {
+    
     PToken tok = lexer->peek(0);
 
-    // VARNAME -> [varname token]
+    // ID -> [varname token]
     lexer->expect_and_consume(TOK::VARNAME, error);
     create_node(AST::VARYING_TERMINAL, parent, tok);
 
 }
+
 
 
 /* NUMBER productions

@@ -54,7 +54,7 @@ out:
 
 .PHONY: clean dot
 clean:
-	rm -rf out/*.o main
+	rm -rf out/*.o adlparser
 
 dot:
 	dot -T png -O graph.gv
