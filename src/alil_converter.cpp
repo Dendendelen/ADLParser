@@ -846,6 +846,10 @@ void ALILConverter::visit_histogram(PNode node) {
     
     bool is_2d = node->get_children().size() > 6;
 
+    if (is_2d && node->get_children().size() < 10) {
+        raise_analysis_conversion_exception("Too few arguments for 2d histogram", node->get_token());
+    }
+
     AnalysisCommandBuilder hist(is_2d ? ALIL::HIST_2D : ALIL::HIST_1D);
 
     visit_children(node);
@@ -982,7 +986,7 @@ AnalysisLevelInstruction inst_for_binary(PToken tok) {
         case TOK::GE:
             return ALIL::EXPR_GE;
         case TOK::AND:
-            return ALIL::EXPR_ADD;
+            return ALIL::EXPR_AND;
         case TOK::OR:
             return ALIL::EXPR_OR;
         default:
@@ -1257,6 +1261,7 @@ void ALILConverter::visit_max_expression(PNode node) {
 
 void ALILConverter::visit_negate(PNode node) {
     AnalysisCommandBuilder negate(ALIL::EXPR_NEGATE);
+    visit_children(node);
     negate.add_source_argument(node->get_child(0)->consume_associated_string());
     node->set_associated_string(negate.reserve_dest_arg_value(this));
     

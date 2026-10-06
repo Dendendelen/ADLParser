@@ -28,8 +28,12 @@ std::string TimberConverter::get_mapping(std::string in) {
 
     if (is_string(in) || is_number(in)) return in;
     
-    std::string mapped = var_mappings[in];
+    std::string mapped = "";
 
+    if (var_mappings.contains(in)) {
+        mapped = var_mappings[in];
+    }
+    
     if (mapped == in) return in;
     if (var_mappings.contains(mapped)) return get_mapping(mapped);
 
@@ -262,8 +266,9 @@ std::string TimberConverter::use_within_region(std::string fun_within_node,  std
 
 
 std::string TimberConverter::convert_conversion_error(const AnalysisCommand &command) {
+    // this simply converts as a no-op
     assert(command.get_num_source_arguments() == 0);
-    assert(false);
+    return "";
 }
 std::string TimberConverter::convert_create_empty_info_list(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
@@ -962,7 +967,9 @@ void TimberConverter::print() {
         main_names = FourVectorNames("PT", "Eta", "Phi", "Mass", "Charge");
         met_names = FourVectorNames("MET", "Eta", "Phi", "fBits", "fBits"); // hacky solution
     } else {
-        assert(false);
+        events_tree_name = "Events";
+        main_names = FourVectorNames("pt", "eta", "phi", "mass", "charge");
+        met_names = main_names;
     }
 
     // get the path for our helper functions, relying on the "ROOT DIR" macro which we set during compile time
