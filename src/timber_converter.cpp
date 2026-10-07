@@ -1024,8 +1024,7 @@ void TimberConverter::print() {
 
     
 
-    ALILCollection &commands = alil->get_commands();
-    for (auto &command : commands.get_commands()) {
+    for (auto &command : alil->get_commands()) {
         handle_command(command);
     }
 

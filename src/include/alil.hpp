@@ -251,6 +251,9 @@ class CONSUMABLE(unconsumed) AnalysisCommandBuilder : public AnalysisCommand{
         void collect_into(ALILCollection &) CALLABLE_UNCONSUMED SET_CONSUMED;
         void collect_into_reverse(ALILCollection &) CALLABLE_UNCONSUMED SET_CONSUMED;
 
+        void collect_into(ALILCollection *) CALLABLE_UNCONSUMED SET_CONSUMED;
+        void collect_into_reverse(ALILCollection *) CALLABLE_UNCONSUMED SET_CONSUMED;
+
         friend ALILCollection;
 };
 

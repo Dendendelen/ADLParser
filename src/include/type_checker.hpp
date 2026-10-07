@@ -1,7 +1,7 @@
 #ifndef TYPE_CHECKER_H
 #define TYPE_CHECKER_H
 
-
+#include "alil.hpp"
 #include "alil_converter.hpp"
 #include <memory>
 #include <unordered_map>
@@ -201,14 +201,16 @@ struct Ternary {
     }
 };
 
-class Typer : public ALILToFrameworkCompiler {
+#define CONVERTER_FUNCS_DECLARE(ENUM, NAME) \
+    PType convert_##NAME(const AnalysisCommand &) override;
+
+class Typer : public ALILToFrameworkCompiler<PType> {
     private:
 
         EquivalenceClasses equiv;
         PartialOrder subtyping;
         PartialOrder hereditary_subtyping;
 
-        PType command_handle(AnalysisCommand);
         void equality_of_types(PType, PType);
         void subtype_of_types(PType, PType);
         void hereditary_subtype_of_types(PType sub, PType super);
@@ -222,6 +224,10 @@ class Typer : public ALILToFrameworkCompiler {
 
         std::unordered_set<std::string> used_variables;
 
+
+    protected:
+        ALIL_INSTRUCTION_LIST(CONVERTER_FUNCS_DECLARE);
+
     public:
         using ALILToFrameworkCompiler::ALILToFrameworkCompiler;
 
@@ -232,4 +238,5 @@ class Typer : public ALILToFrameworkCompiler {
         void print() override;
 };
 
+#undef CONVERTER_FUNCS_DECLARE
 #endif

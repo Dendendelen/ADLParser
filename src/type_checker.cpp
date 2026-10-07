@@ -1,6 +1,7 @@
 
 #include "type_checker.hpp"
-#include "ali_converter.hpp"
+#include "alil.hpp"
+#include "alil_converter.hpp"
 #include "node.hpp"
 #include <cassert>
 #include <iostream>
@@ -322,976 +323,1194 @@ void Type::print() {
     std::unordered_map<PType, PType> dummy_sub_map;
     print(dummy_sub_map); 
 }
-
-PType Typer::command_handle(AnalysisCommand in) {
-
-    in.print_instruction();
-
+PType Typer::convert_conversion_error(const AnalysisCommand &) {
+    return std::make_shared<Type>(TYPE_ERROR);
+}
+PType Typer::convert_create_empty_info_list(const AnalysisCommand &) {
+    // () -> List<String>
     PType fun(std::make_shared<Type>(TYPE_FUNCTION));
-    switch (in.get_instruction()) {
+    auto dest_list = std::make_shared<Type>(TYPE_LIST);
+    dest_list->add_dest_type(TYPE_STRING);
+    fun->add_dest_type(dest_list);
+    return fun;
+}
+PType Typer::convert_add_to_info_list(const AnalysisCommand &) {
+    // List<String> x String -> List<String>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto list_type = std::make_shared<Type>(TYPE_LIST);
+    list_type->add_dest_type(TYPE_STRING);
+    fun->add_source_type(list_type);
+    fun->add_source_type(TYPE_STRING);
+    fun->add_dest_type(list_type);
+    return fun;
+}
+PType Typer::convert_display_info(const AnalysisCommand &) {
+    // List<String> -> Error
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto list_type = std::make_shared<Type>(TYPE_LIST);
+    list_type->add_dest_type(TYPE_STRING);
+    fun->add_source_type(list_type);
+    fun->add_dest_type(TYPE_ERROR);
+    return fun;
+}
+PType Typer::convert_create_region(const AnalysisCommand &) {
+    // () -> Region
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_dest_type(TYPE_REGION);
+    return fun;
+}
 
-    case CREATE_REGION:
-        // () -> Region
-        fun->add_dest_type(TYPE_REGION);
-        break;
-    case MERGE_REGIONS:
-        // Region x Region -> Region
-        fun->add_source_type(TYPE_REGION);
-        fun->add_source_type(TYPE_REGION);
-        fun->add_dest_type(TYPE_REGION);
-        break;
-    case CUT_REGION:
-        // Region x Cond -> Region
-        fun->add_source_type(TYPE_REGION);
-        fun->add_source_type(TYPE_COND);
-        fun->add_dest_type(TYPE_REGION);
-        break;
-    case ADD_ALIAS: case END_EXPRESSION:
-    {
-        // `a -> `a
-        auto source_type = std::make_shared<Type>(TYPE_GENERIC);
-        auto dest_type = std::make_shared<Type>(TYPE_GENERIC);
+PType Typer::convert_merge_regions(const AnalysisCommand &) {
+    // Region x Region -> Region
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_REGION);
+    fun->add_source_type(TYPE_REGION);
+    fun->add_dest_type(TYPE_REGION);
+    return fun;
+}
 
-        fun->add_source_type(source_type);
-        fun->add_dest_type(source_type);
 
-        // // | `a = `b
-        // Constraint equality;
-        // equality.add_conclusion(Statement(STATEMENT_EQUALITY, source_type, dest_type));
+PType Typer::convert_cut_region(const AnalysisCommand &) {
+    // Region x Cond -> Region
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_REGION);
+    fun->add_source_type(TYPE_COND);
+    fun->add_dest_type(TYPE_REGION);
+    return fun;
+}
 
-        // fun->add_constraint(equality);
-        break;
+PType Typer::convert_create_bin_of_region(const AnalysisCommand &) {
+    // Region x Number x Number x Number -> Region
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_REGION);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_dest_type(TYPE_REGION);
+    return fun;
+}
 
-    }
-    case ADD_EXTERNAL:
-    {
-        // String -> `a
-        fun->add_source_type(TYPE_STRING);
-        fun->add_dest_type(TYPE_GENERIC);
-        break;
-    }
+PType Typer::convert_add_alias(const AnalysisCommand &) {
+    // `a -> `a
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+    fun->add_source_type(source_type);
+    fun->add_dest_type(source_type);
+    return fun;
+}
+
+PType Typer::convert_add_external(const AnalysisCommand &) {
+    // String -> `a
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_STRING);
+    fun->add_dest_type(TYPE_GENERIC);
+    return fun;
+}
+
+PType Typer::convert_add_extern_attr(const AnalysisCommand &) {
+    // String -> (`a -> `b) | `a <<: ParticleInstance
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
     
-    case ADD_EXTERN_ATTR:
-    {
-        // (`a -> `b)
-        auto dest_fun = std::make_shared<Type>(TYPE_FUNCTION);
-        auto source_of_dest_fun = std::make_shared<Type>(TYPE_GENERIC);
-        dest_fun->add_source_type(source_of_dest_fun);
-        dest_fun->add_dest_type(TYPE_GENERIC);
+    auto dest_fun = std::make_shared<Type>(TYPE_FUNCTION);
+    auto source_of_dest_fun = std::make_shared<Type>(TYPE_GENERIC);
+    dest_fun->add_source_type(source_of_dest_fun);
+    dest_fun->add_dest_type(TYPE_GENERIC);
 
-        // String -> (`a -> `b)
-        fun->add_source_type(TYPE_STRING);
-        fun->add_dest_type(dest_fun);
+    fun->add_source_type(TYPE_STRING);
+    fun->add_dest_type(dest_fun);
 
-        // | `a <<: ParticleInstance
-        Constraint particlelike;
-        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_of_dest_fun, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-
-        fun->add_constraint(particlelike);
-        break;
-    }
-    case ADD_CORRECTIONLIB:
-        assert(false);
-    case CREATE_MASK:
-    {
-        // List<ParticleInstance> -> Mask
-        auto source_part_list = std::make_shared<Type>(TYPE_LIST);
-        source_part_list->add_dest_type(TYPE_PARTICLEINSTANCE);
-        fun->add_source_type(source_part_list);
-        fun->add_dest_type(TYPE_MASK);
-        break;
-    }
-    case LIMIT_MASK:
-    {
-        // Mask x List<Cond> -> Mask
-        fun->add_source_type(TYPE_MASK);
-
-        auto source_cond_list = std::make_shared<Type>(TYPE_LIST);
-        source_cond_list->add_dest_type(TYPE_COND);
-        fun->add_source_type(source_cond_list);
-        fun->add_dest_type(TYPE_MASK);
-        break;
-    }
-    case APPLY_MASK:
-    {
-        // Mask x List<ParticleInstance> -> List<ParticleInstance>
-        fun->add_source_type(TYPE_MASK);
-
-        auto source_part_list = std::make_shared<Type>(TYPE_LIST);
-        source_part_list->add_dest_type(TYPE_PARTICLEINSTANCE);
-        fun->add_source_type(source_part_list);
-
-        // reuse the list
-        fun->add_dest_type(source_part_list);
-        break;
-    }
-
-    case USE_HIST:
-        fun->add_source_type(TYPE_HIST);
-        fun->add_source_type(TYPE_REGION);
-        fun->add_dest_type(TYPE_ERROR);
-        break;
-    case USE_HIST_LIST:
-    case HIST_1D:
-        fun->add_source_type(TYPE_STRING);
-
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-
-        fun->add_dest_type(TYPE_HIST);
-        break;
-    case HIST_2D:
-        fun->add_source_type(TYPE_STRING);
-
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-
-        fun->add_dest_type(TYPE_HIST);
-        break;
-
-    case WEIGHT_APPLY:
-        assert(false);
-    case DO_CUTFLOW_ON_REGION:
-    case DO_EVENTLIST_ON_REGION:
-        // Untypable function since it has no codomain. This will be treated as a ->Error function to show that it cannot and should not be typed
-        fun->add_source_type(TYPE_REGION);
-        fun->add_dest_type(TYPE_ERROR);
-        break;
-
-    case CREATE_HIST_LIST:
-    case ADD_HIST_TO_LIST:
-    case CREATE_BIN:
-    case CREATE_TABLE:
-    case CREATE_TABLE_VALUE:
-    case CREATE_TABLE_LOWER_BOUNDS:
-    case CREATE_TABLE_UPPER_BOUNDS:
-    case APPEND_TO_TABLE:
-    case FINISH_TABLE:
-        assert(false);
-        break;
-    case BEGIN_EXPRESSION:
-        // () -> `a
-        fun->add_dest_type(TYPE_GENERIC);
-        break;
-    case BEGIN_IF:
-    case END_IF:
-        assert(false);
-    case SORT_ASCEND: case SORT_DESCEND:
-        {
-        // List<ParticleInstance> x List<Number> -> List<ParticleInstance>
-        auto source_part_list = std::make_shared<Type>(TYPE_LIST);
-        source_part_list->add_dest_type(TYPE_PARTICLEINSTANCE);
-        fun->add_source_type(source_part_list);
-
-        auto source_number_list = std::make_shared<Type>(TYPE_LIST);
-        source_number_list->add_dest_type(TYPE_NUMBER);
-        fun->add_source_type(source_number_list);
-
-        // reuse the list
-        fun->add_dest_type(source_part_list);
-        break;
-    }
+    Constraint particlelike;
+    particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_of_dest_fun, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    fun->add_constraint(particlelike);
     
-    case EXPR_RAISE:
-    {
-        // `a x Number -> `b
-        auto source_type = std::make_shared<Type>(TYPE_GENERIC);
-        auto dest_type = std::make_shared<Type>(TYPE_GENERIC);
-
-        fun->add_source_type(source_type);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_dest_type(source_type);
-
-        // | `a = `b
-        // Constraint equality;
-        // equality.add_conclusion(Statement(STATEMENT_EQUALITY, source_type, dest_type));
-
-        // fun->add_constraint(equality);
-
-        // | `a <<: Number
-        Constraint numeric;
-        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_NUMBER)));
-        
-        fun->add_constraint(numeric);
-        break;
-    }
-    case EXPR_MULTIPLY:
-    case EXPR_DIVIDE:
-    case EXPR_ADD:
-    case EXPR_SUBTRACT:
-    case EXPR_AMPERSAND:
-    case EXPR_PIPE:
-    {
-        
-        // `a <<: Number, `b <<: Number -> {if `a = `b then `a else if `a = Number then `b else if `b = Number then `a else Error}
-        
-
-        // `a x `b -> `c
-        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
-        auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
-
-        auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
-
-        fun->add_source_type(source_type_a);
-        fun->add_source_type(source_type_b);
-        fun->add_dest_type(dest_type_c);
-
-        // | `a <<: Number
-        // | `b <<: Number
-        Constraint numeric;
-
-        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
-        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
-
-        fun->add_constraint(numeric);
-
-        // | `a = `b ==> `c = `a
-        Constraint primary_secondary_equality;
-        primary_secondary_equality.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, source_type_b));
-        primary_secondary_equality.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_a));
-
-        fun->add_constraint(primary_secondary_equality);
-
-        // | `a =/= `b and `a = Number ==> `c = `b
-        Constraint primary_single_number;
-        // primary_single_number.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
-        primary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
-        primary_single_number.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_b));
-
-        fun->add_constraint(primary_single_number);
-
-        // | `a =/= `b and `a =/= Number and `b = Number ==> `c = `a
-        Constraint secondary_single_number;
-        secondary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
-        secondary_single_number.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_a));
-        
-
-        fun->add_constraint(secondary_single_number);
-
-        // | `a =/= `b and `a =/= Number and `b =/= Number then `c = Error
-        Constraint error_condition;
-        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
-        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
-        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
-        error_condition.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
-
-        fun->add_constraint(error_condition);
-
-        break;
-    }
-
-    case EXPR_LT:
-    case EXPR_LE:
-    case EXPR_GT:
-    case EXPR_GE:
-    case EXPR_EQ:
-    case EXPR_NE:
-    {
-        // `a x `b -> `c
-        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
-        auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
-
-        auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
-
-        fun->add_source_type(source_type_a);
-        fun->add_source_type(source_type_b);
-        fun->add_dest_type(dest_type_c);
-
-        // | `a <<: Number
-        // | `b <<: Number
-        Constraint numeric;
-
-        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
-        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
-
-        fun->add_constraint(numeric);
-
-        // | `c <<: Cond
-
-        Constraint condition;
-        condition.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type_c, Type::fundamental_type_instance(TYPE_COND)));
-
-        fun->add_constraint(condition);
-
-        // `a = `b ==> `c ~=~ `a
-        Constraint primary_secondary_equality;
-        primary_secondary_equality.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, source_type_b));
-        primary_secondary_equality.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_a));
-
-        fun->add_constraint(primary_secondary_equality);
-
-        //`a = Number ==> `c ~=~ `b
-        Constraint primary_single_number;
-        primary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
-        primary_single_number.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_b));
-
-        fun->add_constraint(primary_single_number);
-
-        // `b = Number ==> `c ~=~ `a
-        Constraint secondary_single_number;
-        secondary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
-        secondary_single_number.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_a));
-        
-        fun->add_constraint(secondary_single_number);
-
-        // `a =/= `b and `a =/= Number and `b =/= Number ==> `c = Error
-        Constraint error_condition;
-        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
-        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
-        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
-        error_condition.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
-
-        fun->add_constraint(error_condition);
-        break;
-    }
-
-    case EXPR_AND:
-    case EXPR_OR:
-{
-        
-        // `a <<: Cond, `b <<: Cond -> {if `a = `b then `a else if `a = Cond then `b else if `b = Cond then `a else Error}
-        
-
-        // `a x `b -> `c
-        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
-        auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
-
-        auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
-
-        fun->add_source_type(source_type_a);
-        fun->add_source_type(source_type_b);
-        fun->add_dest_type(dest_type_c);
-
-        // | `a <<: Cond
-        // | `b <<: Cond
-        Constraint condition;
-
-        condition.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_COND)));
-        condition.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_COND)));
-
-        fun->add_constraint(condition);
-
-        // | `a = `b ==> `c = `a
-        Constraint primary_secondary_equality;
-        primary_secondary_equality.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, source_type_b));
-        primary_secondary_equality.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_a));
-
-        fun->add_constraint(primary_secondary_equality);
-
-        // | `a =/= `b and `a = Cond ==> `c = `b
-        Constraint primary_single_number;
-        primary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_COND)));
-        primary_single_number.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_b));
-
-        fun->add_constraint(primary_single_number);
-
-        // | `a =/= `b and `a =/= Cond and `b = Cond ==> `c = `a
-        Constraint secondary_single_number;
-        secondary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_COND)));
-        secondary_single_number.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_a));
-        
-
-        fun->add_constraint(secondary_single_number);
-
-        // | `a =/= `b and `a =/= Cond and `b =/= Cond then `c = Error
-        Constraint error_condition;
-        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
-        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_COND)));
-        error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_COND)));
-        error_condition.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
-
-        fun->add_constraint(error_condition);
-
-        break;
-    }
-
-    case EXPR_INDEX:
-    {
-        // List<`a> x Number -> `a
-        auto element_type = std::make_shared<Type>(TYPE_GENERIC);
-        auto source_list = std::make_shared<Type>(TYPE_LIST);
-        source_list->add_dest_type(element_type);
-
-        fun->add_source_type(source_list);
-        fun->add_source_type(Type::fundamental_type_instance(TYPE_NUMBER));
-        fun->add_dest_type(element_type);
-        break;
-    }
-
-    case EXPR_WITHIN:
-    case EXPR_WITHIN_EXCLUSIVE:
-    case EXPR_WITHIN_LEFT_EXCLUSIVE:
-    case EXPR_WITHIN_RIGHT_EXCLUSIVE:
-    case EXPR_OUTSIDE:
-    case EXPR_NEGATE:
-    case EXPR_LOGICAL_NOT:
-    case FUNC_GEN_PART_IDX:
-    case FUNC_CHARGE:
-    case FUNC_BTAG:
-        assert(false);
-        break;
-    case FUNC_PT:
-    case FUNC_ETA:
-    case FUNC_RAPIDITY:
-    case FUNC_PHI:
-    case FUNC_MASS:
-    case FUNC_ENERGY:
-    case FUNC_MSOFTDROP:
-    case FUNC_THETA:
-    case FUNC_ABS_ISO:
-    case FUNC_MINI_ISO:
-    {
-        // `a <<: ParticleInstance -> `b <<: Number
-
-        // `a -> `b
-
-        auto source_type = std::make_shared<Type>(TYPE_GENERIC);
-        auto dest_type = std::make_shared<Type>(TYPE_GENERIC);
-
-        fun->add_source_type(source_type);
-        fun->add_dest_type(dest_type);
-
-        // | `a <<: ParticleInstance
-        Constraint particlelike;
-        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-
-        fun->add_constraint(particlelike);
-
-        // | `b <<: Number
-        Constraint numeric;
-        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type, Type::fundamental_type_instance(TYPE_NUMBER)));
-
-        fun->add_constraint(numeric);
-
-        // | `a ~=~ `b
-        Constraint equal_depth;
-        equal_depth.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, source_type, dest_type));
-
-        fun->add_constraint(equal_depth);
-        break;
-    }
-
-
-    case FUNC_DR:
-    case FUNC_DPHI:
-    case FUNC_DETA:
-        // `a Particlelike, `b Particlelike -> {If `a < ParticleInstance then `b else if `b < ParticleInstance then `a else if `a < Particle and `b < Particle then ParticleMatrix else Error}
-
-    {
-        // `a x `b -> `c
-        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
-        auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
-        auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
-
-        fun->add_source_type(source_type_a);
-        fun->add_source_type(source_type_b);
-        fun->add_dest_type(dest_type_c);
-
-        // | `a <<: ParticleInstance
-        Constraint particlelike_a;
-        particlelike_a.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike_a);
-
-        // | `b <<: ParticleInstance
-        Constraint particlelike_b;
-        particlelike_b.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike_b);
-
-        // | `c <<: Number
-        Constraint numeric_c;
-        numeric_c.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type_c, Type::fundamental_type_instance(TYPE_NUMBER)));
-        fun->add_constraint(numeric_c);
-
-        // | `a = ParticleInstance ==> `b ~=~ `c
-        Constraint a_is_single;
-        a_is_single.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        a_is_single.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, source_type_b, dest_type_c));
-        fun->add_constraint(a_is_single);
-
-        // | `b = ParticleInstance ==> `a ~=~ `c
-        Constraint b_is_single;
-        b_is_single.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        b_is_single.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, source_type_a, dest_type_c));
-        fun->add_constraint(b_is_single);
-
-        // | `a = List<ParticleInstance> and `b = List<ParticleInstance> ==> `c = List<List<Number>>
-        auto list_particle_instance = std::make_shared<Type>(TYPE_LIST);
-        list_particle_instance->add_dest_type(TYPE_PARTICLEINSTANCE);
-
-        auto list_list_number = std::make_shared<Type>(TYPE_LIST);
-        auto inner_list_number = std::make_shared<Type>(TYPE_LIST);
-        inner_list_number->add_dest_type(TYPE_NUMBER);
-        list_list_number->add_dest_type(inner_list_number);
-
-        Constraint both_lists;
-        both_lists.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, list_particle_instance));
-        both_lists.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, list_particle_instance));
-        both_lists.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, list_list_number));
-        fun->add_constraint(both_lists);
-
-        // | `a =/= ParticleInstance and `b =/= ParticleInstance and `a =/= List<ParticleInstance> ==> `c = Error
-        Constraint error_condition_a;
-        error_condition_a.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        error_condition_a.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        error_condition_a.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, list_particle_instance));
-        error_condition_a.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
-        fun->add_constraint(error_condition_a);
-
-        // | `a =/= ParticleInstance and `b =/= ParticleInstance and `b =/= List<ParticleInstance> ==> `c = Error
-        Constraint error_condition_b;
-        error_condition_b.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        error_condition_b.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        error_condition_b.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, list_particle_instance));
-        error_condition_b.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
-        fun->add_constraint(error_condition_b);
-        break;
-    }
-
-    case FUNC_DISTINCT:
-    case FUNC_DR_HADAMARD:
-    case FUNC_DPHI_HADAMARD:
-    case FUNC_DETA_HADAMARD:
-        // `a Particlelike x `a Particlelike -> `b Numeric : `b ~=~ `a
-    {
-        // `a x `a -> `b
-        auto source_type = std::make_shared<Type>(TYPE_GENERIC);
-        auto dest_type = std::make_shared<Type>(TYPE_GENERIC);
-
-        fun->add_source_type(source_type);
-        fun->add_source_type(source_type);
-        fun->add_dest_type(dest_type);
-
-        // | `a <<: ParticleInstance
-        Constraint particlelike;
-        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike);
-
-        // | `b <<: Number
-        Constraint numeric;
-        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type, Type::fundamental_type_instance(TYPE_NUMBER)));
-        fun->add_constraint(numeric);
-
-        // | `a ~=~ `b
-        Constraint equal_depth;
-        equal_depth.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, source_type, dest_type));
-        fun->add_constraint(equal_depth);
-        break;
-    }
-
-    case FUNC_SIZE:
-    {
-        // List<`a> -> Number
-        auto source_list = std::make_shared<Type>(TYPE_LIST);
-        source_list->add_dest_type(TYPE_GENERIC);
-        fun->add_source_type(source_list);
-        fun->add_dest_type(TYPE_NUMBER);
-        break;
-    }
-    case FUNC_ANYOF:
-    case FUNC_ALLOF:
-        assert(false);
-
-    case FUNC_SQRT:
-    case FUNC_ABS:
-    case FUNC_COS:
-    case FUNC_SIN:
-    case FUNC_TAN:
-    case FUNC_SINH:
-    case FUNC_COSH:
-    case FUNC_TANH:
-    case FUNC_EXP:
-    case FUNC_LOG:
-        // `a Numeric -> `a
-    {
-        // `a -> `a
-        auto source_type = std::make_shared<Type>(TYPE_GENERIC);
-
-        fun->add_source_type(source_type);
-        fun->add_dest_type(source_type);
-
-        // | `a <<: Number
-        Constraint numeric;
-        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_NUMBER)));
-        fun->add_constraint(numeric);
-        break;
-    }
-    case FUNC_AVE:
-    case FUNC_SUM:
-    case FUNC_MIN:
-    case FUNC_MAX:
-        // List<`a Numeric> -> `a
-
-    {        
-        // List<`a> -> `a
-        auto element_type = std::make_shared<Type>(TYPE_GENERIC);
-        auto source_list = std::make_shared<Type>(TYPE_LIST);
-        source_list->add_dest_type(element_type);
-
-        fun->add_source_type(source_list);
-        fun->add_dest_type(element_type);
-
-        // | `a <<: Number
-        Constraint numeric;
-        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, element_type, Type::fundamental_type_instance(TYPE_NUMBER)));
-        fun->add_constraint(numeric);
-        break;
-    }
-    case FUNC_MAX_LIST:
-    case FUNC_MIN_LIST:
-        
-    {
-        // `a x `a -> `a
-        auto source_type = std::make_shared<Type>(TYPE_GENERIC);
-
-        fun->add_source_type(source_type);
-        fun->add_source_type(source_type);
-        fun->add_dest_type(source_type);
-
-        // | `a <<: Number
-        Constraint numeric;
-        numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_NUMBER)));
-        fun->add_constraint(numeric);
-        break;
-    }
-    
-    case FUNC_ANYOCCURRENCES:
-    case FUNC_FIRST:
-    case FUNC_SECOND:
-    case FUNC_SORT_ASCEND:
-    case FUNC_SORT_DESCEND:
-    case FUNC_FLAVOR:
-    case FUNC_CONSTITUENTS:
-    case FUNC_PDG_ID:
-    case FUNC_JET_ID:
-    case FUNC_TAUTAG:
-    case FUNC_CTAG:
-    case FUNC_DXY:
-    case FUNC_DZ:
-    case FUNC_IS_TIGHT:
-    case FUNC_IS_MEDIUM:
-    case FUNC_IS_LOOSE:
-
-        assert(false);
-
-    case FUNC_NAMED:
-
-    {
-        // `a x (`b->`c) -> `d
-        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
-        auto type_b = std::make_shared<Type>(TYPE_GENERIC);
-        auto type_c = std::make_shared<Type>(TYPE_GENERIC);
-        auto dest_type_d = std::make_shared<Type>(TYPE_GENERIC);
-
-        // (`b -> `c)
-        auto func_type = std::make_shared<Type>(TYPE_FUNCTION);
-        func_type->add_source_type(type_b);
-        func_type->add_dest_type(type_c);
-
-        fun->add_source_type(source_type_a);
-        fun->add_source_type(func_type);
-        fun->add_dest_type(dest_type_d);
-
-        Constraint subtype; 
-        subtype.add_conclusion(Statement(STATEMENT_SUBTYPE, source_type_a, type_b));
-        fun->add_constraint(subtype);
-
-        // // | `c <: `d //
-        // Constraint second_subtype;
-        // second_subtype.add_conclusion(Statement(STATEMENT_SUBTYPE, type_c, dest_type_d));
-        // fun->add_constraint(second_subtype);
-
-
-        // | (`a = `b => `c = `d)
-        Constraint implication_of_origin;
-        implication_of_origin.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, type_b));
-        implication_of_origin.add_conclusion(Statement(STATEMENT_EQUALITY, type_c, dest_type_d));
-        fun->add_constraint(implication_of_origin);
-
-        break;
-    
-    }
-
-
-    case MAKE_EMPTY_PARTICLE:
-    {
-        // () -> `a
-        auto element_type = std::make_shared<Type>(TYPE_GENERIC);
-        // auto dest_list = std::make_shared<Type>(TYPE_LIST);
-        // dest_list->add_dest_type(element_type);
-
-        fun->add_dest_type(element_type);
-
-        // | `a <<: ParticleInstance
-        Constraint particlelike;
-        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, element_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike);
-        break;
-    }
-
-    case MAKE_EMPTY_UNION:
-        // () -> Union
-        fun->add_dest_type(TYPE_UNION);
-        break;
-    case ADD_NAMED_TO_UNION:
-    case ADD_ELECTRON_TO_UNION:
-    case ADD_MUON_TO_UNION:
-    case ADD_TAU_TO_UNION:
-    case ADD_TRACK_TO_UNION:
-    case ADD_PHOTON_TO_UNION:
-    case ADD_QGJET_TO_UNION:
-    case ADD_METLV_TO_UNION:
-    case ADD_GEN_TO_UNION:
-    case ADD_JET_TO_UNION:
-    case ADD_FJET_TO_UNION:
-       // Union -> Union
-        fun->add_source_type(TYPE_UNION);
-        fun->add_dest_type(TYPE_UNION);
-        break;
-
-    case MAKE_EMPTY_COMB:
-        // () -> Comb
-        fun->add_dest_type(TYPE_COMB);
-        break;    case ADD_NAMED_TO_COMB:
-    case ADD_ELECTRON_TO_COMB:
-    case ADD_MUON_TO_COMB:
-    case ADD_TAU_TO_COMB:
-    case ADD_TRACK_TO_COMB:
-    case ADD_PHOTON_TO_COMB:
-    case ADD_QGJET_TO_COMB:
-    case ADD_METLV_TO_COMB:
-    case ADD_GEN_TO_COMB:
-    case ADD_JET_TO_COMB:
-    case ADD_FJET_TO_COMB:
-        // Comb -> Comb
-        fun->add_source_type(TYPE_COMB);
-        fun->add_dest_type(TYPE_COMB);
-        break;
-
-    case NAME_ELEMENT_OF_COMB:
-        //TODO:
-        assert(false);
-
-    case MAKE_EMPTY_DISJOINT:
-    case ADD_NAMED_TO_DISJOINT:
-    case ADD_ELECTRON_TO_DISJOINT:
-    case ADD_MUON_TO_DISJOINT:
-    case ADD_TAU_TO_DISJOINT:
-    case ADD_TRACK_TO_DISJOINT:
-    case ADD_PHOTON_TO_DISJOINT:
-    case ADD_QGJET_TO_DISJOINT:
-    case ADD_METLV_TO_DISJOINT:
-    case ADD_GEN_TO_DISJOINT:
-    case ADD_JET_TO_DISJOINT:
-    case ADD_FJET_TO_DISJOINT:
-        // Disjoint -> Disjoint
-        fun->add_source_type(TYPE_DISJOINT);
-        fun->add_dest_type(TYPE_DISJOINT);
-        break;
-
-
-    case NAME_ELEMENT_OF_DISJOINT:
-    //TODO:
+    return fun;
+}
+
+PType Typer::convert_add_extern_particle(const AnalysisCommand &) {
+    // String -> List<ParticleInstance>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto dest_list = std::make_shared<Type>(TYPE_LIST);
+    dest_list->add_dest_type(TYPE_PARTICLEINSTANCE);
+    fun->add_source_type(TYPE_STRING);
+    fun->add_dest_type(dest_list);
+    return fun;
+}
+
+PType Typer::convert_add_correctionlib(const AnalysisCommand &) {
     assert(false);
+    return nullptr;
+}
 
-    case ADD_PART_NAMED:
-    case SUB_PART_NAMED:
-    {
-        // List<ParticleInstance> x List<ParticleInstance> -> List<ParticleInstance>
-        auto element_type = std::make_shared<Type>(TYPE_LIST);
-        // auto named_type = std::make_shared<Type>(TYPE_GENERIC);
+PType Typer::convert_create_mask(const AnalysisCommand &) {
+    // List<ParticleInstance> -> Mask
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_part_list = std::make_shared<Type>(TYPE_LIST);
+    source_part_list->add_dest_type(TYPE_PARTICLEINSTANCE);
+    fun->add_source_type(source_part_list);
+    fun->add_dest_type(TYPE_MASK);
+    return fun;
+}
 
-        element_type->add_dest_type(TYPE_PARTICLEINSTANCE);
+PType Typer::convert_limit_mask(const AnalysisCommand &) {
+    // Mask x List<Cond> -> Mask
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_MASK);
+    auto source_cond_list = std::make_shared<Type>(TYPE_LIST);
+    source_cond_list->add_dest_type(TYPE_COND);
+    fun->add_source_type(source_cond_list);
+    fun->add_dest_type(TYPE_MASK);
+    return fun;
+}
 
-        fun->add_source_type(element_type);
-        fun->add_source_type(element_type);
-        // fun->add_source_type(named_type);
-        fun->add_dest_type(element_type);
+PType Typer::convert_apply_mask(const AnalysisCommand &) {
+    // Mask x List<ParticleInstance> -> List<ParticleInstance>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_MASK);
+    auto source_part_list = std::make_shared<Type>(TYPE_LIST);
+    source_part_list->add_dest_type(TYPE_PARTICLEINSTANCE);
+    fun->add_source_type(source_part_list);
+    fun->add_dest_type(source_part_list);
+    return fun;
+}
+PType Typer::convert_create_empty_hist_list(const AnalysisCommand &) {
+    // () -> List<Hist>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto dest_list = std::make_shared<Type>(TYPE_LIST);
+    dest_list->add_dest_type(TYPE_HIST);
+    fun->add_dest_type(dest_list);
+    return fun;
+}
 
-        // // | `a <<: ParticleInstance
-        // // | `b <<: ParticleInstance
-        // Constraint particlelike;
-        // particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, element_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        // particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, named_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        // fun->add_constraint(particlelike);
-        break;        
-    }
-    case ADD_PART_ELECTRON:
-    case ADD_PART_MUON:
-    case ADD_PART_TAU:
-    case ADD_PART_TRACK:
-    case ADD_PART_PHOTON:
-    case ADD_PART_QGJET:
-    case ADD_PART_METLV:
-    case ADD_PART_GEN:
-    case ADD_PART_JET:
-    case ADD_PART_FJET:
+PType Typer::convert_add_hist_to_list(const AnalysisCommand &) {
+    // List<Hist> x Hist -> List<Hist>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto list_type = std::make_shared<Type>(TYPE_LIST);
+    list_type->add_dest_type(TYPE_HIST);
+    fun->add_source_type(list_type);
+    fun->add_source_type(TYPE_HIST);
+    fun->add_dest_type(list_type);
+    return fun;
+}
 
+PType Typer::convert_use_hist(const AnalysisCommand &) {
+    // Hist x Region -> Error
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_HIST);
+    fun->add_source_type(TYPE_REGION);
+    fun->add_dest_type(TYPE_ERROR);
+    return fun;
+}
 
+PType Typer::convert_use_hist_list(const AnalysisCommand &) {
+    // String x Number x Number x Number x Number -> Hist
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_STRING);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_dest_type(TYPE_HIST);
+    return fun;
+}
 
-    case SUB_PART_ELECTRON:
-    case SUB_PART_MUON:
-    case SUB_PART_TAU:
-    case SUB_PART_TRACK:
-    case SUB_PART_PHOTON:
-    case SUB_PART_QGJET:
-    case SUB_PART_METLV:
-    case SUB_PART_GEN:
-    case SUB_PART_JET:
-    case SUB_PART_FJET:
-    {
-        // List<ParticleInstance> -> List<ParticleInstance> 
-        auto element_type = std::make_shared<Type>(TYPE_LIST);
-        element_type->add_dest_type(TYPE_PARTICLEINSTANCE);
-        // auto list_type = std::make_shared<Type>(TYPE_LIST);
-        // list_type->add_dest_type(element_type);
+PType Typer::convert_hist_1d(const AnalysisCommand &) {
+    // String x Number x Number x Number x Number -> Hist
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_STRING);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_dest_type(TYPE_HIST);
+    return fun;
+}
 
-        fun->add_source_type(element_type);
-        fun->add_dest_type(element_type);
+PType Typer::convert_hist_2d(const AnalysisCommand &) {
+    // String x Number x Number x Number x Number x Number x Number x Number x Number -> Hist
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_STRING);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_dest_type(TYPE_HIST);
+    return fun;
+}
 
-        // | `a <<: ParticleInstance
-        Constraint particlelike;
-        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, element_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike);
-        break;
-    }
+PType Typer::convert_weight_apply(const AnalysisCommand &) {
+    assert(false);
+    return nullptr;
+}
 
-    case ADD_PART_ELECTRON_INDEXED:
-    case ADD_PART_MUON_INDEXED:
-    case ADD_PART_TAU_INDEXED:
-    case ADD_PART_TRACK_INDEXED:
-    case ADD_PART_PHOTON_INDEXED:
-    case ADD_PART_QGJET_INDEXED:
-    case ADD_PART_METLV_INDEXED:
-    case ADD_PART_GEN_INDEXED:
-    case ADD_PART_JET_INDEXED:
-    case ADD_PART_FJET_INDEXED:
+PType Typer::convert_do_cutflow_on_region(const AnalysisCommand &) {
+    // Region -> Error
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_REGION);
+    fun->add_dest_type(TYPE_ERROR);
+    return fun;
+}
 
-    case SUB_PART_ELECTRON_INDEXED:
-    case SUB_PART_MUON_INDEXED:
-    case SUB_PART_TAU_INDEXED:
-    case SUB_PART_TRACK_INDEXED:
-    case SUB_PART_PHOTON_INDEXED:
-    case SUB_PART_QGJET_INDEXED:
-    case SUB_PART_METLV_INDEXED:
-    case SUB_PART_GEN_INDEXED:
-    case SUB_PART_JET_INDEXED:
-    case SUB_PART_FJET_INDEXED:
-    {
-        // ParticleInstance x List<ParticleInstance> x Number -> ParticleInstance
-        auto source_type = std::make_shared<Type>(TYPE_LIST);
-        source_type->add_dest_type(TYPE_PARTICLEINSTANCE);
+PType Typer::convert_do_eventlist_on_region(const AnalysisCommand &) {
+    // Region -> Error
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_REGION);
+    fun->add_dest_type(TYPE_ERROR);
+    return fun;
+}
 
-        fun->add_source_type(TYPE_PARTICLEINSTANCE);
-        fun->add_source_type(source_type);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_dest_type(TYPE_PARTICLEINSTANCE);
+PType Typer::convert_create_table(const AnalysisCommand &) {
+    assert(false);
+    return nullptr;
+}
 
-        // | `a <<: ParticleInstance
-        Constraint particlelike;
-        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike);
-        break;
-    }
+PType Typer::convert_create_table_errored_value(const AnalysisCommand &) {
+    assert(false);
+    return nullptr;
+}
 
-    case ADD_PART_NAMED_INDEXED:
-    case SUB_PART_NAMED_INDEXED:
-    {
-        // `b x `a x Number -> `a where `a <<: ParticleInstance and `b <<: ParticleInstance
-        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
-        auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+PType Typer::convert_create_table_value(const AnalysisCommand &) {
+    assert(false);
+    return nullptr;
+}
 
-        fun->add_source_type(source_type_b);
-        fun->add_source_type(source_type_a);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_dest_type(source_type_a);
+PType Typer::convert_append_to_table(const AnalysisCommand &) {
+    assert(false);
+    return nullptr;
+}
 
-        // | `a <<: ParticleInstance
-        Constraint particlelike_a;
-        particlelike_a.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike_a);
+PType Typer::convert_finish_table(const AnalysisCommand &) {
+    assert(false);
+    return nullptr;
+}
 
-        // | `b <<: ParticleInstance
-        Constraint particlelike_b;
-        particlelike_b.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike_b);
-        break;
-    }
+PType Typer::convert_obj_sort_ascend(const AnalysisCommand &) {
+    // List<ParticleInstance> x List<Number> -> List<ParticleInstance>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_part_list = std::make_shared<Type>(TYPE_LIST);
+    source_part_list->add_dest_type(TYPE_PARTICLEINSTANCE);
+    fun->add_source_type(source_part_list);
 
-    case ADD_PART_ELECTRON_RANGE:
-    case ADD_PART_MUON_RANGE:
-    case ADD_PART_TAU_RANGE:
-    case ADD_PART_TRACK_RANGE:
-    case ADD_PART_PHOTON_RANGE:
-    case ADD_PART_QGJET_RANGE:
-    case ADD_PART_METLV_RANGE:
-    case ADD_PART_GEN_RANGE:
-    case ADD_PART_JET_RANGE:
-    case ADD_PART_FJET_RANGE:
+    auto source_number_list = std::make_shared<Type>(TYPE_LIST);
+    source_number_list->add_dest_type(TYPE_NUMBER);
+    fun->add_source_type(source_number_list);
 
-    case SUB_PART_ELECTRON_RANGE:
-    case SUB_PART_MUON_RANGE:
-    case SUB_PART_TAU_RANGE:
-    case SUB_PART_TRACK_RANGE:
-    case SUB_PART_PHOTON_RANGE:
-    case SUB_PART_QGJET_RANGE:
-    case SUB_PART_METLV_RANGE:
-    case SUB_PART_GEN_RANGE:
-    case SUB_PART_JET_RANGE:
-    case SUB_PART_FJET_RANGE:
-    {
-        // `a x Number x Number -> `a where `a <<: ParticleInstance
-        auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+    fun->add_dest_type(source_part_list);
+    return fun;
+}
 
-        fun->add_source_type(source_type);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_dest_type(source_type);
+PType Typer::convert_obj_sort_descend(const AnalysisCommand &) {
+    // List<ParticleInstance> x List<Number> -> List<ParticleInstance>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_part_list = std::make_shared<Type>(TYPE_LIST);
+    source_part_list->add_dest_type(TYPE_PARTICLEINSTANCE);
+    fun->add_source_type(source_part_list);
 
-        // | `a <<: ParticleInstance
-        Constraint particlelike;
-        particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike);
-        break;
-    }
+    auto source_number_list = std::make_shared<Type>(TYPE_LIST);
+    source_number_list->add_dest_type(TYPE_NUMBER);
+    fun->add_source_type(source_number_list);
 
-    case ADD_PART_NAMED_RANGE:
-    case SUB_PART_NAMED_RANGE:
-    { 
-        // `b x `a x Number x Number -> `a where `a <<: ParticleInstance and `b <<: ParticleInstance
-        auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
-        auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+    fun->add_dest_type(source_part_list);
+    return fun;
+}
 
-        fun->add_source_type(source_type_b);
-        fun->add_source_type(source_type_a);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_source_type(TYPE_NUMBER);
-        fun->add_dest_type(source_type_a);
+PType Typer::convert_expr_raise(const AnalysisCommand &) {
+    // `a x Number -> `a | `a <<: Number
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_type = std::make_shared<Type>(TYPE_GENERIC);
 
-        // | `a <<: ParticleInstance
-        Constraint particlelike_a;
-        particlelike_a.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike_a);
+    fun->add_source_type(source_type);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_dest_type(source_type);
 
-        // | `b <<: ParticleInstance
-        Constraint particlelike_b;
-        particlelike_b.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
-        fun->add_constraint(particlelike_b);
-        break;
-    }
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+    
+    return fun;
+}
 
+// Helper function for binary numeric operations
+static PType create_binary_numeric_op() {
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    
+    auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
+    auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+    auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
 
-    }
+    fun->add_source_type(source_type_a);
+    fun->add_source_type(source_type_b);
+    fun->add_dest_type(dest_type_c);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+
+    Constraint primary_secondary_equality;
+    primary_secondary_equality.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, source_type_b));
+    primary_secondary_equality.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_a));
+    fun->add_constraint(primary_secondary_equality);
+
+    Constraint primary_single_number;
+    primary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+    primary_single_number.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_b));
+    fun->add_constraint(primary_single_number);
+
+    Constraint secondary_single_number;
+    secondary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+    secondary_single_number.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_a));
+    fun->add_constraint(secondary_single_number);
+
+    Constraint error_condition;
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+    error_condition.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
+    fun->add_constraint(error_condition);
 
     return fun;
+}
 
+PType Typer::convert_expr_multiply(const AnalysisCommand &) {
+    return create_binary_numeric_op();
+}
+
+PType Typer::convert_expr_divide(const AnalysisCommand &) {
+    return create_binary_numeric_op();
+}
+
+PType Typer::convert_expr_add(const AnalysisCommand &) {
+    return create_binary_numeric_op();
+}
+
+PType Typer::convert_expr_subtract(const AnalysisCommand &) {
+    return create_binary_numeric_op();
+}
+
+PType Typer::convert_expr_bitwise_and(const AnalysisCommand &) {
+    return create_binary_numeric_op();
+}
+
+PType Typer::convert_expr_bitwise_or(const AnalysisCommand &) {
+    return create_binary_numeric_op();
+}
+
+// Helper function for comparison operations
+static PType create_comparison_op() {
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    
+    auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
+    auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+    auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type_a);
+    fun->add_source_type(source_type_b);
+    fun->add_dest_type(dest_type_c);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+
+    Constraint condition;
+    condition.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type_c, Type::fundamental_type_instance(TYPE_COND)));
+    fun->add_constraint(condition);
+
+    Constraint primary_secondary_equality;
+    primary_secondary_equality.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, source_type_b));
+    primary_secondary_equality.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_a));
+    fun->add_constraint(primary_secondary_equality);
+
+    Constraint primary_single_number;
+    primary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+    primary_single_number.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_b));
+    fun->add_constraint(primary_single_number);
+
+    Constraint secondary_single_number;
+    secondary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+    secondary_single_number.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_a));
+    fun->add_constraint(secondary_single_number);
+
+    Constraint error_condition;
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+    error_condition.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
+    fun->add_constraint(error_condition);
+
+    return fun;
+}
+
+PType Typer::convert_expr_lt(const AnalysisCommand &) {
+    return create_comparison_op();
+}
+
+PType Typer::convert_expr_le(const AnalysisCommand &) {
+    return create_comparison_op();
+}
+
+PType Typer::convert_expr_gt(const AnalysisCommand &) {
+    return create_comparison_op();
+}
+
+PType Typer::convert_expr_ge(const AnalysisCommand &) {
+    return create_comparison_op();
+}
+
+PType Typer::convert_expr_eq(const AnalysisCommand &) {
+    return create_comparison_op();
+}
+
+PType Typer::convert_expr_ne(const AnalysisCommand &) {
+    return create_comparison_op();
+}
+
+// Helper function for logical operations
+static PType create_logical_op() {
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    
+    auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
+    auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+    auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type_a);
+    fun->add_source_type(source_type_b);
+    fun->add_dest_type(dest_type_c);
+
+    Constraint condition;
+    condition.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_COND)));
+    condition.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_COND)));
+    fun->add_constraint(condition);
+
+    Constraint primary_secondary_equality;
+    primary_secondary_equality.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, source_type_b));
+    primary_secondary_equality.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_a));
+    fun->add_constraint(primary_secondary_equality);
+
+    Constraint primary_single_cond;
+    primary_single_cond.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_COND)));
+    primary_single_cond.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_b));
+    fun->add_constraint(primary_single_cond);
+
+    Constraint secondary_single_cond;
+    secondary_single_cond.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_COND)));
+    secondary_single_cond.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, source_type_a));
+    fun->add_constraint(secondary_single_cond);
+
+    Constraint error_condition;
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_COND)));
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_COND)));
+    error_condition.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
+    fun->add_constraint(error_condition);
+
+    return fun;
+}
+
+PType Typer::convert_expr_and(const AnalysisCommand &) {
+    return create_logical_op();
+}
+
+PType Typer::convert_expr_or(const AnalysisCommand &) {
+    return create_logical_op();
+}
+
+static PType create_double_input_comparison_op() {
+    // `a x `b x `b -> `c 
+    //      | `a <<: Number
+    //      | `b <<: Number
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    
+    auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
+    auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+    auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type_a);
+    fun->add_source_type(source_type_b);
+    fun->add_source_type(source_type_b);
+    fun->add_dest_type(dest_type_c);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+
+    Constraint condition;
+    condition.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type_c, Type::fundamental_type_instance(TYPE_COND)));
+    fun->add_constraint(condition);
+
+    Constraint primary_secondary_equality;
+    primary_secondary_equality.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, source_type_b));
+    primary_secondary_equality.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_a));
+    fun->add_constraint(primary_secondary_equality);
+
+    Constraint primary_single_number;
+    primary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+    primary_single_number.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_b));
+    fun->add_constraint(primary_single_number);
+
+    Constraint secondary_single_number;
+    secondary_single_number.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+    secondary_single_number.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, dest_type_c, source_type_a));
+    fun->add_constraint(secondary_single_number);
+
+    Constraint error_condition;
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, source_type_b));
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_NUMBER)));
+    error_condition.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_NUMBER)));
+    error_condition.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
+    fun->add_constraint(error_condition);
+
+    return fun;
+}
+
+PType Typer::convert_expr_within(const AnalysisCommand &) {
+    return create_double_input_comparison_op();
+}
+
+PType Typer::convert_expr_within_exclusive(const AnalysisCommand &) {
+    return create_double_input_comparison_op();
+
+}
+
+PType Typer::convert_expr_within_left_exclusive(const AnalysisCommand &) {
+    return create_double_input_comparison_op();
+
+}
+
+PType Typer::convert_expr_within_right_exclusive(const AnalysisCommand &) {
+    return create_double_input_comparison_op();
+
+}
+
+PType Typer::convert_expr_negate(const AnalysisCommand &) {
+    // `a -> `a | `a <<: Number
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type);
+    fun->add_dest_type(source_type);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+    
+    return fun;
+}
+
+PType Typer::convert_expr_logical_not(const AnalysisCommand &) {
+// `a -> `a | `a <<: Cond
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type);
+    fun->add_dest_type(source_type);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_COND)));
+    fun->add_constraint(numeric);
+    
+    return fun;
+}
+
+PType Typer::convert_expr_if_ternary(const AnalysisCommand &) {
+    // Cond x `a x `a -> `a
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto result_type = std::make_shared<Type>(TYPE_GENERIC);
+    fun->add_source_type(TYPE_COND);
+    fun->add_source_type(result_type);
+    fun->add_source_type(result_type);
+    fun->add_dest_type(result_type);
+    return fun;
+}
+
+PType Typer::convert_expr_index(const AnalysisCommand &) {
+    // List<`a> x Number -> `a
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto element_type = std::make_shared<Type>(TYPE_GENERIC);
+    auto source_list = std::make_shared<Type>(TYPE_LIST);
+    source_list->add_dest_type(element_type);
+
+    fun->add_source_type(source_list);
+    fun->add_source_type(Type::fundamental_type_instance(TYPE_NUMBER));
+    fun->add_dest_type(element_type);
+    return fun;
+}
+
+PType Typer::convert_expr_index_range(const AnalysisCommand &) {
+    // List<`a> x Number x Number -> List<`a>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto element_type = std::make_shared<Type>(TYPE_GENERIC);
+    auto source_list = std::make_shared<Type>(TYPE_LIST);
+    source_list->add_dest_type(element_type);
+
+    fun->add_source_type(source_list);
+    fun->add_source_type(Type::fundamental_type_instance(TYPE_NUMBER));
+    fun->add_source_type(Type::fundamental_type_instance(TYPE_NUMBER));
+    fun->add_dest_type(source_list);
+    return fun;
+}
+
+PType Typer::convert_expr_index_until(const AnalysisCommand &) {
+    // List<`a> x Number -> List<`a>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto element_type = std::make_shared<Type>(TYPE_GENERIC);
+    auto source_list = std::make_shared<Type>(TYPE_LIST);
+    source_list->add_dest_type(element_type);
+
+    fun->add_source_type(source_list);
+    fun->add_source_type(Type::fundamental_type_instance(TYPE_NUMBER));
+    fun->add_dest_type(source_list);
+    return fun;
+}
+
+PType Typer::convert_expr_index_from(const AnalysisCommand &) {
+    // List<`a> x Number -> List<`a>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto element_type = std::make_shared<Type>(TYPE_GENERIC);
+    auto source_list = std::make_shared<Type>(TYPE_LIST);
+    source_list->add_dest_type(element_type);
+
+    fun->add_source_type(source_list);
+    fun->add_source_type(Type::fundamental_type_instance(TYPE_NUMBER));
+    fun->add_dest_type(source_list);
+    return fun;
+}
+
+PType Typer::convert_func_charge(const AnalysisCommand &) {
+    assert(false);
+    return nullptr;
+}
+
+// Helper function for particle -> number functions
+static PType create_particle_to_number_func() {
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    
+    auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+    auto dest_type = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type);
+    fun->add_dest_type(dest_type);
+
+    Constraint particlelike;
+    particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    fun->add_constraint(particlelike);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+
+    Constraint equal_depth;
+    equal_depth.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, source_type, dest_type));
+    fun->add_constraint(equal_depth);
+
+    return fun;
+}
+
+PType Typer::convert_func_pt(const AnalysisCommand &) {
+    return create_particle_to_number_func();
+}
+
+PType Typer::convert_func_eta(const AnalysisCommand &) {
+    return create_particle_to_number_func();
+}
+
+PType Typer::convert_func_phi(const AnalysisCommand &) {
+    return create_particle_to_number_func();
+}
+
+PType Typer::convert_func_mass(const AnalysisCommand &) {
+    return create_particle_to_number_func();
+}
+
+PType Typer::convert_func_energy(const AnalysisCommand &) {
+    return create_particle_to_number_func();
+}
+
+// Helper function for dr/dphi/deta style functions
+static PType create_particle_pair_to_number_func() {
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    
+    auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
+    auto source_type_b = std::make_shared<Type>(TYPE_GENERIC);
+    auto dest_type_c = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type_a);
+    fun->add_source_type(source_type_b);
+    fun->add_dest_type(dest_type_c);
+
+    Constraint particlelike_a;
+    particlelike_a.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    fun->add_constraint(particlelike_a);
+
+    Constraint particlelike_b;
+    particlelike_b.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    fun->add_constraint(particlelike_b);
+
+    Constraint numeric_c;
+    numeric_c.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type_c, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric_c);
+
+    Constraint a_is_single;
+    a_is_single.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    a_is_single.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, source_type_b, dest_type_c));
+    fun->add_constraint(a_is_single);
+
+    Constraint b_is_single;
+    b_is_single.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    b_is_single.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, source_type_a, dest_type_c));
+    fun->add_constraint(b_is_single);
+
+    auto list_particle_instance = std::make_shared<Type>(TYPE_LIST);
+    list_particle_instance->add_dest_type(TYPE_PARTICLEINSTANCE);
+
+    auto list_list_number = std::make_shared<Type>(TYPE_LIST);
+    auto inner_list_number = std::make_shared<Type>(TYPE_LIST);
+    inner_list_number->add_dest_type(TYPE_NUMBER);
+    list_list_number->add_dest_type(inner_list_number);
+
+    Constraint both_lists;
+    both_lists.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, list_particle_instance));
+    both_lists.add_premise(Statement(STATEMENT_EQUALITY, source_type_b, list_particle_instance));
+    both_lists.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, list_list_number));
+    fun->add_constraint(both_lists);
+
+    Constraint error_condition_a;
+    error_condition_a.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    error_condition_a.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    error_condition_a.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, list_particle_instance));
+    error_condition_a.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
+    fun->add_constraint(error_condition_a);
+
+    Constraint error_condition_b;
+    error_condition_b.add_premise(Statement(STATEMENT_INEQUALITY, source_type_a, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    error_condition_b.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    error_condition_b.add_premise(Statement(STATEMENT_INEQUALITY, source_type_b, list_particle_instance));
+    error_condition_b.add_conclusion(Statement(STATEMENT_EQUALITY, dest_type_c, Type::fundamental_type_instance(TYPE_ERROR)));
+    fun->add_constraint(error_condition_b);
+
+    return fun;
+}
+
+PType Typer::convert_func_distinct(const AnalysisCommand &) {
+    // `a x `a -> `b | `a <<: ParticleInstance, `b <<: Number, `a ~=~ `b
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    
+    auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+    auto dest_type = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type);
+    fun->add_source_type(source_type);
+    fun->add_dest_type(dest_type);
+
+    Constraint particlelike;
+    particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    fun->add_constraint(particlelike);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+
+    Constraint equal_depth;
+    equal_depth.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, source_type, dest_type));
+    fun->add_constraint(equal_depth);
+
+    return fun;
+}
+
+PType Typer::convert_func_dr(const AnalysisCommand &) {
+    return create_particle_pair_to_number_func();
+}
+
+PType Typer::convert_func_dphi(const AnalysisCommand &) {
+    return create_particle_pair_to_number_func();
+}
+
+PType Typer::convert_func_deta(const AnalysisCommand &) {
+    return create_particle_pair_to_number_func();
+}
+
+// Helper for hadamard versions
+static PType create_hadamard_func() {
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    
+    auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+    auto dest_type = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type);
+    fun->add_source_type(source_type);
+    fun->add_dest_type(dest_type);
+
+    Constraint particlelike;
+    particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    fun->add_constraint(particlelike);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, dest_type, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+
+    Constraint equal_depth;
+    equal_depth.add_conclusion(Statement(STATEMENT_EQUAL_DEPTH, source_type, dest_type));
+    fun->add_constraint(equal_depth);
+
+    return fun;
+}
+
+PType Typer::convert_func_dr_hadamard(const AnalysisCommand &) {
+    return create_hadamard_func();
+}
+
+PType Typer::convert_func_dphi_hadamard(const AnalysisCommand &) {
+    return create_hadamard_func();
+}
+
+PType Typer::convert_func_deta_hadamard(const AnalysisCommand &) {
+    return create_hadamard_func();
+}
+
+PType Typer::convert_func_size(const AnalysisCommand &) {
+    // List<`a> -> Number
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_list = std::make_shared<Type>(TYPE_LIST);
+    source_list->add_dest_type(TYPE_GENERIC);
+    fun->add_source_type(source_list);
+    fun->add_dest_type(TYPE_NUMBER);
+    return fun;
+}
+
+static PType list_reducer_func() {
+    // List<`a> -> `a | `a <<: Cond
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_list = std::make_shared<Type>(TYPE_LIST);
+    auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+    source_list->add_dest_type(source_type);
+
+    fun->add_source_type(source_list);
+    fun->add_dest_type(source_type);
+
+    Constraint boolean;
+    boolean.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_COND)));
+    fun->add_constraint(boolean);
+    
+    return fun;
+}
+
+PType Typer::convert_func_anyof(const AnalysisCommand &) {
+    return list_reducer_func();
+}
+
+PType Typer::convert_func_allof(const AnalysisCommand &) {
+    return list_reducer_func();
+}
+
+// Helper for unary numeric functions
+static PType create_unary_numeric_func() {
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type);
+    fun->add_dest_type(source_type);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+
+    return fun;
+}
+
+PType Typer::convert_func_sqrt(const AnalysisCommand &) {
+    return create_unary_numeric_func();
+}
+
+PType Typer::convert_func_abs(const AnalysisCommand &) {
+    return create_unary_numeric_func();
+}
+
+PType Typer::convert_func_cos(const AnalysisCommand &) {
+    return create_unary_numeric_func();
+}
+
+PType Typer::convert_func_sin(const AnalysisCommand &) {
+    return create_unary_numeric_func();
+}
+
+PType Typer::convert_func_tan(const AnalysisCommand &) {
+    return create_unary_numeric_func();
+}
+
+PType Typer::convert_func_sinh(const AnalysisCommand &) {
+    return create_unary_numeric_func();
+}
+
+PType Typer::convert_func_cosh(const AnalysisCommand &) {
+    return create_unary_numeric_func();
+}
+
+PType Typer::convert_func_tanh(const AnalysisCommand &) {
+    return create_unary_numeric_func();
+}
+
+PType Typer::convert_func_exp(const AnalysisCommand &) {
+    return create_unary_numeric_func();
+}
+
+PType Typer::convert_func_log(const AnalysisCommand &) {
+    return create_unary_numeric_func();
+}
+
+// Helper for list reduction functions (ave, sum, min, max)
+static PType create_list_reduction_func() {
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto element_type = std::make_shared<Type>(TYPE_GENERIC);
+    auto source_list = std::make_shared<Type>(TYPE_LIST);
+    source_list->add_dest_type(element_type);
+
+    fun->add_source_type(source_list);
+    fun->add_dest_type(element_type);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, element_type, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+
+    return fun;
+}
+
+PType Typer::convert_func_ave(const AnalysisCommand &) {
+    return create_list_reduction_func();
+}
+
+PType Typer::convert_func_sum(const AnalysisCommand &) {
+    return create_list_reduction_func();
+}
+
+PType Typer::convert_func_min_of_list(const AnalysisCommand &) {
+    return create_list_reduction_func();
+}
+
+PType Typer::convert_func_max_of_list(const AnalysisCommand &) {
+    return create_list_reduction_func();
+}
+
+// Helper for pair min/max functions
+static PType create_pair_minmax_func() {
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto source_type = std::make_shared<Type>(TYPE_GENERIC);
+
+    fun->add_source_type(source_type);
+    fun->add_source_type(source_type);
+    fun->add_dest_type(source_type);
+
+    Constraint numeric;
+    numeric.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, source_type, Type::fundamental_type_instance(TYPE_NUMBER)));
+    fun->add_constraint(numeric);
+
+    return fun;
+}
+
+PType Typer::convert_func_min_of_pair(const AnalysisCommand &) {
+    return create_pair_minmax_func();
+}
+
+PType Typer::convert_func_max_of_pair(const AnalysisCommand &) {
+    return create_pair_minmax_func();
+}
+
+PType Typer::convert_func_sort_ascend(const AnalysisCommand &) {
+    // List<Number> -> List<Number>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+
+    PType source_list(std::make_shared<Type>(TYPE_LIST));
+    source_list->add_dest_type(TYPE_NUMBER);
+
+    fun->add_source_type(source_list);
+    fun->add_dest_type(source_list);
+
+    return fun;
+}
+
+PType Typer::convert_func_sort_descend(const AnalysisCommand &) {
+    // List<Number> -> List<Number>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+
+    PType source_list(std::make_shared<Type>(TYPE_LIST));
+    source_list->add_dest_type(TYPE_NUMBER);
+
+    fun->add_source_type(source_list);
+    fun->add_dest_type(source_list);
+
+    return fun;
+}
+
+PType Typer::convert_func_named(const AnalysisCommand &) {
+    // `a x (`b->`c) -> `d | `a <: `b, (`a = `b => `c = `d)
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    
+    auto source_type_a = std::make_shared<Type>(TYPE_GENERIC);
+    auto type_b = std::make_shared<Type>(TYPE_GENERIC);
+    auto type_c = std::make_shared<Type>(TYPE_GENERIC);
+    auto dest_type_d = std::make_shared<Type>(TYPE_GENERIC);
+
+    auto func_type = std::make_shared<Type>(TYPE_FUNCTION);
+    func_type->add_source_type(type_b);
+    func_type->add_dest_type(type_c);
+
+    fun->add_source_type(source_type_a);
+    fun->add_source_type(func_type);
+    fun->add_dest_type(dest_type_d);
+
+    Constraint subtype;
+    subtype.add_conclusion(Statement(STATEMENT_SUBTYPE, source_type_a, type_b));
+    fun->add_constraint(subtype);
+
+    Constraint implication_of_origin;
+    implication_of_origin.add_premise(Statement(STATEMENT_EQUALITY, source_type_a, type_b));
+    implication_of_origin.add_conclusion(Statement(STATEMENT_EQUALITY, type_c, dest_type_d));
+    fun->add_constraint(implication_of_origin);
+
+    return fun;
+}
+
+PType Typer::convert_create_empty_string_list(const AnalysisCommand &) {
+    // () -> List<String>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto dest_list = std::make_shared<Type>(TYPE_LIST);
+    dest_list->add_dest_type(TYPE_STRING);
+    fun->add_dest_type(dest_list);
+    return fun;
+}
+
+PType Typer::convert_add_string_to_list(const AnalysisCommand &) {
+    // List<String> x String -> List<String>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto list_type = std::make_shared<Type>(TYPE_LIST);
+    list_type->add_dest_type(TYPE_STRING);
+    fun->add_source_type(list_type);
+    fun->add_source_type(TYPE_STRING);
+    fun->add_dest_type(list_type);
+    return fun;
+}
+
+PType Typer::convert_create_empty_value_list(const AnalysisCommand &) {
+    // () -> List<Number>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto dest_list = std::make_shared<Type>(TYPE_LIST);
+    dest_list->add_dest_type(TYPE_NUMBER);
+    fun->add_dest_type(dest_list);
+    return fun;
+}
+
+PType Typer::convert_add_value_to_list(const AnalysisCommand &) {
+    // List<Number> x Number -> List<Number>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto list_type = std::make_shared<Type>(TYPE_LIST);
+    list_type->add_dest_type(TYPE_NUMBER);
+    fun->add_source_type(list_type);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_dest_type(list_type);
+    return fun;
+}
+
+PType Typer::convert_create_empty_union(const AnalysisCommand &) {
+    // () -> Union
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_dest_type(TYPE_UNION);
+    return fun;
+}
+
+PType Typer::convert_add_part_to_union(const AnalysisCommand &) {
+    // Union -> Union
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_UNION);
+    fun->add_dest_type(TYPE_UNION);
+    return fun;
+}
+
+PType Typer::convert_create_empty_cartesian(const AnalysisCommand &) {
+    // () -> Comb
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_dest_type(TYPE_COMB);
+    return fun;
+}
+
+PType Typer::convert_create_empty_disjoint(const AnalysisCommand &) {
+    // () -> Disjoint
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_dest_type(TYPE_COMB);
+    return fun;
+}
+
+PType Typer::convert_create_empty_direct(const AnalysisCommand &) {
+    // () -> Direct
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_dest_type(TYPE_COMB);
+    return fun;
+}
+
+PType Typer::convert_add_part_to_composite(const AnalysisCommand &) {
+    // Comb x List<ParticleInstance> -> Comb (or Disjoint -> Disjoint, Direct -> Direct)
+    // Using generic composite type
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_COMB);
+    fun->add_source_type(TYPE_PARTICLEINSTANCE);
+    fun->add_dest_type(TYPE_COMB);
+    return fun;
+}
+
+PType Typer::convert_name_element_of_composite(const AnalysisCommand &) {
+    // Comb x Number x List<ParticleInstance> -> List<ParticleInstance>
+
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto list_type = std::make_shared<Type>(TYPE_LIST);
+    list_type->add_dest_type(TYPE_PARTICLEINSTANCE);
+
+    fun->add_source_type(TYPE_COMB);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(list_type);
+    fun->add_dest_type(list_type);
+    return fun;
+}
+
+PType Typer::convert_create_empty_particle(const AnalysisCommand &) {
+    // () -> `a | `a <<: ParticleInstance
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto element_type = std::make_shared<Type>(TYPE_GENERIC);
+    fun->add_dest_type(element_type);
+
+    Constraint particlelike;
+    particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, element_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    fun->add_constraint(particlelike);
+
+    return fun;
+}
+
+PType Typer::convert_add_particle(const AnalysisCommand &) {
+    // List<ParticleInstance> x List<ParticleInstance> -> List<ParticleInstance>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto element_type = std::make_shared<Type>(TYPE_LIST);
+    element_type->add_dest_type(TYPE_PARTICLEINSTANCE);
+
+    fun->add_source_type(element_type);
+    fun->add_source_type(element_type);
+    fun->add_dest_type(element_type);
+
+    return fun;
+}
+
+PType Typer::convert_sub_particle(const AnalysisCommand &) {
+    // List<ParticleInstance> x List<ParticleInstance> -> List<ParticleInstance>
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto element_type = std::make_shared<Type>(TYPE_LIST);
+    element_type->add_dest_type(TYPE_PARTICLEINSTANCE);
+
+    fun->add_source_type(element_type);
+    fun->add_source_type(element_type);
+    fun->add_dest_type(element_type);
+
+    return fun;
 }
 
 
@@ -1793,6 +2012,7 @@ void Typer::resolve_constraints() {
 
 }
 
+
 void Typer::collect_existing_constraints() {
 
     std::regex reg_string;
@@ -1801,10 +2021,9 @@ void Typer::collect_existing_constraints() {
     reg_number = std::regex("-{0,1}[0-9]*\\.{0,1}[0-9]*([Ee][-+]{0,1}[0-9]+){0,1}");
     reg_string= std::regex("\"[^\"]*\"");
 
-    while (alil->clear_to_next()) {
-        AnalysisCommand command = alil->next_command();
+    for (auto &command : alil->get_commands()) {
 
-        auto type_of_function = command_handle(command);
+        auto type_of_function = command_convert(command);
         type_of_function->print();
 
         // all the constraints this type comes with, we add to ours

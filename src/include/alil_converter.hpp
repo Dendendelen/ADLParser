@@ -1,11 +1,13 @@
 #ifndef ALI_CONVERTER_H
 #define ALI_CONVERTER_H
 
+#include "alil.hpp"
 #include "ast_visitor.hpp"
 #include "config.hpp"
 #include "node.hpp"
 #include "alil.hpp"
 
+#include <cassert>
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -15,7 +17,7 @@
 class ALILConverter : ASTVisitor {
     private:
 
-        ALILCollection commands;
+        std::unique_ptr<ALILCollection> commands;
         void clean_command_list();
 
         std::string reserve_scoped_value_name();
@@ -111,29 +113,57 @@ class ALILConverter : ASTVisitor {
 
         void visitation(PNode root);
 
-        ALILCollection &get_commands();
+        ALILCollection *get_commands();
         void print_commands();
 
         friend AnalysisCommandBuilder;
 };
 
-
+template <typename T>
 #define CONVERT_DISPATCH_DECLARE(ENUM, NAME) \
-    virtual std::string convert_##NAME(const AnalysisCommand &) = 0;
+    virtual T convert_##NAME(const AnalysisCommand &) = 0;
+
+#define VISIT_DISPATCH(ENUM, NAME) \
+    case ALIL::ENUM: return convert_##NAME(command); \
 
 class ALILToFrameworkCompiler {
     protected:
-        std::unique_ptr<ALILConverter> alil;
+        std::unique_ptr<ALILCollection> alil;
         Config &config;
 
         ALIL_INSTRUCTION_LIST(CONVERT_DISPATCH_DECLARE)
 
-        std::string command_convert(const AnalysisCommand &);
+        T command_convert(const AnalysisCommand &command) {
+            switch (command.get_instruction()) {
+                    ALIL_INSTRUCTION_LIST(VISIT_DISPATCH);
+            }
+            assert(false);
+        }
     public:
-        ALILToFrameworkCompiler(ALILConverter *alil_in, Config &conf);
+        ALILToFrameworkCompiler(ALILCollection *alil_in, Config &conf): alil(alil_in), config(conf) {}
         virtual ~ALILToFrameworkCompiler() = default;
         virtual void print() = 0;
 };
 
+#undef VISIT_DISPATCH
 #undef CONVERT_DISPATCH_DECLARE
+
+class ALILToALILConverter {
+    protected:
+        std::unique_ptr<ALILCollection> alil;
+        Config &config;
+
+    public:
+        ALILToALILConverter(ALILCollection *alil_in, Config &conf);
+        virtual ~ALILToALILConverter() = default;
+
+        void print();
+        ALILCollection *get_converted();
+};
+
+class RedundancyEliminator : public ALILToALILConverter {
+    public:
+        RedundancyEliminator(ALILCollection *alil_in, Config &conf);
+};
+
 #endif

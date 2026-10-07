@@ -130,6 +130,16 @@ void AnalysisCommandBuilder::collect_into_reverse(ALILCollection &target) CALLAB
     mark_collected();
 }
 
+void AnalysisCommandBuilder::collect_into(ALILCollection *target) CALLABLE_UNCONSUMED SET_CONSUMED{
+    target->collect_command(*this);
+    mark_collected();
+}
+
+void AnalysisCommandBuilder::collect_into_reverse(ALILCollection *target) CALLABLE_UNCONSUMED SET_CONSUMED{
+    target->collect_command_reverse(*this);
+    mark_collected();
+}
+
 void AnalysisCommandBuilder::mark_collected() CALLABLE_UNCONSUMED SET_CONSUMED{
     has_been_collected = true;
 }

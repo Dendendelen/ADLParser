@@ -1,5 +1,6 @@
+#include "alil.hpp"
 #include "alil_converter.hpp"
-#include "coffea_converter.hpp"
+// #include "coffea_converter.hpp"
 #include "config.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
@@ -45,24 +46,26 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    std::unique_ptr<ALILConverter> alil = std::make_unique<ALILConverter>(config);
-    alil->visitation(parser->get_root());
+    std::unique_ptr<ALILConverter> alil_converter = std::make_unique<ALILConverter>(config);
+    alil_converter->visitation(parser->get_root());
 
     if (argument == "alil") {
-        alil->print_commands();
+        alil_converter->print_commands();
         return 0;
     }
 
+    std::unique_ptr<ALILCollection> alil(alil_converter->get_commands());
+
     if (argument == "type") {
         auto cleaner = std::make_unique<RedundancyEliminator>(alil.release(), config);
-        cleaner->eliminate();
+        std::unique_ptr<ALILCollection> cleaned(cleaner->get_converted());
 
-        auto typer = std::make_unique<Typer>(cleaner.release(), config);
+        auto typer = std::make_unique<Typer>(cleaned.release(), config);
         typer->print();
         return 0;
     }
 
-    std::unique_ptr<ALILToFrameworkCompiler> final_state_compiler;
+    std::unique_ptr<ALILToFrameworkCompiler<std::string>> final_state_compiler;
 
     if (argument == "timber") {
         final_state_compiler = std::make_unique<TimberConverter>(alil.release(), config);

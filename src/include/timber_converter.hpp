@@ -9,8 +9,6 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <vector>
-
 
 #define CONVERTER_FUNCS_DECLARE(ENUM, NAME) \
     std::string convert_##NAME(const AnalysisCommand &) override;
@@ -33,7 +31,7 @@ class FourVectorNames {
         std::string charge() {return name_charge;}
 };
 
-class TimberConverter : public ALILToFrameworkCompiler {
+class TimberConverter : public ALILToFrameworkCompiler<std::string> {
 
     private:
 
