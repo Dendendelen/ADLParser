@@ -1,68 +1,40 @@
 #ifndef TOKENS_H
 #define TOKENS_H
 
-enum Token_type {
-    LEXER_ERROR, // type to signify that a lexing error has occurred
-    LEXER_COMMENT,
-    LEXER_SPACE,
-    LEXER_NEWLINE,
-    LEXER_END_OF_FILE,
+enum class Token_type {
+    LEXER_ERROR, // signifies that a lexing error has occurred
 
-    DECIMAL,
-    SCIENTIFIC,
+    COMMENT,
+
+    SPACE,
+    NEWLINE,
+    END_OF_FILE,
+
+    DECIMAL,    // Decimal/floating-point-like
+    SCIENTIFIC, // Scientific notation e.g. 2E4
+    INTEGER,    // standard integer
 
     STRING,
-    INTEGER,
-    // EXP_INT,
-    // REAL,
-    VARNAME,
-    // VARDEF,
+    VARNAME,    // variable name format, name_LikeThis or Variable42 or similar
     
     DEF,
-    SELECT,
-    REJEC,
     OBJ,
-    ALGO,
+    REG,
     COMP,
 
     HISTOLIST,
 
     ADLINFO,
-    PAP_EXPERIMENT,
-    PAP_ID,
-    PAP_TITLE,
-    PAP_PUBLICATION,
-    PAP_SQRTS,
-    PAP_LUMI,
-    PAP_ARXIV,
-    PAP_HEPDATA,
-    PAP_DOI,
 
     PARTICLE_KEYWORD,
+    ADD,
+
     EXTERNAL,
     ATTRIBUTE,
-    CORRECTIONLIB,
-    
-    SYSTEMATIC,
-    SYST_TTREE,
-    SYST_WEIGHT_MC,
-    SYST_WEIGHT_PILEUP,
-    SYST_WEIGHT_JVT,
-    SYST_WEIGHT_LEPTON_SF,
-    SYST_WEIGHT_BTAG_SF,
+    CORRECTIONLIB,  //TODO: check implementation
 
-    RUNYEAR,
-    MC_CHANNEL_NUMBER,
-    EVENT_NO,
-    RUN_NO,
-    LB_NO,
-    OME,
-
-    IF,
-    THEN,
-    ELSE,
-    DO,
-    PRINT,
+    SELECT,
+    REJEC,
 
     TRUE,
     FALSE,
@@ -72,70 +44,26 @@ enum Token_type {
     TABLETYPE,
 
     TAKE,
+
     HISTO,
     WEIGHT,
 
     TABLE,
-    SKIP_HISTO,
-    SKIP_EFFS,
-    GEN,
-    
-    ELECTRON,
-    MUON,
-    TAU,
-    TRACK,
-    PHOTON,
-    JET,
-    FJET,
-    QGJET,
 
     BIN,
+    NAMED,
     BINS,
-    CONSTITUENTS,
-
-    METLV,
-
-    GENPART_IDX,
 
     UNION,
     ALIAS,
 
-    IS_BTAG,
-    IS_CTAG,
-    IS_TAUTAG,
-
-    PDG_ID,
-    JET_ID,
-    STATUS_FLAGS,
-    
-    FLAVOR,
-
-    IS_TIGHT,
-    IS_MEDIUM,
-    IS_LOOSE,
-
-    MINI_ISO,
-    ABS_ISO,
-
-    DXY,
-    DZ,
-
     PHI,
     ETA,
-    RAPIDITY,
-
     CHARGE,
     MASS,
-
-    MSOFTDROP,
-
     PT,
-    PZ,
-
-    THETA,
 
     DR,
-
     DPHI,
     DETA,
 
@@ -147,15 +75,11 @@ enum Token_type {
 
     ANYOF,
     ALLOF,
-    ALL,
-    NONE,
 
     THIS,
 
     EQ,
     NE,
-    MAXIMIZE,
-    MINIMIZE,
     LE,
     GE,
     LT,
@@ -171,8 +95,9 @@ enum Token_type {
     MULTIPLY,
     DIVIDE,
 
-    AMPERSAND,
-    PIPE,
+    AMPERSAND, // bitwise operator
+    PIPE, // bitwise operator
+
     COLON,
     RAISED_TO_POWER,
 
@@ -185,23 +110,26 @@ enum Token_type {
     CLOSE_SQUARE_BRACE,
     OPEN_CURLY_BRACE,
     CLOSE_CURLY_BRACE,
+
     QUESTION,
-    ASSIGN,
+    ASSIGN, // single =
 
     NUMOF,
     AVE,
     SUM,
-    ADD,
-    SAVE,
-    CSV,
+
+
     ASCEND,
     DESCEND,
+
     TAN,
     SIN,
     COS,
+
     SINH,
     COSH,
     TANH,
+
     EXP,
     LOG,
     ABS,
@@ -209,16 +137,13 @@ enum Token_type {
 
     SORT,
 
-    ANYOCCURRENCES,
     COMB,
     DISJOINT,
     DIRECT,
+
     MIN,
     MAX,
-    FIRST,
-    SECOND,
 
-    PM,
 
     COMMA,
     UNDERSCORE,
@@ -228,13 +153,17 @@ enum Token_type {
     LETTER_P,
     LETTER_E,
 
-    INT,
-    NB,
-    PNB,
-    ID,
-    HID,
-
-
 };
+
+typedef Token_type TOK;
+
+#define CASE_BUILT_IN_MATH_FUN TOK::ANYOF: case TOK::ALLOF: case TOK::SQRT: case TOK::ABS: case TOK::COS:  case TOK::SIN: case TOK::TAN: case TOK::SINH: case TOK::COSH: case TOK::TANH: case TOK::EXP: case TOK::LOG: case TOK::AVE: case TOK::SUM
+
+#define CASE_BUILT_IN_PARTICLE_FUN_ONE_ARG TOK::LETTER_E: case TOK::LETTER_P: case TOK::LETTER_M: case TOK::LETTER_Q: \
+case TOK::CHARGE: case TOK::MASS: case TOK::PHI: case TOK::ETA: case TOK::PT
+
+#define CASE_BUILT_IN_PARTICLE_FUN_TWO_ARG TOK::DR: case TOK::DPHI: case TOK::DETA: \
+case TOK::DR_HADAMARD: case TOK::DPHI_HADAMARD: case TOK::DETA_HADAMARD: \
+case TOK::NUMOF: case TOK::DISTINCT
 
 #endif

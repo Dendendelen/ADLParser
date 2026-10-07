@@ -11,8 +11,10 @@
 Config::Config(std::string filename): default_entries({
         {"MET", "PuppiMET"}, 
         {"infile", "infile.root"},
+        {"outfile", "outfile.root"},
         {"cutflow", "all"},
-        {"eventlist", "none"}
+        {"eventlist", "none"},
+        {"format", "nanoaod"}
     }) {
     read_config_file(filename);
 }

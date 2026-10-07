@@ -1,117 +1,127 @@
 #ifndef NODE_H
 #define NODE_H
 
+#include <span>
 #include <vector>
 #include <memory>
 
 #include "lexer.hpp"
 
-enum AST_type{
+#define AST_NODE_LIST(X)                                                       \
+    /* AST Error: set if there is an issue but a node must be returned */      \
+    X(ERROR,                    error)                                         \
+                                                                               \
+    /* Terminal nodes - semantically meaningful token, possibly with lexeme */ \
+    X(VARYING_TERMINAL,         varying_terminal)                              \
+    X(OPERATOR_TERMINAL,        operator_terminal)                             \
+    X(BUILTIN_FUNC_TERMINAL,    builtin_func_terminal)                         \
+                                                                               \
+    /* Non-terminal: */                                                        \
+    X(INPUT,                    input)                                         \
+                                                                               \
+    /* Input subnodes */                                                       \
+    X(INFO,                     info)                                          \
+    X(DEFINITION,               definition)                                    \
+    X(COMPOSITE,                composite)                                     \
+    X(OBJECT,                   object)                                        \
+    X(TABLE_DEF,                table_def)                                     \
+    X(REGION,                   region)                                        \
+    X(HISTO_LIST,               histo_list)                                    \
+                                                                               \
+    /* Info subnodes */                                                        \
+    X(INITIALIZATIONS,          initializations)                               \
+    X(INITIALIZATION,           initialization)                                \
+                                                                               \
+    /* Definition subnodes */                                                  \
+    X(EXTERN_ATTR,              extern_attr)                                   \
+    X(EXTERN_FUN,               extern_fun)                                    \
+    X(EXTERN_PARTICLE,          extern_particle)                               \
+    X(CORRECTIONLIB,            correctionlib)                                 \
+                                                                               \
+    /* Composite subnodes */                                                   \
+    X(COMP_CRITERIA,            comp_criteria)                                 \
+    X(COMPOSITE_CARTESIAN,      composite_cartesian)                           \
+    X(COMPOSITE_DISJOINT,       composite_disjoint)                            \
+    X(COMPOSITE_DIRECT,         composite_direct)                              \
+                                                                               \
+    /* Object subnodes */                                                      \
+    X(OBJECT_CRITERIA,          object_criteria)                               \
+    X(OBJ_UNION,                obj_union)                                     \
+    X(OBJ_SORT,                 obj_sort)                                      \
+    X(ASCEND,                   ascend)                                        \
+    X(DESCEND,                  descend)                                       \
+    X(OBJECT_SELECT,            object_select)                                 \
+    X(OBJECT_REJECT,            object_reject)                                 \
+                                                                               \
+    /* Region subnodes */                                                      \
+    X(REGION_COMMANDS,          region_commands)                               \
+    X(REGION_SELECT,            region_select)                                 \
+    X(REGION_REJECT,            region_reject)                                 \
+    X(REGION_USE,               region_use)                                    \
+    X(REGION_WEIGHT,            region_weight)                                 \
+    X(REGION_BIN,               region_bin)                                    \
+    X(REGION_BINS,              region_bins)                                   \
+    X(REGION_HISTO_USE,         region_histo_use)                              \
+    X(REGION_HISTOGRAM,         region_histogram)                              \
+                                                                               \
+    /* Histolist subnodes */                                                   \
+    X(HISTO_ENTRIES,            histo_entries)                                 \
+    X(HISTOLIST_HISTOGRAM,      histolist_histogram)                           \
+    X(HISTOGRAM,                histogram)                                     \
+                                                                               \
+    /* General lists */                                                        \
+    X(NAMED_PARTICLE_LIST,      named_particle_list)                           \
+    X(PARTICLE_LIST,            particle_list)                                 \
+    X(PARTICLE_SUM,             particle_sum)                                  \
+    X(PARTICLE_NEGATE,          particle_negate)                               \
+    X(VARIABLE_LIST,            variable_list)                                 \
+    X(LITERAL_NUMBER_LIST,      literal_number_list)                           \
+    X(STRING_LIST,              string_list)                                   \
+                                                                               \
+    /* Expression subnodes */                                                  \
+    X(EXPRESSION,               expression)                                    \
+    X(IF_STATEMENT,             if_statement)                                  \
+    X(SORT_EXPRESSION,          sort_expression)                               \
+    X(MIN_EXPRESSION,           min_expression)                                \
+    X(MAX_EXPRESSION,           max_expression)                                \
+    X(INDEX_OPERATOR,           index_operator)                                \
+    X(INDEX,                    index)                                         \
+    X(UNBOUNDED,                unbounded)                                     \
+    X(WITHIN_STATEMENT,         within_statement)                              \
+    X(OUTSIDE_STATEMENT,        outside_statement)                             \
+    X(THIS,                     this_node)                                     \
+    X(TRUE,                     true_literal)                                  \
+    X(FALSE,                    false_literal)                                 \
+                                                                               \
+    /* Unary operators */                                                      \
+    X(NEGATE,                   negate)                                        \
+    X(L_NOT,                    l_not)                                         \
+    X(USER_FUNCTION,            user_function)
 
-    // Set if an error has occurred in the AST
-    AST_ERROR,
+#define MAKE_ENUM(ENUM, NAME)\
+    ENUM,
 
-    // AST node for an epsilon expression - empty, and detected by parser as a key to remove this node from consideration
-    AST_EPSILON,
+enum class AST_type{
 
-    // Terminal - if detected, then the parsed token matters
-    TERMINAL,
-
-    // Nonterminals
-    INPUT,
-
-    INFO,
-    COUNT_FORMAT,
-    OBJECT,
-    DEFINITION,
-    COMPOSITE,
-    TABLE_DEF,
-    REGION,
-    HISTO_LIST,
-
-    INITIALIZATIONS,
-    INITIALIZATION,
-
-    COUNT_PROCESSES,
-    COUNT_PROCESS,
-
-    REGION_COMMANDS,
-    REGION_COMMAND,
-
-    OBJECT_SELECT,
-    OBJECT_REJECT,
-
-    REGION_SELECT,
-    REGION_REJECT,
-    REGION_USE,
-
-    IF_STATEMENT,
-
-    DESCRIPTION,
-    BOOL,
-    DEFINITIONS,
-    VARIABLE_LIST,
-    NUMBER,
-
-    LEPTON_TYPE,
-    ERR_TYPE,
-    SYST_VTYPE,
-
-    WEIGHT_CMD,
-    REJEC_CMD,
-    SAVE_CMD,
-    PRINT_CMD,
-    HISTO_CMD,
-    BINS_CMD,
-    BIN_CMD,
-    SORT_CMD,
-
-    HISTOGRAM,
-    HISTOLIST_HISTOGRAM,
-    HISTO_USE,
-
-    NAMED_PARTICLE_LIST,
-    PARTICLE_LIST,
-    PARTICLE_SUM,
-    INDEX,
-    BOXLIST,
-
-    VALUES,
-    EXPRESSION, 
-    FUNCTION,
-
-    CONDITION,
-    INTERVAL,
-
-    ID_LIST,
-    OBJECT_BLOCS,
-    OBJECT_BLOC,
-    CRITERIA,
-    HAMHUM,
-
-    COUNT, //TODO: probbaly change
-    A_COUNT,
-
-    A_BOX,
-
-    CRITERION,
-    ACTION,
-    
-    COMMAND,
-    IFSTATEMENT,
-
-    NEGATE,
-
-    USER_FUNCTION,
-    
+    AST_NODE_LIST(MAKE_ENUM)
 
 };
+
+#undef MAKE_ENUM
+
+typedef AST_type AST;
+
+class Node;
+
+typedef std::shared_ptr<Node> PNode;
 
 class Node {
     private:
         Node(AST_type in);
-        std::vector<std::shared_ptr<Node>> children;
+
+        std::vector<PNode> children;
         std::weak_ptr<Node> m_parent;
+
         int line_number;
         int column_number;
         AST_type type;
@@ -119,17 +129,22 @@ class Node {
         std::shared_ptr<Token> relevant_token;
         bool has_relevant_token;
 
+        std::string associated_string;
+        bool has_associated_string;
+
         int unique_id;
 
     public:
-        Node(AST_type in, std::shared_ptr<Node> parent);
-        Node(AST_type in, std::shared_ptr<Node> parent, std::shared_ptr<Token> tok);
+        Node(AST_type in, PNode parent);
+        Node(AST_type in, PNode parent, std::shared_ptr<Token> tok);
         
-        void set_parent(std::shared_ptr<Node> parent);
+        void set_parent(PNode parent);
         std::weak_ptr<Node> get_parent();
 
-        void add_child(std::shared_ptr<Node> child);
-        std::vector<std::shared_ptr<Node>> &get_children();
+        void add_child(PNode child);
+
+        const std::span<const PNode> get_children() const;
+        PNode get_child(int index);
         
         void set_token(std::shared_ptr<Token> tok);
         std::shared_ptr<Token> get_token();
@@ -137,19 +152,26 @@ class Node {
 
         AST_type get_ast_type();
         std::string get_ast_type_as_string();
-        
+
+        void set_associated_string(std::string);
+        std::string consume_associated_string();
+
         friend class Tree;
 };
 
-typedef std::shared_ptr<Node> PNode;
+
+#define NODE_TYPE(X) \
+    class XNode : public Node {public: std::string get_ast_type_as_string() override{return "X"}; };
+
+class ErrorNode : public Node {};
 
 class Tree {
     private:
-        std::shared_ptr<Node> root;
+        PNode root;
 
     public:
         Tree(AST_type in);
-        std::shared_ptr<Node> get_root();
+        PNode get_root();
 
 };
 
