@@ -1,8 +1,8 @@
 #include "parser.hpp"
-#include <iterator>
 #include <memory>
 
 #include <iostream>
+#include <sstream>
 
 #include "exceptions.hpp"
 #include "lexer.hpp"
@@ -11,34 +11,51 @@
 
 
 
-PNode make_terminal(PNode parent, PToken tok) {
-    return PNode(std::make_shared<Node>(TERMINAL, parent, tok));
+PNode Parser::create_node(AST_type in, PNode parent, PToken tok) {
+    PNode new_node(std::make_shared<Node>(in, parent, tok));
+    parent->add_child(new_node);
+    return new_node;
 }
 
-void add_two_terminal_children(PNode parent, PToken one, PToken two) {
-    PNode op(std::make_shared<Node>(TERMINAL, parent));
-    parent->add_child(op);
-    op->set_token(one);
-
-    PNode source(std::make_shared<Node>(TERMINAL, parent));
-    parent->add_child(source);
-    source->set_token(two); 
+/**
+ * @brief Create an AST node object and adds it as a child of its parent
+ * 
+ * @param in: type of AST node to be created
+ * @param parent" parent of the new node
+ * @return: PNode, newly created node
+ */
+PNode Parser::create_node(AST_type in, PNode parent) {
+    PToken tok = lexer->peek(0);
+    return create_node(in, parent, tok);
 }
 
-void add_two_nested_terminal_children(PNode parent, PToken one, PToken two) {
-    PNode one_node(std::make_shared<Node>(TERMINAL, parent, one));
-    parent->add_child(one_node);
+PNode Parser::create_lost_node(AST_type in, PNode parent, PToken tok) {
+    return std::make_shared<Node>(in, parent, tok);
+}
 
-    PNode two_node(std::make_shared<Node>(TERMINAL, one_node, two));
-    one_node->add_child(two_node);
+PNode Parser::create_lost_node(AST_type in, PNode parent) {
+    PToken tok = lexer->peek(0);
+    return create_lost_node(in, parent, tok);
+}
+
+/**
+ * @brief Gets or creates the root node of a list
+ * 
+ * @param in: type of the AST node list root
+ * @param parent: parent of the node
+ * @return: PNode, either the parent if it already matches the type, or a newly created node
+ */
+PNode Parser::make_list_root_node(AST_type in, PNode parent){
+    if (parent->get_ast_type() == in) return parent;
+    return create_node(in, parent);
 }
 
 bool is_numerical(Token_type t) {
-    if (t == INTEGER || t == DECIMAL || t == SCIENTIFIC) return true;
+    if (t == TOK::INTEGER || t == TOK::DECIMAL || t == TOK::SCIENTIFIC) return true;
     return false;
 } 
 
-Parser::Parser (Lexer *lex): lexer(lex), tree(INPUT) {
+Parser::Parser (Lexer *lex): lexer(lex), tree(AST::INPUT) {
 }
 
 void Parser::parse() {
@@ -67,13 +84,13 @@ BLOCKS productions:
 
     BLOCKS -> INFO BLOCKS
 
-    BLOCKS -> DEFINITIONS BLOCKS
+    BLOCKS -> DEFINITION BLOCKS
 
-    BLOCKS -> TABLE BLOCKS
+    BLOCKS -> COMPOSITE BLOCKS
 
     BLOCKS -> OBJECT BLOCKS
 
-    BLOCKS -> COMPOSITE BLOCKS
+    BLOCKS -> TABLE BLOCKS
 
     BLOCKS -> REGION BLOCKS
 
@@ -82,55 +99,54 @@ BLOCKS productions:
     BLOCKS -> epsilon
 
  */
-
 void Parser::parse_blocks(PNode parent) {
 
         auto tok = lexer->peek(0); 
         switch(tok->get_token_type()) {
             // BLOCKS -> INFO BLOCKS
-            case ADLINFO:
-                parent->add_child(parse_info(parent));
+            case TOK::ADLINFO:
+                parse_info(parent);
                 parse_blocks(parent);
                 return;
 
-            // BLOCKS -> DEFINITIONS BLOCKS
-            case DEF: 
-                parent->add_child(parse_definition(parent));
-                parse_blocks(parent);
-                return;
-
-            // BLOCKS -> TABLE BLOCKS
-            case TABLE:
-                parent->add_child(parse_table(parent));
-                parse_blocks(parent);
-                return;
-
-            // BLOCKS -> OBJECT BLOCKS
-            case OBJ:
-                parent->add_child(parse_object(parent));
+            // BLOCKS -> DEFINITION BLOCKS
+            case TOK::DEF: 
+                parse_definition(parent);
                 parse_blocks(parent);
                 return;
 
             // BLOCKS -> COMPOSITE BLOCKS
-            case COMP:
-                parent->add_child(parse_composite(parent));
+            case TOK::COMP:
+                parse_composite(parent);
+                parse_blocks(parent);
+                return;
+
+            // BLOCKS -> OBJECT BLOCKS
+            case TOK::OBJ:
+                parse_object(parent);
+                parse_blocks(parent);
+                return;
+
+            // BLOCKS -> TABLE BLOCKS
+            case TOK::TABLE:
+                parse_table(parent);
                 parse_blocks(parent);
                 return;
 
             // BLOCKS -> REGION BLOCKS
-            case ALGO:
-                parent->add_child(parse_region(parent));
+            case TOK::REG:
+                parse_region(parent);
                 parse_blocks(parent);
                 return;
 
             // BLOCKS -> HISTO_LIST BLOCKS
-            case HISTOLIST:
-                parent->add_child(parse_histo_list(parent));
+            case TOK::HISTOLIST:
+                parse_histo_list(parent);
                 parse_blocks(parent);
                 return;
                 
             // BLOCKS -> epsilon
-            case LEXER_END_OF_FILE:
+            case TOK::END_OF_FILE:
                 return;
             
             // If we have anything but these options and the file has not ended, this is an error state
@@ -141,6 +157,7 @@ void Parser::parse_blocks(PNode parent) {
 
 }
 
+
 /*
 INFO productions:
 ---
@@ -148,130 +165,14 @@ INFO productions:
     INFO -> adlinfo ID INITIALIZATIONS
 
 */
+void Parser::parse_info(PNode parent) {
 
-PNode Parser::parse_info(PNode parent) {
-
-    PNode info(std::make_shared<Node>(INFO, parent));
+    PNode info(create_node(AST::INFO, parent));
 
     // INFO -> adlinfo ID INITIALIZATIONS
-    lexer->expect_and_consume(ADLINFO);
-    info->add_child(parse_id(info));
+    lexer->expect_and_consume(TOK::ADLINFO);
+    parse_id(info);
     parse_initializations(info);
-
-    return info;
-}
-
-/*
-DEFINITION productions:
----
-
-    DEFINITION -> def ID = DEF_RVALUE
-
-    DEFINITION -> def ID : DEF_RVALUE
-*/
-PNode Parser::parse_definition(PNode parent) {
-
-    PNode definition(std::make_shared<Node>(DEFINITION, parent));
-
-    lexer->expect_and_consume(DEF);
-    definition->add_child(parse_id(definition));
-    auto eq_tok = lexer->next();
-
-    // DEFINITION -> def ID = DEF_RVALUE
-    // DEFINITION -> def ID : DEF_RVALUE
-    if (eq_tok->get_token_type() != ASSIGN && eq_tok->get_token_type() != COLON) raise_parsing_exception("Unknown token for definition assignment, expected '=' or ':'", eq_tok);
-    definition->add_child(parse_def_rvalue(definition));
-
-    return definition;
-}
-
-/* OBJECT productions:
----
-
-    OBJECT -> obj ID take OBJ_RVALUE 
-
-    OBJECT -> obj ID : OBJ_RVALUE
-
-    OBJECT -> obj ID = OBJ_RVALUE
- */
-PNode Parser::parse_object(PNode parent) {
-
-    PNode object(std::make_shared<Node>(OBJECT, parent));
-    
-    lexer->expect_and_consume(OBJ);
-    object->add_child(parse_id(object));
-    auto tok = lexer->next();
-
-    // OBJECT -> obj ID take OBJ_RVALUE 
-    // OBJECT -> obj ID : OBJ_RVALUE  
-    // OBJECT -> obj ID = OBJ_RVALUE  
-    if (tok->get_token_type() != COLON && tok->get_token_type() != TAKE && tok->get_token_type() != ASSIGN) raise_parsing_exception("Expected symbol for object definition, either ':' or '=' or TAKE", tok);
-    parse_obj_rvalue(object);
-
-    return object;
-}
-
-//TODO: finish composite
-PNode Parser::parse_composite(PNode parent) {
-
-    PNode object(std::make_shared<Node>(COMPOSITE, parent));
-    
-    lexer->expect_and_consume(COMP);
-    object->add_child(parse_id(object));
-    auto tok = lexer->next();
-
-    // OBJECT -> obj ID take OBJ_RVALUE 
-    // OBJECT -> obj ID : OBJ_RVALUE  
-    // OBJECT -> obj ID = OBJ_RVALUE  
-    if (tok->get_token_type() != COLON && tok->get_token_type() != TAKE && tok->get_token_type() != ASSIGN) raise_parsing_exception("Expected symbol for object definition, either ':' or '=' or TAKE", tok);
-    parse_composite_rvalue(object);
-
-    return object;
-}
-
-/* TABLE productions:
----
-    TABLE -> table ID tabletype ID nvars integer errors BOOL BIN_OR_BOX_VALUES
-*/
-PNode Parser::parse_table(PNode parent) {
-
-    // TABLE -> table ID tabletype ID nvars integer errors BOOL BIN_OR_BOX_VALUES
-    PNode table(std::make_shared<Node>(TABLE_DEF, parent));
-
-    lexer->expect_and_consume(TABLE);
-    table->add_child(parse_id(table));
-    lexer->expect_and_consume(TABLETYPE);
-    table->add_child(parse_id(table));
-    lexer->expect_and_consume(NVARS);
-
-    auto tok = lexer->next();
-
-    if (tok->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to specify NVars", tok);
-    table->add_child(make_terminal(table, tok));
-
-    lexer->expect_and_consume(ERRORS);
-    table->add_child(parse_bool(table));
-    parse_bin_or_box_values(table);
-
-    return table;
-}
-
-
-/* REGION productions:
----    
-
-    REGION -> algo ID REGION_COMMANDS
-*/
-PNode Parser::parse_region(PNode parent) {
-
-    // REGION -> algo ID REGION_COMMANDS
-    PNode region(std::make_shared<Node>(REGION, parent));
-
-    lexer->expect_and_consume(ALGO);
-    region->add_child(parse_id(region));
-    parse_region_commands(region);
-
-    return region;
 }
 
 
@@ -282,1152 +183,214 @@ INITIALIZATIONS productions:
     INITIALIZATIONS -> INITIALIZATION INITIALIZATIONS
 
     INITIALIZATIONS -> epsilon
+
  */
 void Parser::parse_initializations(PNode parent) {
+
+    PNode initializations = make_list_root_node(AST::INITIALIZATIONS, parent);
+
     PToken next = lexer->peek(0);
     
     switch (next->get_token_type()) {
 
         // INITIALIZATONS -> epsilon
-        case ADLINFO: case DEF: case TABLE: case OBJ: case ALGO: case HISTOLIST: case COMP:
+        case TOK::ADLINFO: case TOK::DEF: case TOK::COMP: case TOK::OBJ: case TOK::TABLE: case TOK::REG: case TOK::HISTOLIST: case TOK::END_OF_FILE:
             return;
         // Anything not in the follow set indicates a continuation
         // INITIALIZATIONS -> INITIALIZATION INITIALIZATIONS
         default:
-            parent->add_child(parse_initialization(parent));
-            parse_initializations(parent);
+            parse_initialization(initializations);
+            parse_initializations(initializations);
             return;
     }
 }
-
-/* HISTO_LIST productions:
----    
-
-    HISTO_LIST -> histolist ID HISTO_ENTRIES
-*/
-PNode Parser::parse_histo_list(PNode parent) {
-    // HISTO_LIST -> histolist ID HISTO_ENTRIES
-    PNode histo_list(std::make_shared<Node>(HISTO_LIST, parent));
-
-    lexer->expect_and_consume(HISTOLIST);
-    histo_list->add_child(parse_id(histo_list));
-    parse_histo_entries(histo_list);
-
-    return histo_list;
-}
-
-/* HISTO_ENTRIES productions:
----
-
-    HISTO_ENTRIES -> HISTO_ENTRY HISTO_ENTRIES
-    
-    HISTO_ENTRIES -> epsilon
-
-*/
-void Parser::parse_histo_entries(PNode parent) {
-PToken next = lexer->peek(0);
-    
-    switch (next->get_token_type()) {
-
-        // HISTO_ENTRIES ->  HISTO_ENTRY HISTO_ENTRIES
-        case HISTO: 
-            parent->add_child(parse_histo_entry(parent));
-            parse_histo_entries(parent);
-            return;
-
-        // HISTO_ENTRIES -> epsilon
-        default:
-            return;
-    }
-}
-
 
 
 /* INITIALIZATION productions:
 ---
 
-    INITIALIZATION -> trge = integer
-
-    INITIALIZATION -> trgm = integer
-
-    INITIALIZATION -> skph = integer
-
-    INITIALIZATION -> skpe = integer
-
-    INITIALIZATION -> pap_lumi NUMBER
-
-    INITIALIZATION -> pap_sqrts NUMBER
-
-    INITIALIZATION -> pap_experiment ID
-
-    INITIALIZATION -> systematic BOOL string string SYST_VTYPE
-
-    INITIALIZATION -> pap_publication DESCRIPTION
-
-    INITIALIZATION -> pap_title DESCRIPTION
-
-    INITIALIZATION -> pap_id DESCRIPTION
-
-    INITIALIZATION -> pap_arxiv DESCRIPTION
-
-    INITIALIZATION -> pap_doi DESCRIPTION
-
-    INITIALIZATION -> pap_hepdata DESCRIPTION
-
-    INITIALIZATION -> ID ID
+    INITIALIZATION -> ID STRING
 
 */
-PNode Parser::parse_initialization(PNode parent) {
-    PToken tok = lexer->peek(0);
+void Parser::parse_initialization(PNode parent) {
 
-    switch(tok->get_token_type()) {
+    PNode initialization(create_node(AST::INITIALIZATION, parent));
 
-        // INITIALIZATION -> skph = integer
-        // INITIALIZATION -> skpe = integer
-        case SKIP_HISTO: case SKIP_EFFS:
-        {   
-            PNode integer_target(std::make_shared<Node>(TERMINAL, parent, lexer->next()));
-            // Consume terminal equals
-            lexer->expect_and_consume(ASSIGN);
-            
-            PToken next = lexer->next();
-            if (next->get_token_type() != INTEGER) raise_parsing_exception("Invalid non-integer assignment", next);
-
-            integer_target->add_child(make_terminal(integer_target, next));
-            return integer_target;
-        } 
-
-        // INITIALIZATION -> pap_lumi number
-        // INITIALIZATION -> pap_sqrts number
-        case PAP_LUMI: case PAP_SQRTS:
-        {
-            PNode number_target(std::make_shared<Node>(TERMINAL, parent, lexer->next()));
-            PToken next = lexer->next();
-            if (!is_numerical(next->get_token_type())) raise_parsing_exception("Non-numerical value given for numerical field", next); 
-
-            number_target->add_child(make_terminal(number_target, next));
-            return number_target;
-        }
-
-        // INITIALIZATION -> pap_experiment ID
-        case PAP_EXPERIMENT: 
-        {
-            PNode experiment(std::make_shared<Node>(TERMINAL, parent, lexer->next()));
-            experiment->add_child(parse_id(experiment));
-            return experiment;
-        }
-
-        // INITIALIZATION -> pap_publication DESCRIPTION
-        // INITIALIZATION -> pap_title DESCRIPTION
-        // INITIALIZATION -> pap_id DESCRIPTION
-        // INITIALIZATION -> pap_arxiv DESCRIPTION
-        // INITIALIZATION -> pap_doi DESCRIPTION
-        // INITIALIZATION -> pap_hepdata DESCRIPTION
-        case PAP_TITLE: case PAP_PUBLICATION: case PAP_ID: case PAP_ARXIV: case PAP_DOI: case PAP_HEPDATA:
-        {
-            PNode description_target(std::make_shared<Node>(TERMINAL, parent, lexer->next()));
-
-            description_target->add_child(parse_description(description_target));
-            return description_target;
-        }
-
-        // assume we just want two strings or names to be an arbitrary extra info statement
-        default:
-        {
-            PNode tagname = parse_id(parent);
-            parent->add_child(tagname);
-
-            tagname->add_child(parse_id(tagname));
-            return tagname;
-        }
-    }
+    // assume we just want two strings or names to be an arbitrary extra info statement
+    parse_id(initialization);
+    parse_string(initialization);
 
 }
 
 
-
-/* HISTO_ENTRY productions:
+/*
+DEFINITION productions:
 ---
 
-    HISTO_ENTRY -> histo HISTOGRAM
+    DEFINITION -> def ID ASSIGNMENT DEF_RVALUE
 
 */
-PNode Parser::parse_histo_entry(PNode parent) {
+void Parser::parse_definition(PNode parent) {
 
-    // HISTO_ENTRY -> histo HISTOGRAM
-    lexer->expect_and_consume(HISTO);
-    PNode histo(std::make_shared<Node>(HISTOLIST_HISTOGRAM, parent));
-    parse_histogram(histo);
-    return histo;
+    PNode definition(create_node(AST::DEFINITION, parent));
+
+    // DEFINITION -> def ID ASSIGNMENT DEF_RVALUE
+    lexer->expect_and_consume(TOK::DEF);
+    parse_id(definition);
+    parse_assignment();
+    parse_def_rvalue(definition);
+
 }
+
 
 /* DEF_RVALUE productions:
 ---
 
-        DEF_RVALUE -> { VARIABLE_LIST }
+    DEF_RVALUE -> external STRING
 
-        DEF_RVALUE -> OME ( DESCRIPTION, {VARIABLE_LIST}, INDEX)
+    DEF_RVALUE -> external attribute STRING
 
-        DEF_RVALUE -> constituents PARTICLE_LIST
+    DEF_RVALUE -> external particle STRING
 
-        DEF_RVALUE -> add PARTICLE_LIST
+    DEF_RVALUE -> correctionlib STRING STRING
 
-        DEF_RVALUE -> extern string
+    DEF_RVALUE -> add PARTICLE_SUM
 
-        DEF_RVALUE -> correctionlib string string
+    DEF_RVALUE -> particle_keyword PARTICLE_SUM
 
-        DEF_RVALUE -> particle_keyword PARTICLE_SUM
-
-        DEF_RVALUE -> E
+    DEF_RVALUE -> E
 
  */
-PNode Parser::parse_def_rvalue(PNode parent) {
+void Parser::parse_def_rvalue(PNode parent) {
 
     auto tok = lexer->peek(0);
     
     switch(tok->get_token_type()) {
 
-        // DEF_RVALUE -> { VARIABLE_LIST }
-        case OPEN_CURLY_BRACE:
-        {
-            lexer->expect_and_consume(OPEN_CURLY_BRACE);
-
-            PNode variable_list(std::make_shared<Node>(VARIABLE_LIST, parent));
-            parse_variable_list(variable_list);
-
-            lexer->expect_and_consume(CLOSE_CURLY_BRACE);
-            return variable_list;
-        }
-
-        // DEF_RVALUE -> OME ( DESCRIPTION, {VARIABLE_LIST}, INDEX)
-        case OME:
-        {   
-            auto ome = make_terminal(parent, lexer->next());            
-            lexer->expect_and_consume(OME);
-
-            lexer->expect_and_consume(OPEN_PAREN);
-
-            ome->add_child(parse_description(ome));
-            lexer->expect_and_consume(COMMA);
-
-            lexer->expect_and_consume(OPEN_CURLY_BRACE);
-            PNode var_list(std::make_shared<Node>(VARIABLE_LIST, ome));
-            parse_variable_list(var_list);
-            lexer->expect_and_consume(CLOSE_CURLY_BRACE);
-
-            lexer->expect_and_consume(COMMA);
-
-            auto index = lexer->next();
-            if (index->get_token_type() != INTEGER) raise_parsing_exception("Integer required for indexing", index);
-
-            ome->add_child(make_terminal(ome, index));
-
-            lexer->expect_and_consume(CLOSE_PAREN);
-            return ome;
-        }
-
-        // DEF_RVALUE -> constituents PARTICLE_LIST
-        case CONSTITUENTS:
-        {
-            auto constituents = make_terminal(parent, lexer->next());
-
-            PNode particle_list(std::make_shared<Node>(PARTICLE_LIST, constituents));
-            parse_particle_list(particle_list);
-            constituents->add_child(particle_list);
-
-            return constituents;
-        }
-
         // DEF_RVALUE -> external STRING
+        // DEF_RVALUE -> external particle STRING
         // DEF_RVALUE -> external attribute STRING 
-        case EXTERNAL:
+        case TOK::EXTERNAL:
         {
-            auto external_func = make_terminal(parent, lexer->next());
-            if (lexer->peek(0)->get_token_type() == ATTRIBUTE) {
-                external_func->add_child(make_terminal(external_func, lexer->next()));
+
+            PNode external;
+
+            lexer->expect_and_consume(TOK::EXTERNAL);
+
+            if (lexer->peek(0)->get_token_type() == TOK::ATTRIBUTE) {
+                lexer->expect_and_consume(TOK::ATTRIBUTE);
+                external = create_node(AST::EXTERN_ATTR, parent, tok);
+            } else if (lexer->peek(0)->get_token_type() == TOK::PARTICLE_KEYWORD) {
+                lexer->expect_and_consume(TOK::PARTICLE_KEYWORD);
+                external = create_node(AST::EXTERN_PARTICLE, parent, tok);
+            } else {
+                external = create_node(AST::EXTERN_FUN, parent, tok);
             }
 
-            if (lexer->peek(0)->get_token_type() != STRING) raise_parsing_exception("External functions must be given an explicit code string to run", external_func->get_token());
+            parse_string(external, "External functions must be given an explicit code string to run");
+        } break;
 
-            external_func->add_child(parse_id(external_func));
+        // DEF_RVALUE -> correctionlib STRING STRING
 
-            return external_func;
-        }
-
-        // DEF_RVALUE -> correctionlib string string
-
-        case CORRECTIONLIB:
+        case TOK::CORRECTIONLIB:
         {
-            auto corrlib_func = make_terminal(parent, lexer->next());
+            PNode correctionlib(create_node(AST::CORRECTIONLIB, parent, tok));
 
-            if (lexer->peek(0)->get_token_type() != STRING) raise_parsing_exception("Correctionlib correction sets must be given an exact string for a file name", corrlib_func->get_token());
-            corrlib_func->add_child(parse_id(corrlib_func));
+            lexer->expect_and_consume(TOK::CORRECTIONLIB);
+            
+            parse_string(correctionlib, "Correctionlib correction sets must be given an exact string for a file name");
+            parse_string(correctionlib, "Correctionlib correction set includes must be given an exact string for a key");
 
-            if (lexer->peek(0)->get_token_type() != STRING) raise_parsing_exception("Correctionlib correction set includes must be given an exact string for a key", corrlib_func->get_token());
-            corrlib_func->add_child(parse_id(corrlib_func));
-
-            return corrlib_func;
-        }
+        } break;
 
         // DEF_RVALUE -> add PARTICLE_SUM
         // DEF_RVALUE -> particle_keyword PARTICLE_SUM
-        case ADD: case PARTICLE_KEYWORD:
-        {
-            auto add_particles = make_terminal(parent, lexer->next());
-            
-            PNode particle_list(std::make_shared<Node>(PARTICLE_SUM, add_particles));
-            parse_particle_sum(particle_list);
-            add_particles->add_child(particle_list);
-
-            return add_particles;
-        }
-
-        // illegal to have a particle without the "particle" keyword due to potential parsing ambiguity
-        case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case PHOTON: 
-        case JET: case FJET: case QGJET: case METLV:
-            raise_parsing_exception("Cannot use a particle in a definition without specifying the \"particle\" keyword", tok);
-            return PNode(std::make_shared<Node>(AST_ERROR, parent));
-        
-        case STRING: case VARNAME:
-            if (lexer->peek(1)->get_token_type() == OPEN_SQUARE_BRACE)
-            {
-                raise_parsing_exception("Cannot use a particle in a definition without specifying the \"particle\" keyword", tok);
-                return PNode(std::make_shared<Node>(AST_ERROR, parent));
-            }
-            // intentional fall-through
+        case TOK::ADD: case TOK::PARTICLE_KEYWORD:
+        {   
+            tok->get_token_type() == TOK::ADD ? lexer->expect_and_consume(TOK::ADD) : lexer->expect_and_consume(TOK::PARTICLE_KEYWORD);    
+            parse_particle_sum(parent);
+        } break;
 
         // DEF_RVALUE -> E
         default:
             // assume this is an expression if the other components have not succeeded in their production
-            return parse_expression(parent);
+            parse_expression(parent);
     }
 
 }
 
-/* COMPOSITE_RVALUE productions:
+
+/* COMPOSITE productions:
 ---
 
-    COMPOSITE_RVALUE -> comb ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
-    COMPOSITE_RVALUE -> dijoint ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
-    COMPOSITE_RVALUE -> direct ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA//TODO: implement direct union like this
+    COMPOSITE -> comp ID ASSIGNMENT COMP_RVALUE 
 
+ */
+void Parser::parse_composite(PNode parent) {
+
+    PNode composite(create_node(AST::COMPOSITE, parent));
+    
+    // COMPOSITE -> comp ID ASSIGNMENT COMP_RVALUE 
+    lexer->expect_and_consume(TOK::COMP);
+    parse_id(composite);
+    parse_assignment();
+    parse_comp_rvalue(composite);
+
+}
+
+/* COMP_RVALUE productions:
 ---
+
+    COMPOSITE_RVALUE -> COMP_TYPE ( NAMED_PARTICLE_LIST ) COMP_CRITERIA
+
 */
 
-void Parser::parse_composite_rvalue(PNode parent) {
+void Parser::parse_comp_rvalue(PNode parent) {
     
-    auto tok = lexer->peek(0);
+    // COMPOSITE_RVALUE -> COMP_TYPE ( NAMED_PARTICLE_LIST ) COMP_CRITERIA
+    parse_comp_type(parent);
+    lexer->expect_and_consume(TOK::OPEN_PAREN);
+    parse_named_particle_list(parent);
+    lexer->expect_and_consume(TOK::CLOSE_PAREN);
+    parse_comp_criteria(parent);
 
+    return;
+}
+
+
+/* COMPOSITE_TYPE productions:
+---
+
+    COMPOSITE_TYPE -> comb
+
+    COMPOSITE_TYPE -> disjoint
+
+    COMPOSITE_TYPE -> direct
+
+*/
+void Parser::parse_comp_type(PNode parent) {
+
+    PToken tok = lexer->peek(0);
     switch(tok->get_token_type()) {
 
-        // COMPOSITE_RVALUE -> comb ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
-        // COMPOSITE_RVALUE -> disjoint ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
-        // COMPOSITE_RVALUE -> direct ( NAMED_PARTICLE_LIST ) COMPOSITE_CRITERIA
-
-        case COMB: case DISJOINT: case DIRECT:
-        {
-            PNode comb_type = make_terminal(parent, lexer->next());
-
-            parent->add_child(comb_type);
-
-            lexer->expect_and_consume(OPEN_PAREN);
-
-            PNode particle_list(std::make_shared<Node>(NAMED_PARTICLE_LIST, comb_type));
-            comb_type->add_child(particle_list);
-
-            parse_named_particle_list(particle_list);
-            lexer->expect_and_consume(CLOSE_PAREN);
-
-            parse_composite_criteria(parent);
-
-            return;
-        }
-
+        case TOK::COMB:
+            // COMPOSITE_TYPE -> comb
+            lexer->expect_and_consume(TOK::COMB);
+            create_node(AST::COMPOSITE_CARTESIAN, parent, tok);
+            break;
+        case TOK::DISJOINT:
+            // COMPOSITE_TYPE -> disjoint
+            lexer->expect_and_consume(TOK::DISJOINT);
+            create_node(AST::COMPOSITE_DISJOINT, parent, tok);
+            break;
+        case TOK::DIRECT:
+            // COMPOSITE_TYPE -> direct
+            lexer->expect_and_consume(TOK::DIRECT);
+            create_node(AST::COMPOSITE_DIRECT, parent, tok);
+            break;
         default:
-        {
             raise_parsing_exception("Invalid input to a composite statement, need either comb or disjoint", tok);
-        }
-    }
-}
-
-
-/* OBJ_RVALUE productions:
----
-
-    OBJ_RVALUE -> union ( PARTICLE_LIST )
-
-    OBJ_RVALUE -> sort (PARTICLE, E)
-
-    OBJ_RVALUE -> PARTICLE CRITERIA
-
- */
-void Parser::parse_obj_rvalue(PNode parent) {
-    
-    auto tok = lexer->peek(0);
-
-    switch(tok->get_token_type()) {
-
-        // OBJ_RVALUE -> union ( PARTICLE_LIST )
-        case UNION:
-        {
-            PNode union_type = make_terminal(parent, lexer->next());
-
-            parent->add_child(union_type);
-
-            lexer->expect_and_consume(OPEN_PAREN);
-
-            PNode particle_list(std::make_shared<Node>(PARTICLE_LIST, union_type));
-            union_type->add_child(particle_list);
-
-            parse_particle_list(particle_list);
-            lexer->expect_and_consume(CLOSE_PAREN);
-
-            return;
-        }
-
-        
-        // OBJ_RVALUE -> sort (PARTICLE, EXPRESSION, ascend)
-        // OBJ_RVALUE -> sort (PARTICLE, EXPRESSION, descend)
-        // OBJ_RVALUE -> sort (PARTICLE, EXPRESSION)
-        case SORT:
-        {
-            lexer->expect_and_consume(SORT);
-            lexer->expect_and_consume(OPEN_PAREN);
-
-            PNode sort(std::make_shared<Node>(SORT_CMD, parent));
-            parent->add_child(sort);
-
-            sort->add_child(parse_particle(sort));
-
-            lexer->expect_and_consume(COMMA);
-
-            sort->add_child(parse_expression(sort));
-            
-            auto next = lexer->next();
-
-            if (next->get_token_type() == CLOSE_PAREN) return;
-            else if (next->get_token_type() != COMMA) raise_parsing_exception("Comma or close parenthesis expected in sorting statement", next);
-
-            auto direction = lexer->next();
-            if (direction->get_token_type() != ASCEND && direction->get_token_type() != DESCEND) raise_parsing_exception("Token after a sort expression must specify ascending or descending", direction);
-            sort->add_child(make_terminal(sort, direction));
-
-            lexer->expect_and_consume(CLOSE_PAREN);
-
-            return;
-        }
-
-        // OBJ_RVALUE -> PARTICLE CRITERIA
-        default:
-        {
-            PNode type = parse_particle(parent);
-            parent->add_child(type);
-            parse_criteria(parent);
-            return;
-        }
-    }
-}
-
-/* BOOL productions:
----
-
-    BOOL -> true
-
-    BOOL -> false
-
- */
-PNode Parser::parse_bool(PNode parent) {
-    auto tok = lexer->next();
-    if (!(tok->get_token_type() == TRUE) && !(tok->get_token_type() == FALSE)) raise_parsing_exception("Excepted boolean, but token is not interpretable as a boolean", tok);
-
-    PNode boolean(std::make_shared<Node>(TERMINAL, parent));
-    boolean->set_token(tok);
-    return boolean;
-}
-
-/* ID productions:
----
-
-    ID -> string
-
-    ID -> varname
-
- */
-PNode Parser::parse_id(PNode parent) {
-    PToken next = lexer->next();
-    if (next->get_token_type() != INTEGER && next->get_token_type() != STRING && next->get_token_type() != VARNAME) { 
-        raise_parsing_exception("Invalid ID, allowed types are variable-type names and strings", next);
-    } else if (next->get_token_type() == INTEGER) raise_parsing_exception("Invalid ID, integers for ID must be put in quotes.", next);
-    return make_terminal(parent, next);
-}
-
-/* DESCRIPTION productions:
----
-
-    DESCRIPTION -> string DESCRIPTION
-
-    DESCRIPTION -> string
-
- */
-PNode Parser::parse_description(PNode parent) {
-
-    auto tok = lexer->next();
-    PNode description_str(std::make_shared<Node>(TERMINAL, parent, tok));
-    if (tok->get_token_type() != STRING) {
-        raise_parsing_exception("Excepted string for description", tok);
-    }
-    // DESCRIPTION -> STRING DESCRIPTION
-    if (lexer->peek(0)->get_token_type() == STRING) {
-        parent->add_child(description_str);
-        return parse_description(parent);
-    }
-    return description_str;
-}
-
-
-/* REGION_COMMANDS productions
----
-
-    REGION_COMMANDS -> REGION_COMMAND REGION_COMMANDS
-
-    REGION_COMMANDS -> epsilon
- */
-void Parser::parse_region_commands(PNode parent) {
-
-    auto tok = lexer->peek(0);
-
-    switch(tok->get_token_type()) {
-        case SELECT: case REJEC: case BINS: case BIN: case SAVE: case PRINT: case WEIGHT: case HISTO: case SORT: case TAKE:
-            parent->add_child(parse_region_command(parent));
-            parse_region_commands(parent);
-            return;
-        default:
-            return;
-    }
-}
-
-
-/*  REGION_COMMAND_SELECT productions:
----
-
-    REGION_COMMAND_SELECT -> none
-
-    REGION_COMMAND_SELECT -> all
-    
-    REGION_COMMAND_SELECT -> IF_OR_CONDITION
-
-*/
-PNode Parser::parse_region_command_select(PNode parent) {
-
-    auto next = lexer->peek(0);
-    switch(next->get_token_type()) {
-
-        // REGION_COMMAND_SELECT -> none
-        // REGION_COMMAND_SELECT -> all
-
-        case NONE: case ALL: 
-        {
-            lexer->next();
-            PNode cond(std::make_shared<Node>(CONDITION, parent));
-            cond->add_child(make_terminal(cond, next));
-            return cond;
-        }
-        
-
-        // REGION_COMMAND_SELECT -> IF_OR_CONDITION
-        default:
-            return parse_if_or_condition(parent);
-    }
-}
-
-
-/* REGION_COMMAND productions:
----
-
-    REGION_COMMAND -> select REGION_COMMAND_SELECT
-
-    REGION_COMMAND -> weight ID E
-
-    REGION_COMMAND -> bin CONDITION
-
-    REGION_COMMAND -> rejec CONDITION
-
-    REGION_COMMAND -> use ID
-
-    REGION_COMMAND -> take ID
-
-    REGION_COMMAND -> bins ID BIN_OR_BOX_VALUES
-
-    REGION_COMMAND -> save ID
-
-    REGION_COMMAND -> save ID csv VARIABLE_LIST
-
-    REGION_COMMAND -> counts ID COUNTS
-
-    REGION_COMMAND -> histo HISTOGRAM
-
-    REGION_COMMAND -> if EXPRESSION then REGION_COMMAND else REGION_COMMAND
-
-    REGION_COMMAND -> if EXPRESSION do REGION_COMMAND
-
- */
-
-PNode Parser::parse_region_command(PNode parent) {
-    
-    auto tok = lexer->next();
-    switch(tok->get_token_type()) {
-        
-        // REGION_COMMAND -> select REGION_COMMAND_SELECT
-        case SELECT:
-        {
-            PNode node(std::make_shared<Node>(REGION_SELECT, parent));
-            node->add_child(parse_region_command_select(parent));
-            return node;
-        }
-
-        // REGION_COMMAND -> weight ID E
-        case WEIGHT:
-        {
-            PNode node(std::make_shared<Node>(WEIGHT_CMD, parent));
-            node->add_child(parse_id(node));
-            node->add_child(parse_expression(node));
-            return node;
-        }
-
-        // REGION_COMMAND -> rejec REGION_COMMAND_SELECT
-        case REJEC:
-        {
-            PNode node(std::make_shared<Node>(REGION_REJECT, parent));
-            node->add_child(parse_region_command_select(parent));
-            return node;
-        }
-
-        // REGION_COMMAND -> bin CONDITION
-        case BIN:
-        {
-            PNode node(std::make_shared<Node>(BIN_CMD, parent));
-            node->add_child(parse_condition(node));
-            return node;
-        }
-
-        // REGION_COMMAND -> take ID
-        case TAKE:
-        {
-            PNode node(std::make_shared<Node>(REGION_USE, parent));
-            node->add_child(parse_id(node));
-            return node;
-        }
-
-        // REGION_COMMAND -> bins ID BIN_OR_BOX_VALUES
-        case BINS:
-        {
-            PNode node(std::make_shared<Node>(BINS_CMD, parent));
-            node->add_child(parse_expression(node));
-            parse_bin_or_box_values(node);
-            return node;
-        }
-
-        // REGION_COMMAND -> save ID
-        // REGION_COMMAND -> save ID csv VARIABLE_LIST
-        case SAVE:
-        {
-            PNode save(make_terminal(parent, tok));
-            save->add_child(parse_id(save));
-            auto next = lexer->peek(0);
-            if (next->get_token_type() == CSV) {
-                lexer->expect_and_consume(CSV);
-                parse_variable_list(save);
-            }  
-            return save;          
-        }
-
-        // REGION_COMMAND -> print VARIABLE_LIST
-        case PRINT:
-        {
-            PNode print(make_terminal(parent, tok));
-            parse_variable_list(print);
-            return print;
-        }
-
-        // REGION_COMMAND -> histo HISTOGRAM
-        // REGION_COMMAND -> histo take ID
-        case HISTO:
-        {
-            if (lexer->peek(0)->get_token_type() == TAKE) {
-                lexer->expect_and_consume(TAKE);
-                PNode histo_use(std::make_shared<Node>(HISTO_USE, parent));
-                histo_use->add_child(parse_id(histo_use));
-                return histo_use;
-            }
-            PNode histo(std::make_shared<Node>(HISTOGRAM, parent));
-            parse_histogram(histo);
-            return histo;
-        }
-
-        default:
-            raise_parsing_exception("Unexpected token in region block", tok);
-            return PNode(std::make_shared<Node>(AST_ERROR, parent));
-    }
-
-}
-
-
-/* HISTOGRAM productions:
----
-
-    HISTOGRAM -> ID, DESCRIPTION, integer, number, number, EXPRESSION
-
-    HISTOGRAM -> ID, DESCRIPTION, integer, number, number, integer, number, number, EXPRESSION, EXPRESSION
-*/
-        
-void Parser::parse_histogram(PNode parent) {
-    // id, 
-    parent->add_child(parse_id(parent));
-    lexer->expect_and_consume(COMMA);
-
-    // DESCRIPTION,
-    parent->add_child(parse_description(parent));
-    lexer->expect_and_consume(COMMA);
-
-    // integer,
-    auto integer_tok_1 = lexer->next();
-    if (integer_tok_1->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to specify binning quantity on histograms", integer_tok_1);
-    parent->add_child(make_terminal(parent, integer_tok_1));
-    lexer->expect_and_consume(COMMA);
-
-    // number,
-    auto lower_value_tok_1 = lexer->next();
-    if (!is_numerical(lower_value_tok_1->get_token_type())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a histogram", lower_value_tok_1);
-    parent->add_child(make_terminal(parent, lower_value_tok_1));
-    lexer->expect_and_consume(COMMA);
-
-    // number,
-    auto upper_value_tok_1 = lexer->next();
-    if (!is_numerical(upper_value_tok_1->get_token_type())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a histogram", upper_value_tok_1);
-    parent->add_child(make_terminal(parent, upper_value_tok_1));
-    lexer->expect_and_consume(COMMA);
-
-    // use to check if the list continues 
-    bool is_2d = false;
-    auto discriminant = lexer->peek(1);
-
-    if (discriminant->get_token_type() == COMMA) {
-
-        // REGION_COMMANDS -> parent ID, DESCRIPTION, integer, number, number, integer, number, number, EXPRESSION, EXPRESSION
-        is_2d = true;
-
-        // integer,
-        auto integer_tok_2 = lexer->next();
-        if (integer_tok_2->get_token_type() != INTEGER) raise_parsing_exception("Only integers are allowed to specify binning quantity on histograms", integer_tok_2);
-        parent->add_child(make_terminal(parent, integer_tok_2));
-        lexer->expect_and_consume(COMMA);
-
-        // number,
-        auto lower_value_tok_2 = lexer->next();
-        if (!is_numerical(lower_value_tok_2->get_token_type())) raise_parsing_exception("Only numerical types are allowed for the lower bound of a histogram", lower_value_tok_2);
-        parent->add_child(make_terminal(parent, lower_value_tok_2));
-        lexer->expect_and_consume(COMMA);
-
-        // number,
-        auto upper_value_tok_2 = lexer->next();
-        if (!is_numerical(upper_value_tok_2->get_token_type())) raise_parsing_exception("Only numerical types are allowed for the upper bound of a histogram", upper_value_tok_1);
-        parent->add_child(make_terminal(parent, upper_value_tok_2));
-        lexer->expect_and_consume(COMMA);
-    }
-
-    parent->add_child(parse_expression(parent));
-    
-    if (is_2d) {
-        lexer->expect_and_consume(COMMA);
-        parent->add_child(parse_expression(parent));
-    }
-}
-
-/* VARIABLE_LIST productions:
----
-
-    VARIABLE_LIST -> EXPRESSION VARIABLE_LIST
-
-    VARIABLE_LIST -> EXPRESSION, VARIABLE_LIST
-
-    VARIABLE_LIST -> epsilon
- */
-void Parser::parse_variable_list(PNode parent) {
-
-    auto tok = lexer->peek(0);
-    switch(tok->get_token_type()) {
-
-        // VARIABLE_LIST -> epsilon 
-        // this is the follow set for VARIABLE_LIST, and none of them are in the first set of EXPRESSION
-        // TODO: update this
-        case CLOSE_CURLY_BRACE: case CLOSE_PAREN: case COLON: case OBJ: case COMP:  case SELECT: case PRINT: case HISTO: case REJEC: case BINS: case BIN: case SAVE: case WEIGHT: case SORT: case ADLINFO: case DEF: case TABLE: case ALGO: case COMMA: 
-            return;            
-
-        // VARIABLE_LIST -> EXPRESSION VARIABLE_LIST
-        // VARIABLE_LIST -> EXPRESSION, VARIABLE_LIST
-        default:
-            parent->add_child(parse_expression(parent));
-            auto next = lexer->peek(0);
-            if (next->get_token_type() == COMMA) {
-                lexer->expect_and_consume(COMMA);
-            }
-            parse_variable_list(parent);
-            return;
-    }
-}
-
-
-/* REGION_CONDITIONAL_COMMAND productions:
----
-
-    REGION_CONDITIONAL_COMMAND -> if CONDITION then ACTION else ACTION
-    REGION_CONDITIONAL_COMMAND -> if CONDITION do ACTION
-
-*/
-
-//TODO: replace other condition with this one, make expressions parse to them only in parentheses
-/* CONDITION productions: 
----
-
-    CONDITION -> E ? E : E
-
-    CONDITION -> E
-
-*/
-
-
-/* IF_OR_CONDITION productions:
----
-
-    IF_OR_CONDITION -> CONDITION
-
-    IF_OR_CONDITION -> CONDITION ? ACTION : ACTION
- */
-PNode Parser::parse_if_or_condition(PNode parent) {
-
-    //TODO: change IF token to something else
-    PNode node(std::make_shared<Node>(IF_STATEMENT, parent));
-
-    node->add_child(parse_condition(node));
-
-    auto tok = lexer->peek(0);
-    if (tok->get_token_type() == QUESTION) {
-        lexer->expect_and_consume(QUESTION);
-        node->add_child(parse_action(node));
-        lexer->expect_and_consume(COLON);
-        node->add_child(parse_action(node));
-    }
-
-    return node;
-}
-
-/* ACTION productions:
----
-
-    ACTION -> all
-
-    ACTION -> none
-
-    ACTION -> IF_OR_CONDITION
- */
-PNode Parser::parse_action(PNode parent){
-    auto tok = lexer->peek(0);
-    switch (tok->get_token_type()) {
-
-        // ACTION -> print VARIABLE_LIST
-        case PRINT:
-        {
-            lexer->next();
-            PNode print(make_terminal(parent, tok));
-            parse_variable_list(print);
-            return print;
-        }
-        
-        // ACTION -> all
-        // ACTION -> none
-        case ALL: case NONE:
-        {
-            lexer->next();
-            return make_terminal(parent, tok);
-        }
-
-
-        // ACTION -> IF_OR_CONDITION
-        default:
-            return parse_if_or_condition(parent);
-
-    }
-}
-
-/* BIN_OR_BOX_VALUES productions:
----
-
-    BIN_OR_BOX_VALUES -> number BIN_OR_BOX_VALUES
-
-    BIN_OR_BOX_VALUES -> number
-
- */
-void Parser::parse_bin_or_box_values(PNode parent) {
-    // BIN_OR_BOX_VALUES -> number BIN_OR_BOX_VALUES
-    // BIN_OR_BOX_VALUES -> number
-
-    auto tok = lexer->next();
-    if (!is_numerical(tok->get_token_type())) raise_parsing_exception("Needs a numerical value for box argument", tok);
-
-    parent->add_child(make_terminal(parent, tok));
-
-    auto next = lexer->peek(0);
-    if (is_numerical(next->get_token_type())) parse_bin_or_box_values(parent);
-}
-
-
-/* PARTICLE_SUM productions:
----
-
-    PARTICLE_SUM -> PARTICLE + PARTICLE_SUM
-
-    PARTICLE_SUM -> PARTICLE PARTICLE_SUM
-
-    PARTICLE_SUM -> PARTICLE 
-
-*/
-void Parser::parse_particle_sum(PNode parent) {
-
-    parent->add_child(parse_particle(parent));
-    auto tok = lexer->peek(0);
-
-    switch (tok->get_token_type()) {
-
-        // PARTICLE_SUM -> PARTICLE + PARTICLE_SUM
-        case PLUS:
-            lexer->expect_and_consume(PLUS);
-            parse_particle_sum(parent);
-            return;
-
-        // PARTICLE_SUM -> PARTICLE PARTICLE_SUM
-        case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case PHOTON: 
-        case JET: case FJET: case QGJET: case METLV: case STRING: case VARNAME: case MINUS:
-            parse_particle_sum(parent);
-            return;
-
-        default:
-        // PARTICLE_SUM -> PARTICLE
-            return;
-    }
-}
-
-void Parser::parse_particle_list(PNode parent) {
-
-    parent->add_child(parse_particle(parent));
-    auto tok = lexer->peek(0);
-
-    switch (tok->get_token_type()) {
-
-        // PARTICLE_LIST -> PARTICLE, PARTICLE_LIST
-        case COMMA:
-            lexer->expect_and_consume(COMMA);
-            parse_particle_list(parent);
-            return;
-
-        default:
-        // PARTICLE_LIST -> PARTICLE
-            return;
-    }
-}
-
-void Parser::parse_named_particle_list(PNode parent) {
-
-    parent->add_child(parse_particle(parent));
-    parent->add_child(parse_id(parent));
-    auto tok = lexer->peek(0);
-
-    switch (tok->get_token_type()) {
-
-        // NAMED_PARTICLE_LIST -> PARTICLE ID, NAMED_PARTICLE_LIST
-        case COMMA:
-            lexer->expect_and_consume(COMMA);
-            parse_named_particle_list(parent);
-            return;
-
-        default:
-        // PARTICLE_LIST -> PARTICLE ID
-            return;
-    }
-}
-
-
-/* PARTICLE productions:
----
-
-    PARTICLE -> first(PARTICLE)
-    
-    PARTICLE -> second(PARTICLE)
-
-    PARTICLE -> ID arrow_index ID INDEX
-
-    PARTICLE -> gen constituents
-
-    PARTICLE -> jet constituents
-
-    PARTICLE -> fjet constituents
-
-    PARTICLE -> gen INDEX
-
-    PARTICLE -> electron INDEX
-
-    PARTICLE -> muon INDEX
-
-    PARTICLE -> tau INDEX
-
-    PARTICLE -> track INDEX
-
-    PARTICLE -> lepton INDEX
-
-    PARTICLE -> photon INDEX
-
-    PARTICLE -> jet INDEX
-
-    PARTICLE -> bjet INDEX
-
-    PARTICLE -> fjet INDEX
-
-    PARTICLE -> qgjet INDEX
-
-    PARTICLE -> numet INDEX
-
-    PARTICLE -> metlv INDEX
-
-    PARTICLE -> - PARTICLE
-
-    PARTICLE -> ID INDEX
- */
-PNode Parser::parse_particle(PNode parent) {
-
-    auto tok = lexer->peek(0);
-
-    switch (tok->get_token_type()) {
-
-        // PARTICLE -> first(PARTICLE)
-        // PARTICLE -> second(PARTICLE)
-        case FIRST: case SECOND:
-        {
-            PNode helper_func = make_terminal(parent, lexer->next());
-            lexer->expect_and_consume(OPEN_PAREN);
-            helper_func->add_child(parse_particle(helper_func));
-            lexer->expect_and_consume(CLOSE_PAREN);
-            return helper_func;
-        }
-        
-        // PARTICLE -> this
-        case THIS:
-        {
-            PNode this_part = make_terminal(parent, lexer->next());
-            return this_part;
-        }
-
-        // PARTICLE -> gen constituents
-        // PARTICLE -> jet constituents
-        // PARTICLE -> fjet constituents
-        case GEN: case JET: case FJET:
-        {
-            if (lexer->peek(1)->get_token_type()==CONSTITUENTS) {
-                PNode particle = make_terminal(parent, lexer->next());
-                PNode constituents = make_terminal(parent, lexer->next());
-                constituents->add_child(particle);
-                return constituents;
-            }
-            // Intentional fall-through
-        }
-        
-        // PARTICLE -> gen INDEX
-        // PARTICLE -> jet INDEX
-        // PARTICLE -> fjet INDEX
-        // PARTICLE -> electron INDEX
-        // PARTICLE -> muon INDEX
-        // PARTICLE -> tau INDE
-        // PARTICLE -> track INDEX
-        // PARTICLE -> photon INDEX
-        // PARTICLE -> qgjet INDEX
-        // PARTICLE -> metlv INDEX
-        case ELECTRON: case MUON: case TAU: case TRACK: case PHOTON: case QGJET: case METLV:
-            {
-                PNode particle = make_terminal(parent, lexer->next());
-                particle->add_child(parse_index(particle));
-                return particle;
-            }
-        case MINUS:
-            {
-                PNode minus = make_terminal(parent, lexer->next());
-                minus->add_child(parse_particle(minus));
-                return minus;
-            }
-
-        // PARTICLE -> ID arrow_index ID INDEX
-        // PARTICLE -> ID INDEX
-        default:
-            {
-                PNode particle;
-                if (lexer->peek(1)->get_token_type() == ARROW_INDEX) {
-                    particle = precedence_climber(parent, 0);
-                } else {
-                    particle = parse_id(parent);
-                }
-                particle->add_child(parse_index(particle));
-                return particle;
-            }
-    }
-
-}
-
-/* INDEX productions:
----
-
-    INDEX -> [integer]
-
-    INDEX -> [integer:integer]
-
-    INDEX -> [:integer]
-
-    INDEX -> [integer:]
-    
-    INDEX -> epsilon
-
- */
-PNode Parser::parse_index(PNode parent) {
-
-    auto tok = lexer->peek(0);
-
-    switch(tok->get_token_type()) {
-
-        // INDEX -> [integer]
-        // INDEX -> [integer:integer]
-        case OPEN_SQUARE_BRACE:
-        {    
-            lexer->next();
-            PNode index(std::make_shared<Node>(INDEX, parent));
-            auto next = lexer->next();
-            if (next->get_token_type() != INTEGER && next->get_token_type() != COLON) raise_parsing_exception("Only integers are allowed to be used as indices", next);
-            index->add_child(make_terminal(index, next));
-            
-            // INDEX -> [integer:integer]
-            if (next->get_token_type() == COLON || lexer->peek(0)->get_token_type() == COLON) {
-                if (lexer->peek(0)->get_token_type() == COLON) lexer->expect_and_consume(COLON);
-
-                auto next2 = lexer->next();
-                if (next2->get_token_type() != INTEGER && next2->get_token_type() != CLOSE_SQUARE_BRACE) raise_parsing_exception("Only integers are allowed to be used as indices", next2);
-
-                index->add_child(make_terminal(index, next2));
-            }
-            if (lexer->peek(0)->get_token_type() == CLOSE_SQUARE_BRACE) {
-                lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
-            }
-            return index;
-
-        }
-
-        // INDEX -> epsilon
-        default:
-            return PNode(std::make_shared<Node>(AST_EPSILON, parent));
+            break;    
     }
 }
 
@@ -1438,142 +401,1114 @@ PNode Parser::parse_index(PNode parent) {
     COMPOSITE_CRITERIA -> COMPOSITE_CRITERION COMPOSITE_CRITERIA
 
     COMPOSITE_CRITERIA -> epsilon
+
 */
-void Parser::parse_composite_criteria(PNode parent) {
+void Parser::parse_comp_criteria(PNode parent) {
+
+    PNode comp_criteria = make_list_root_node(AST::COMP_CRITERIA, parent);
 
     auto tok = lexer->peek(0);
     switch(tok->get_token_type()) {
-        case SELECT: case PRINT: case HISTO: case REJEC: case PARTICLE_KEYWORD:
-            parent->add_child(parse_composite_criterion(parent));
-            parse_composite_criteria(parent);
+        // first set of COMPOSITE_CRITERION
+        // COMPOSITE_CRITERIA -> COMPOSITE_CRITERION COMPOSITE_CRITERIA
+        case TOK::SELECT: case TOK::REJEC: case TOK::PARTICLE_KEYWORD:
+            parse_comp_criterion(comp_criteria);
+            parse_comp_criteria(comp_criteria);
             return;
+
+        // COMPOSITE_CRITERIA -> epsilon
         default:
             return;
     }
 }
 
-
-/* CRITERIA productions:
----
-
-    CRITERIA -> CRITERION CRITERIA
-
-    CRITERIA -> epsilon
-*/
-void Parser::parse_criteria(PNode parent) {
-
-    auto tok = lexer->peek(0);
-    switch(tok->get_token_type()) {
-        case SELECT: case PRINT: case HISTO: case REJEC:
-            parent->add_child(parse_criterion(parent));
-            parse_criteria(parent);
-            return;
-        default:
-            return;
-    }
-}
 
 /* COMPOSITE_CRITERION productions:
 ---
 
-    COMPOSITE_CRITERION -> particle_keyword ID = PARTICLE_SUM
-    COMPOSITE_CRITERION -> particle_keyword ID : PARTICLE_SUM
+    COMPOSITE_CRITERION -> particle_keyword ID ASSIGNMENT PARTICLE_SUM
 
-    COMPOSITE_CRITERION -> CRITERION
+    COMPOSITE_CRITERION -> OBJ_CRITERION
+
  */
-PNode Parser::parse_composite_criterion(PNode parent) {
+void Parser::parse_comp_criterion(PNode parent) {
 
     auto tok = lexer->peek(0);
 
     switch (tok->get_token_type()) {
 
-        case PARTICLE_KEYWORD:
+        case TOK::PARTICLE_KEYWORD:
         {
-            PNode definition(std::make_shared<Node>(DEFINITION, parent));
+            PNode definition(create_node(AST::DEFINITION, parent, tok));
 
-            auto add_particles = make_terminal(parent, lexer->next());
-            definition->add_child(parse_id(definition));
-            definition->add_child(add_particles);
-
-            auto eq_tok = lexer->next();
-
-            if (eq_tok->get_token_type() != ASSIGN && eq_tok->get_token_type() != COLON) raise_parsing_exception("Unknown token for particle definition assignment, expected '=' or ':'", eq_tok);
-            
-            PNode particle_list(std::make_shared<Node>(PARTICLE_SUM, add_particles));
-            parse_particle_sum(particle_list);
-            add_particles->add_child(particle_list);
-
-            return definition;
+            // COMPOSITE_CRITERION -> particle_keyword ID ASSIGNMENT PARTICLE_SUM
+            lexer->expect_and_consume(TOK::PARTICLE_KEYWORD);
+            parse_id(definition);
+            parse_assignment();
+            parse_particle_sum(definition);
+            break;
         }
+        // COMPOSITE_CRITERION -> OBJ_CRITERION
         default:
-            return parse_criterion(parent);
+            parse_obj_criterion(parent);
+            break;
     }
 
 }
 
-/* CRITERION productions:
+
+/* OBJECT productions:
 ---
 
-    CRITERION -> select ACTION
+    OBJECT -> obj ID ASSIGNMENT OBJ_RVALUE 
 
-    CRITERION -> print VARIABLE_LIST
-
-    CRITERION -> rejec CONDITION
  */
-PNode Parser::parse_criterion(PNode parent) {
+void Parser::parse_object(PNode parent) {
 
-    auto tok = lexer->next();
+    PNode object(create_node(AST::OBJECT, parent));
+    
+    // OBJECT -> obj ID ASSIGNMENT OBJ_RVALUE 
+    lexer->expect_and_consume(TOK::OBJ);
+    parse_id(object);
+    parse_assignment();
+    parse_obj_rvalue(object);
+
+}
+
+
+/* OBJ_RVALUE productions:
+---
+
+    OBJ_RVALUE -> OBJ_TYPE OBJ_CRITERIA
+
+ */
+void Parser::parse_obj_rvalue(PNode parent) {
+
+    //OBJ_RVALUE -> OBJ_TYPE OBJ_CRITERIA
+    parse_obj_type(parent);
+    parse_obj_criteria(parent);
+    
+}
+
+/* OBJ_TYPE productions:
+---
+
+    OBJ_TYPE -> union ( PARTICLE_LIST )
+
+    OBJ_TYPE -> sort (PARTICLE, E )
+
+    OBJ_TYPE -> sort (PARTICLE, E, ascend )
+
+    OBJ_TYPE -> sort (PARTICLE, E, descend )
+
+    OBJ_TYPE -> PARTICLE
+
+ */
+void Parser::parse_obj_type(PNode parent) {
+
+    PToken tok = lexer->peek(0);
+    switch(tok->get_token_type()) {
+
+        case TOK::UNION:
+        {
+            PNode union_type(create_node(AST::OBJ_UNION, parent, tok));
+
+            // OBJ_TYPE -> union ( PARTICLE_LIST )
+            lexer->expect_and_consume(TOK::UNION);
+            lexer->expect_and_consume(TOK::OPEN_PAREN);
+            parse_particle_list(union_type);
+            lexer->expect_and_consume(TOK::CLOSE_PAREN);
+
+            return;
+        }
+
+        
+
+        case TOK::SORT:
+        {
+            PNode sort(create_node(AST::OBJ_SORT, parent, tok));
+
+            // OBJ_TYPE -> sort ( PARTICLE , E OPTIONAL_SORT_DIR )
+            lexer->expect_and_consume(TOK::SORT);
+            lexer->expect_and_consume(TOK::OPEN_PAREN);
+            parse_particle(sort);
+            lexer->expect_and_consume(TOK::COMMA);
+            parse_expression(sort);
+            parse_optional_sort_dir(sort);
+            lexer->expect_and_consume(TOK::CLOSE_PAREN);
+
+            return;
+        }
+
+        // OBJ_TYPE -> PARTICLE
+        default:
+        {
+            parse_particle(parent);
+
+            return;
+        }
+    }
+}
+
+/* OPTIONAL_SORT_DIR productions:
+---
+
+    OPTIONAL_SORT_DIR -> , ascend
+
+    OPTIONAL_SORT_DIR -> , descend
+
+    OPTIONAL_SORT_DIR -> epsilon
+
+*/
+void Parser::parse_optional_sort_dir(PNode parent) {
+    
+    if (lexer->peek(0)->get_token_type() == TOK::COMMA && lexer->peek(1)->get_token_type() == TOK::ASCEND) {
+
+        create_node(AST::ASCEND, parent, lexer->peek(1));
+
+        // OPTIONAL_SORT_DIR -> , ascend
+        lexer->expect_and_consume(TOK::COMMA);
+        lexer->expect_and_consume(TOK::ASCEND);
+
+    } else if (lexer->peek(0)->get_token_type() == TOK::COMMA && lexer->peek(1)->get_token_type() == TOK::DESCEND) {
+
+        create_node(AST::DESCEND, parent, lexer->peek(1));
+
+        // OPTIONAL_SORT_DIR -> , descend
+        lexer->expect_and_consume(TOK::COMMA);
+        lexer->expect_and_consume(TOK::DESCEND);
+
+    }
+    else {
+        // OPTIONAL_SORT_DIR -> epsilon
+        return;
+    }
+
+}
+
+/* OBJ_CRITERIA productions:
+---
+
+    OBJ_CRITERIA -> OBJ_CRITERION OBJ_CRITERIA
+
+    OBJ_CRITERIA -> epsilon
+
+*/
+void Parser::parse_obj_criteria(PNode parent) {
+
+    PNode obj_criteria = make_list_root_node(AST::OBJECT_CRITERIA, parent);
+
+    auto tok = lexer->peek(0);
+    switch(tok->get_token_type()) {
+        // OBJ_CRITERIA -> OBJ_CRITERION OBJ_CRITERIA
+        case TOK::SELECT: case TOK::REJEC:
+            parse_obj_criterion(obj_criteria);
+            parse_obj_criteria(obj_criteria);
+            return;
+        // OBJ_CRITERIA -> epsilon
+        default:
+            return;
+    }
+}
+
+
+/* OBJ_CRITERION productions:
+---
+
+    OBJ_CRITERION -> select E
+
+    OBJ_CRITERION -> reject E
+
+ */
+void Parser::parse_obj_criterion(PNode parent) {
+
+    PToken tok = lexer->peek(0);
+    switch (tok->get_token_type()) {
+
+        case TOK::SELECT:
+        {
+            PNode select(create_node(AST::OBJECT_SELECT, parent, tok));
+
+            // OBJ_CRITERION -> select E
+            lexer->expect_and_consume(TOK::SELECT);
+            parse_expression(select);
+            return;
+        }
+        case TOK::REJEC:
+        {
+            PNode reject(create_node(AST::OBJECT_REJECT, parent, tok));
+
+            // OBJ_CRITERION -> reject E
+            lexer->expect_and_consume(TOK::REJEC);
+            parse_expression(reject);
+            return;
+        }
+
+        default:
+            raise_parsing_exception("Invalid token for an object creation criterion", tok);
+            return;
+    }
+
+}
+
+
+/* TABLE productions:
+---
+
+    TABLE -> TABLE_HEADER LITERAL_NUMBER_LIST
+
+*/
+void Parser::parse_table(PNode parent) {
+
+    PNode table(create_node(AST::TABLE_DEF, parent));
+
+    // TABLE -> TABLE_HEADER LITERAL_NUMBER_LIST
+    parse_table_header(table);
+    parse_literal_number_list(table);
+}
+
+
+/* TABLE_HEADER productions:
+---
+
+    TABLE_HEADER -> table ID tabletype ID nvars INTEGER errors BOOL 
+
+*/
+void Parser::parse_table_header(PNode parent) {
+    lexer->expect_and_consume(TOK::TABLE);
+    parse_id(parent);
+    lexer->expect_and_consume(TOK::TABLETYPE);
+    parse_id(parent);
+    lexer->expect_and_consume(TOK::NVARS);
+    parse_integer(parent, "Only integers are allowed to specify NVars");
+    lexer->expect_and_consume(TOK::ERRORS);
+    parse_bool(parent);
+}
+
+
+/* REGION productions:
+---    
+
+    REGION -> reg ID REGION_COMMANDS
+
+*/
+void Parser::parse_region(PNode parent) {
+
+    PNode region(create_node(AST::REGION, parent));
+
+    // REGION -> reg ID REGION_COMMANDS
+    lexer->expect_and_consume(TOK::REG);
+    parse_id(region);
+    parse_region_commands(region);
+}
+
+
+/* REGION_COMMANDS productions
+---
+
+    REGION_COMMANDS -> REGION_COMMAND REGION_COMMANDS
+
+    REGION_COMMANDS -> epsilon
+
+ */
+void Parser::parse_region_commands(PNode parent) {
+
+    PNode region_commands = make_list_root_node(AST::REGION_COMMANDS, parent);
+
+    auto tok = lexer->peek(0);
+
+    switch(tok->get_token_type()) {
+        // first set of REGION_COMMAND
+        // REGION_COMMANDS -> REGION_COMMAND REGION_COMMANDS
+        case TOK::SELECT: case TOK::REJEC: case TOK::TAKE: case TOK::WEIGHT: case TOK::BIN: case TOK::BINS: case TOK::HISTO:
+            parse_region_command(region_commands);
+            parse_region_commands(region_commands);
+            return;
+        // REGION_COMMANDS -> epsilon
+        default:
+            return;
+    }
+}
+
+
+/* REGION_COMMAND productions:
+---
+
+    REGION_COMMAND -> select E
+
+    REGION_COMMAND -> reject E
+
+    REGION_COMMAND -> take ID
+
+    REGION_COMMAND -> weight ID E
+
+    REGION_COMMAND -> bin ID ASSIGNMENT E
+
+    REGION_COMMAND -> bins E LITERAL_NUMBER_LIST
+
+    REGION_COMMAND -> histo HISTOGRAM
+
+    REGION_COMMAND -> histo take ID
+
+ */
+void Parser::parse_region_command(PNode parent) {
+    
+    auto tok = lexer->peek(0);
+    switch(tok->get_token_type()) {
+        
+        case TOK::SELECT:
+        {
+            PNode select(create_node(AST::REGION_SELECT, parent, tok));
+
+            // REGION_COMMAND -> select E
+            lexer->expect_and_consume(TOK::SELECT);
+            parse_expression(select);
+            return;
+        }
+        case TOK::REJEC:
+        {
+            PNode reject(create_node(AST::REGION_REJECT, parent, tok));
+
+            // REGION_COMMAND -> reject E
+            lexer->expect_and_consume(TOK::REJEC);
+            parse_expression(reject);
+            return;
+        }
+        
+        case TOK::TAKE:
+        {
+            PNode take(create_node(AST::REGION_USE, parent, tok));
+
+            // REGION_COMMAND -> take ID
+            lexer->expect_and_consume(TOK::TAKE);
+            parse_id(take);
+            return;
+        }
+        case TOK::WEIGHT:
+        {
+            PNode weight(create_node(AST::REGION_WEIGHT, parent, tok));
+
+            // REGION_COMMAND -> weight ID E
+            lexer->expect_and_consume(TOK::WEIGHT);
+            parse_id(weight);
+            parse_expression(weight);
+            return;
+        }
+
+        case TOK::BIN:
+        {
+            // REGION_COMMAND -> bin ID ASSIGNMENT E
+            PNode bin(create_node(AST::REGION_BIN, parent, tok));
+            lexer->expect_and_consume(TOK::BIN);
+            parse_id(bin);
+            parse_assignment();
+            parse_expression(bin);
+            return;
+
+        }
+
+        case TOK::BINS:
+        {
+            PNode bins(create_node(AST::REGION_BINS, parent, tok));
+
+            // REGION_COMMAND -> bins E LITERAL_NUMBER_LIST
+            lexer->expect_and_consume(TOK::BINS);
+            parse_expression(bins);
+            parse_literal_number_list(bins);
+            return;
+        }
+
+        case TOK::HISTO:
+        {
+            PToken next = lexer->peek(1);
+            if (next->get_token_type() == TOK::TAKE) {
+
+                PNode histo_use(create_node(AST::REGION_HISTO_USE, parent, tok));
+
+                // REGION_COMMAND -> histo take ID
+                lexer->expect_and_consume(TOK::HISTO);
+                lexer->expect_and_consume(TOK::TAKE);
+                parse_id(histo_use);
+                return;
+
+            } else {
+
+                PNode histo(create_node(AST::REGION_HISTOGRAM, parent, tok));
+
+                // REGION_COMMAND -> histo HISTOGRAM
+                lexer->expect_and_consume(TOK::HISTO);
+                parse_histogram(histo);
+                return;
+
+            }
+        }
+
+        default:
+            raise_parsing_exception("Unexpected token in region block", tok);
+    }
+
+}
+
+
+/* HISTO_LIST productions:
+---    
+
+    HISTO_LIST -> histolist ID HISTO_ENTRIES
+
+*/
+void Parser::parse_histo_list(PNode parent) {
+
+    PNode histo_list(create_node(AST::HISTO_LIST, parent));
+
+    // HISTO_LIST -> histolist ID HISTO_ENTRIES
+    lexer->expect_and_consume(TOK::HISTOLIST);
+    parse_id(histo_list);
+    parse_histo_entries(histo_list);
+
+}
+
+
+/* HISTO_ENTRIES productions:
+---
+
+    HISTO_ENTRIES -> HISTO_ENTRY HISTO_ENTRIES
+    
+    HISTO_ENTRIES -> epsilon
+
+*/
+void Parser::parse_histo_entries(PNode parent) {
+
+    PNode histo_entries = make_list_root_node(AST::HISTO_ENTRIES, parent);
+
+    PToken tok = lexer->peek(0);
+    switch (tok->get_token_type()) {
+
+        // HISTO_ENTRIES ->  HISTO_ENTRY HISTO_ENTRIES
+        case TOK::HISTO: 
+            parse_histo_entry(histo_entries);
+            parse_histo_entries(histo_entries);
+            return;
+
+        // HISTO_ENTRIES -> epsilon
+        default:
+            return;
+    }
+}
+
+
+/* HISTO_ENTRY productions:
+---
+
+    HISTO_ENTRY -> histo HISTOGRAM
+
+*/
+void Parser::parse_histo_entry(PNode parent) {
+
+    PNode histo(create_node(AST::HISTOLIST_HISTOGRAM, parent));
+
+    // HISTO_ENTRY -> histo HISTOGRAM
+    lexer->expect_and_consume(TOK::HISTO);
+    parse_histogram(histo);
+
+}
+
+
+/* HISTOGRAM productions:
+---
+
+    HISTOGRAM -> ID, STRING_LIST, BINNING, E
+
+    HISTOGRAM -> ID, STRING_LIST, BINNING, E, BINNING, E
+
+*/     
+void Parser::parse_histogram(PNode parent) {
+    PNode histogram = create_node(AST::HISTOGRAM, parent, lexer->peek(0));
+
+    // id , 
+    parse_id(histogram);
+    lexer->expect_and_consume(TOK::COMMA);
+
+    // STRING_LIST ,
+    parse_string_list(histogram);
+    lexer->expect_and_consume(TOK::COMMA);
+
+    // BINNING ,
+    parse_binning(histogram);
+    lexer->expect_and_consume(TOK::COMMA);
+
+    // E
+    parse_expression(histogram);
+
+    // use to check if the list continues 
+    auto discriminant = lexer->peek(0);
+
+    if (discriminant->get_token_type() == TOK::COMMA) {
+        lexer->expect_and_consume(TOK::COMMA);
+        parse_binning(histogram);
+ 
+        lexer->expect_and_consume(TOK::COMMA);
+        parse_expression(histogram);
+    }
+}
+
+
+/* BINNING productions:
+---
+
+    BINNING -> INTEGER, NUMBER, NUMBER
+
+*/
+void Parser::parse_binning(PNode parent) {
+
+    // BINNING -> INTEGER, NUMBER, NUMBER
+    parse_integer(parent, "Only literal integers are allowed to specify binning quantity on histograms");
+    lexer->expect_and_consume(Token_type::COMMA);
+    parse_number(parent, "Only literal numbers are allowed for the lower bound of a histogram");
+    lexer->expect_and_consume(Token_type::COMMA);
+    parse_number(parent, "Only literal numbers are allowed for the upper bound of a histogram");
+
+}
+
+
+/* BOOL productions:
+---
+
+    BOOL -> true
+
+    BOOL -> false
+
+ */
+void Parser::parse_bool(PNode parent) {
+
+    PToken tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+        case TOK::TRUE:
+            lexer->expect_and_consume(TOK::TRUE);
+            create_node(AST::TRUE, parent, tok);
+            return;
+        case TOK::FALSE:
+            lexer->expect_and_consume(TOK::FALSE);
+            create_node(AST::FALSE, parent, tok);
+            return;
+        default:
+            raise_parsing_exception("Excepted boolean, but token is not interpretable as a boolean", tok);
+            return;
+    }
+}
+
+
+/* STRING productions
+---
+
+    STRING -> [string token]
+
+*/
+void Parser::parse_string(PNode parent, std::string error) {
+
+    PToken tok = lexer->peek(0);
+
+    // STRING -> [string token]
+    lexer->expect_and_consume(TOK::STRING, error);
+    create_node(AST::VARYING_TERMINAL, parent, tok);
+
+}
+
+
+/* ID productions 
+
+    ID -> [varname token]
+
+*/
+void Parser::parse_id(PNode parent, std::string error) {
+    
+    PToken tok = lexer->peek(0);
+
+    // ID -> [varname token]
+    lexer->expect_and_consume(TOK::VARNAME, error);
+    create_node(AST::VARYING_TERMINAL, parent, tok);
+
+}
+
+
+
+/* NUMBER productions
+---
+
+    NUMBER -> INTEGER
+
+    NUMBER -> SCIENTIFIC
+
+    NUMBER -> DECIMAL
+
+*/
+void Parser::parse_number(PNode parent, std::string error) {
+
+    PToken tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+        case TOK::INTEGER: 
+            parse_integer(parent, error);
+            return;
+        case TOK::SCIENTIFIC: 
+            parse_scientific(parent, error);
+            return;
+        case TOK::DECIMAL:
+            parse_decimal(parent, error);
+            return;
+        default:
+            if (error == "") {
+                std::stringstream error_ss;
+                error_ss << "Unexpected token, expected a token of a numeric type, but got token of type " << tok->get_token_type_as_string();
+                error = error_ss.str();
+            }
+            raise_parsing_exception(error, tok);
+    }
+
+}
+
+
+/* INTEGER productions
+---
+
+    INTEGER -> [integer token]
+
+*/
+void Parser::parse_integer(PNode parent, std::string error) {
+
+    PToken tok = lexer->peek(0);
+
+    // INTEGER -> [integer token]
+    lexer->expect_and_consume(TOK::INTEGER, error);
+    create_node(AST::VARYING_TERMINAL, parent, tok);
+    
+}
+
+/* SCIENTIFIC productions
+---
+
+    SCIENTIFIC -> [scientific token]
+
+*/
+void Parser::parse_scientific(PNode parent, std::string error) {
+    
+    PToken tok = lexer->peek(0);
+
+    // SCIENTIFIC -> [scientific token]
+    lexer->expect_and_consume(TOK::SCIENTIFIC, error);
+    create_node(AST::VARYING_TERMINAL, parent, tok);
+
+}
+
+
+/* DECIMAL productions 
+---
+
+    DECIMAL -> [decimal token]
+
+*/
+void Parser::parse_decimal(PNode parent, std::string error) {
+
+    PToken tok = lexer->peek(0);
+
+    // DECIMAL -> [decimal token]
+    lexer->expect_and_consume(TOK::DECIMAL, error);
+    create_node(AST::VARYING_TERMINAL, parent, tok);
+
+}
+
+
+
+/* ASSIGNMENT productions:
+---
+
+    ASSIGNMENT -> :
+
+    ASSIGNMENT -> =
+
+    ASSIGNMENT -> take    
+*/
+void Parser::parse_assignment() {
+
+    auto tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+        case TOK::COLON:
+            //ASSIGNMENT -> :
+            lexer->expect_and_consume(TOK::COLON);
+            return;
+        case TOK::ASSIGN:
+            //ASSIGNMENT -> =
+            lexer->expect_and_consume(TOK::ASSIGN);
+            return;
+        case TOK::TAKE:
+            // ASSIGNMENT -> take
+            lexer->expect_and_consume(TOK::TAKE);
+            return;
+        default:
+            raise_parsing_exception("An '=', ':', or 'take', is needed for the first token of this block", tok);
+    }
+}
+
+
+/* PARTICLE_SUM productions:
+---
+
+    PARTICLE_SUM -> PARTICLE PARTICLE_SUM_TAIL
+
+    PARTICLE_SUM -> - PARTICLE_SUM_TAIL
+
+*/
+void Parser::parse_particle_sum(PNode parent) {
+
+    PNode particle_sum = make_list_root_node(AST::PARTICLE_SUM, parent);
+
+    auto tok = lexer->peek(0);
 
     switch (tok->get_token_type()) {
 
-        // CRITERION -> cmd ACTION
-        case SELECT: case HISTO:
+        case TOK::MINUS:
         {
-            PNode node(std::make_shared<Node>(OBJECT_SELECT, parent));
-            node->add_child(parse_action(node));
-            return node;
+            // PARTICLE_SUM -> - PARTICLE PARTICLE_SUM_TAIL
+            lexer->expect_and_consume(TOK::MINUS);
+
+            PNode negate(create_node(AST::PARTICLE_NEGATE, particle_sum));
+            parse_particle(negate);
+
+            parse_particle_sum_tail(particle_sum);
+
+            return;
         }
-        // CRITERION -> rejec CONDITION
-        case REJEC:
+        default:
+            // PARTICLE_SUM -> PARTICLE PARTICLE_SUM_TAIL
+            parse_particle(particle_sum);
+            parse_particle_sum_tail(particle_sum);
+            return;
+
+    }
+}
+
+
+/* PARTICLE_SUM_TAIL productions:
+
+    PARTICLE_SUM_TAIL -> + PARTICLE PARTICLE_SUM_TAIL
+    
+    PARTICLE_SUM_TAIL -> - PARTICLE PARTICLE_SUM_TAIL
+
+    PARTICLE_SUM_TAIL -> epsilon
+
+*/
+void Parser::parse_particle_sum_tail(PNode parent) {
+    PNode particle_sum = make_list_root_node(AST::PARTICLE_SUM, parent);
+
+    auto tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+
+        
+        case TOK::PLUS:
+            // PARTICLE_SUM_TAIL -> + PARTICLE PARTICLE_SUM_TAIL
+            lexer->expect_and_consume(TOK::PLUS);
+            parse_particle(particle_sum);
+
+            parse_particle_sum_tail(particle_sum);
+
+            return;
+
+        case TOK::MINUS:
         {
-            PNode node(std::make_shared<Node>(OBJECT_REJECT, parent, tok));
-            node->add_child(parse_condition(node));
-            return node;
+            // PARTICLE_SUM_TAIL -> - PARTICLE PARTICLE_SUM_TAIL
+            lexer->expect_and_consume(TOK::MINUS);
+            PNode negate(create_node(AST::PARTICLE_NEGATE, particle_sum));
+            parse_particle(negate);
+
+            parse_particle_sum_tail(particle_sum);
+
+            return;
         }
-        // CRITERION -> histo ACTION
-        {
-            PNode node(make_terminal(parent, tok));
-            node->add_child(parse_action(node));
-            return node;
-        }
-        // CRITERION -> print VARIABLE_LIST
-        case PRINT:
-        {
-            PNode node(make_terminal(parent, tok));
-            parse_variable_list(node);
-            return node;
-        }
+        default:
+            // PARTICLE_SUM_TAIL -> epsilon
+            return;
+
+    }
+}
+
+
+/* PARTICLE_LIST productions:
+---
+
+    PARTICLE_LIST -> PARTICLE, PARTICLE_LIST
+
+
+    PARTICLE_LIST -> PARTICLE 
+
+*/
+void Parser::parse_particle_list(PNode parent) {
+
+    PNode particle_list = make_list_root_node(AST::PARTICLE_LIST, parent);
+
+    parse_particle(particle_list);
+
+    auto tok = lexer->peek(0);
+    switch (tok->get_token_type()) {
+
+        // PARTICLE_LIST -> PARTICLE, PARTICLE_LIST
+        case TOK::COMMA:
+            lexer->expect_and_consume(TOK::COMMA);
+            parse_particle_list(particle_list);
+            return;
 
         default:
-            raise_parsing_exception("Invalid token for a criterion", tok);
-            PNode node(make_terminal(parent, tok));
-            return node;
+        // PARTICLE_LIST -> PARTICLE
+            return;
+    }
+}
+
+
+/* NAMED_PARTICLE_LIST productions:
+---
+
+    NAMED_PARTICLE_LIST -> PARTICLE ID, NAMED_PARTICLE_LIST
+
+
+    NAMED_PARTICLE_LIST -> PARTICLE ID 
+
+*/
+void Parser::parse_named_particle_list(PNode parent) {
+
+    PNode named_particle_list = make_list_root_node(AST::NAMED_PARTICLE_LIST, parent);
+    parse_particle(named_particle_list);
+    parse_id(named_particle_list);
+
+    auto tok = lexer->peek(0);
+    switch (tok->get_token_type()) {
+
+        case TOK::COMMA:
+            // NAMED_PARTICLE_LIST -> PARTICLE ID, NAMED_PARTICLE_LIST
+            lexer->expect_and_consume(TOK::COMMA);
+            parse_named_particle_list(named_particle_list);
+            return;
+
+        default:
+            // NAMED_PARTICLE_LIST -> PARTICLE ID
+            return;
+    }
+}
+
+
+/* LITERAL_NUMBER_LIST productions:
+---
+
+    LITERAL_NUMBER_LIST -> NUMBER LITERAL_NUMBER_LIST
+
+    LITERAL_NUMBER_LIST -> NUMBER
+
+ */
+void Parser::parse_literal_number_list(PNode parent) {
+
+    PNode literal_number_list = make_list_root_node(AST::LITERAL_NUMBER_LIST, parent);
+
+    // LITERAL_NUMBER_LIST -> NUMBER LITERAL_NUMBER_LIST
+    // LITERAL_NUMBER_LIST -> NUMBER
+    parse_number(literal_number_list, "Needs a literal numerical value for this partition");
+
+    auto tok = lexer->peek(0);
+    if (is_numerical(tok->get_token_type())) {
+        parse_literal_number_list(literal_number_list);
+    }
+}
+
+
+/* STRING_LIST productions:
+---
+
+    STRING_LIST -> STRING STRING_LIST
+
+    STRING_LIST -> STRING
+
+ */
+void Parser::parse_string_list(PNode parent) {
+
+    PNode string_list = make_list_root_node(AST::STRING_LIST, parent);
+
+    parse_string(string_list, "Excepted string for description");
+
+    // STRING_LIST -> STRING STRING_LIST
+    auto tok = lexer->peek(0);
+    if (tok->get_token_type() == TOK::STRING) {
+        parse_string_list(string_list);
+    }
+}
+
+
+/* VARIABLE_LIST productions:
+---
+
+    VARIABLE_LIST -> E, VARIABLE_LIST
+
+    VARIABLE_LIST -> E
+
+    VARIABLE_LIST -> epsilon
+
+ */
+void Parser::parse_variable_list(PNode parent) {
+
+    PNode variable_list = make_list_root_node(AST::VARIABLE_LIST, parent);
+
+    PToken tok = lexer->peek(0);
+    switch(tok->get_token_type()) {
+
+        // VARIABLE_LIST -> epsilon 
+        // this is the follow set for VARIABLE_LIST, and none of them are in the first set of EXPRESSION
+        case TOK::CLOSE_CURLY_BRACE: case TOK::CLOSE_PAREN:
+            return;            
+
+        // VARIABLE_LIST -> EXPRESSION, VARIABLE_LIST
+        // VARIABLE_LIST -> EXPRESSION
+        default:
+        {
+            parse_expression(variable_list);
+            auto next = lexer->peek(0);
+
+            // VARIABLE_LIST -> EXPRESSION, VARIABLE_LIST
+            if (next->get_token_type() == TOK::COMMA) {
+                lexer->expect_and_consume(TOK::COMMA);
+                parse_variable_list(variable_list);
+                return;
+            }
+            // VARIABLE_LIST -> EXPRESSION
+            return;
+        }
+    }
+}
+
+
+
+/* PARTICLE productions:
+---
+
+    PARTICLE -> this
+
+    PARTICLE -> ID arrow_index ID
+
+    PARTICLE -> ID arrow_index ID [INDEX]
+
+    PARTICLE -> ID
+    
+    PARTICLE -> ID [INDEX]
+ */
+void Parser::parse_particle(PNode parent) {
+
+    auto tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+        
+        case TOK::THIS:
+        {   
+            // PARTICLE -> this
+            lexer->expect_and_consume(TOK::THIS);
+            create_node(AST::THIS, parent, tok);
+            return;
+        }
+
+
+        // PARTICLE -> ID arrow_index ID
+        // PARTICLE -> ID arrow_index ID [INDEX]
+        // PARTICLE -> ID
+        // PARTICLE -> ID [INDEX]
+        case TOK::STRING: case TOK::VARNAME:
+        {
+            PToken next = lexer->peek(1);
+            PNode root_node;
+            if (next->get_token_type() == TOK::OPEN_SQUARE_BRACE || lexer->peek(3)->get_token_type() == TOK::OPEN_SQUARE_BRACE) {
+                root_node = create_node(AST::INDEX_OPERATOR, parent, next->get_token_type() == TOK::OPEN_SQUARE_BRACE ? next : lexer->peek(3));
+            } else {
+                root_node = parent;
+            }
+
+            if (next->get_token_type() == TOK::ARROW_INDEX) {
+                PNode arrow = create_node(AST::OPERATOR_TERMINAL, root_node, next);
+                // ID arrow_index ID
+                parse_id(arrow);
+                lexer->expect_and_consume(TOK::ARROW_INDEX);
+                parse_id(arrow);
+            } else {
+                parse_id(root_node);
+            }
+            if  (lexer->peek(0)->get_token_type() == TOK::OPEN_SQUARE_BRACE) {
+                
+                // PARTICLE -> ID arrow_index ID [INDEX]
+                // PARTICLE -> ID [INDEX]
+                lexer->expect_and_consume(TOK::OPEN_SQUARE_BRACE);
+                parse_index(root_node);
+                lexer->expect_and_consume(TOK::CLOSE_SQUARE_BRACE);
+            }
+            return;
+        }
+        default:
+            raise_parsing_exception("Invalid token, expected a valid name of a particle object", tok);
     }
 
 }
 
-/* CONDITION productions:
+
+/* INDEX productions:
 ---
 
-    CONDITION -> EXPRESSION
+    INDEX -> INTEGER
+
+    INDEX -> INTEGER:INTEGER
+
+    INDEX -> :INTEGER
+
+    INDEX -> INTEGER:
+    
  */
-PNode Parser::parse_condition(PNode parent) {
-    PNode condition(std::make_shared<Node>(CONDITION, parent));
+void Parser::parse_index(PNode parent) {
 
-    condition->add_child(precedence_climber(condition,  0));
+    // INDEX -> INTEGER
+    // INDEX -> INTEGER:INTEGER
+    // INDEX -> :INTEGER
+    // INDEX -> INTEGER:
+    
+    PNode index(create_node(AST::INDEX, parent));
 
-    return condition;
+    PToken tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+        case TOK::INTEGER:
+        {
+            // INTEGER
+            parse_integer(index);
+
+            PToken next = lexer->peek(0);
+            if (next->get_token_type() == TOK::COLON) {
+                // : 
+                lexer->expect_and_consume(TOK::COLON);
+                PToken next2 = lexer->peek(0);
+                if (next2->get_token_type() == TOK::INTEGER) {
+                    // INDEX -> INTEGER : INTEGER
+                    parse_integer(index);
+                } else {
+                    // INDEX -> INTEGER :
+                    create_node(AST::UNBOUNDED, index, next);
+                }
+            }
+            return;
+        }
+        case TOK::COLON:
+            create_node(AST::UNBOUNDED, index, tok);
+
+            // INDEX -> : INTEGER
+            lexer->expect_and_consume(TOK::COLON);
+            parse_integer(index);
+            return;
+        default:
+            raise_parsing_exception("Only integers are allowed to be used as indices", tok);
+    }
+
 }
+
 
 int get_precedence(PToken tok, bool increase_if_left_associative = false) {
 
@@ -1582,58 +1517,173 @@ int get_precedence(PToken tok, bool increase_if_left_associative = false) {
     switch(tok->get_token_type()) {
 
         // highest priority is an indexing of the form composite->subvariable
-        case ARROW_INDEX:
+        // E -> E arrow_index E
+        case TOK::ARROW_INDEX:
         return 110 + left_associative_addition;
 
         // second-highest priority is an indexing of the form object.function
-        case DOT_INDEX:
+        // E -> E.E
+        case TOK::DOT_INDEX:
         return 100 + left_associative_addition;
 
+        // third-highest priority is the indexing operation
+        // E -> E [INDEX]
+        case TOK::OPEN_SQUARE_BRACE:
+        return 95 + left_associative_addition;
+
         // raising to a power is right-associative
-        case RAISED_TO_POWER:
+        case TOK::RAISED_TO_POWER:
         return 90;
 
-        case MULTIPLY: case DIVIDE:
+        // arithmetic multiplication and division
+        case TOK::MULTIPLY: case TOK::DIVIDE:
         return 80 + left_associative_addition;
 
-        case PLUS: case MINUS:
+        // arithmetic addition and subtraction
+        case TOK::PLUS: case TOK::MINUS:
         return 70 + left_associative_addition;
 
-        case WITHIN: case OUTSIDE:
+        // the explicit within and outside interval operators
+        case TOK::WITHIN: case TOK::OUTSIDE:
         return 40 + left_associative_addition;
 
-        case AMPERSAND: case PIPE:
+        // bitwise and/or - note that this priority is not where it is in C
+        case TOK::AMPERSAND: case TOK::PIPE:
         return 30 + left_associative_addition;
 
-        case LT: case GT: case LE: case GE: case EQ: case NE: 
+        // numeric comparators
+        case TOK::LT: case TOK::GT: case TOK::LE: case TOK::GE: case TOK::EQ: case TOK::NE: case TOK::ASSIGN: 
         return 20 + left_associative_addition;
 
-        case AND: case OR:
+        // logical comparators
+        case TOK::AND: 
+        return 15 + left_associative_addition;
+
+        case TOK::OR:
         return 10 + left_associative_addition;
 
+        // ternary operator parses as E -> E : E
+        // it is also right-associative
+        case TOK::QUESTION:
+        return 5;
+
         default:
-        return -5;
+        return -20;
 
 
     }
 }
 
+/* E productions:
+---
 
+    E -> E'
+
+    E -> E arrow_index E
+
+    E -> E . E
+
+    E -> E [INDEX]
+
+    E -> E ^ E
+
+
+    E -> E * E
+
+    E -> E / E
+
+
+    E -> E + E
+
+    E -> E - E
+
+
+    E -> E within E
+
+    E -> E outside E
+
+
+    E -> E & E
+
+    E -> E | E
+
+
+    E -> E < E
+
+    E -> E > E
+
+    E -> E <= E
+    
+    E -> E >= E
+
+    E -> E == E
+
+    E -> E = E
+
+    E -> E != E
+
+
+    E -> E and E
+
+    E -> E or E
+
+
+    E -> E ? E : E
+
+ */
 PNode Parser::precedence_climber(PNode parent, int min_precedence) {
 
     auto lhs = parse_primary_expression(parent);
 
-    auto lookahead = lexer->peek(0);
-    PToken op;
+    PToken next_op = lexer->peek(0);
+    
     PNode op_node;
 
     // keep going while the next token is an operator with at least our current level of precedence
-    while (get_precedence(lookahead) >= min_precedence) {
-        op = lexer->next();
-        op_node = make_terminal(parent, op);
+    while (get_precedence(next_op) >= min_precedence) {
+        lexer->expect_and_consume(next_op->get_token_type());
+        // E -> E[INDEX]
+        if (next_op->get_token_type() == TOK::OPEN_SQUARE_BRACE) {
+            PNode indexing(create_lost_node(AST::INDEX_OPERATOR, parent, next_op));
+            indexing->add_child(lhs);
+            lhs->set_parent(indexing);
+            parse_index(indexing);
+            lexer->expect_and_consume(TOK::CLOSE_SQUARE_BRACE);
 
-        // find what precedence is our new minimum - if the operator is left-associative, it is one more than it's normal precedence
-        int new_min_precedence = get_precedence(op, true);
+            lhs = indexing;
+            next_op = lexer->peek(0);
+            continue;
+
+        } else if (next_op->get_token_type() == TOK::QUESTION) {
+            PNode if_statement(create_lost_node(AST::IF_STATEMENT, parent, next_op));
+            if_statement->add_child(lhs);
+            lhs->set_parent(if_statement);
+            if_statement->add_child(precedence_climber(if_statement, 0));
+            lexer->expect_and_consume(TOK::COLON);
+            if_statement->add_child(precedence_climber(if_statement, 0));
+
+            lhs = if_statement;
+            next_op = lexer->peek(0);
+            continue;
+
+        } else if (next_op->get_token_type() == TOK::WITHIN || next_op->get_token_type() == TOK::OUTSIDE) {
+            PNode interval_statement(create_lost_node(next_op->get_token_type() == TOK::WITHIN ? AST::WITHIN_STATEMENT : AST::OUTSIDE_STATEMENT, parent, next_op));
+            interval_statement->add_child(lhs);
+            lhs->set_parent(interval_statement);
+            interval_statement->add_child(precedence_climber(interval_statement, 0));
+            lexer->expect_and_consume(TOK::COMMA);
+            interval_statement->add_child(precedence_climber(interval_statement, 0));
+
+            lhs = interval_statement;
+            next_op = lexer->peek(0);
+            continue;
+
+        }
+
+        op_node = create_lost_node(AST::OPERATOR_TERMINAL, parent, next_op);
+
+        // find what precedence is our new minimum - if the operator is left-associative, it is one more than its normal precedence
+        int new_min_precedence = get_precedence(next_op, true);
 
         auto rhs = precedence_climber(op_node, new_min_precedence);
 
@@ -1641,181 +1691,183 @@ PNode Parser::precedence_climber(PNode parent, int min_precedence) {
         lhs->set_parent(op_node);
 
         op_node->add_child(rhs);
+        rhs->set_parent(op_node);
 
         lhs = op_node;
-
-        lookahead = lexer->peek(0);
+        next_op = lexer->peek(0);
     }
         
     // at this point, we have parsed all we can of precedences above our threshold. We give our final node of the loop
     return lhs;
 }
 
+/* E' productions:
+---
+
+    E' -> 
+    
+ */
 PNode Parser::parse_primary_expression(PNode parent) {
 
-    auto tok = lexer->next();
-    PNode node(make_terminal(parent, tok));
-
+    auto tok = lexer->peek(0);
     switch(tok->get_token_type()) {
-        case MINUS: 
-        {
-            PNode negate_node(std::make_shared<Node>(NEGATE, parent));
-            negate_node->add_child(parse_primary_expression(negate_node));
-            return negate_node;
-        }
-        case NOT:
-        {
-            node->add_child(parse_primary_expression(node));
-            return node;
-        }
-        case OPEN_PAREN:
-        {
-            PNode subexpression = precedence_climber(parent, 0);
-            lexer->expect_and_consume(CLOSE_PAREN);
 
-            // allow a subexpression to be indexed with a square bracket
-            if (lexer->peek(0)->get_token_type() == OPEN_SQUARE_BRACE) {
-                parent->add_child(parse_index(parent));
-            }
-            
+
+        // E' -> this
+
+        // particles are allowed in expressions since user defined functions may use them - this is included in that
+        case TOK::THIS:
+        {
+            lexer->expect_and_consume(TOK::THIS);
+            return create_lost_node(AST::THIS, parent, tok);
+        }
+
+        // E' -> (E)
+        case TOK::OPEN_PAREN:
+        {
+            lexer->expect_and_consume(TOK::OPEN_PAREN);
+            PNode subexpression = precedence_climber(parent, 0);
+            lexer->expect_and_consume(TOK::CLOSE_PAREN);
 
             return subexpression;
         }
 
-        case OPEN_CURLY_BRACE:
+        // E' -> {VARIABLE_LIST}
+        case TOK::OPEN_CURLY_BRACE:
         {
-            // make a node representing what the particle list function will end up being
-            PNode terminal(std::make_shared<Node>(TERMINAL, parent));
-            PNode particle_list(std::make_shared<Node>(PARTICLE_LIST, terminal));
+            PNode varlist = create_lost_node(AST::VARIABLE_LIST, parent, tok);
 
-            parse_particle_list(particle_list);
-            terminal->add_child(particle_list);
+            lexer->expect_and_consume(TOK::OPEN_CURLY_BRACE);
+            parse_variable_list(varlist);
+            lexer->expect_and_consume(TOK::CLOSE_CURLY_BRACE);
+            return varlist;
+        }
+
+        case TOK::SORT:
+        {
+
+            PNode sort_expr(create_lost_node(AST::SORT_EXPRESSION, parent, tok));
+            // E' -> sort (E OPTIONAL_SORT_DIR)
+            lexer->expect_and_consume(TOK::SORT);
+            lexer->expect_and_consume(TOK::OPEN_PAREN);
+            sort_expr->add_child(precedence_climber(parent, 0));
+            parse_optional_sort_dir(sort_expr);
+            lexer->expect_and_consume(TOK::CLOSE_PAREN);
             
-            lexer->expect_and_consume(CLOSE_CURLY_BRACE);
-            terminal->set_token(lexer->next());
-            return terminal;
+            return sort_expr;
         }
 
-        case OPEN_SQUARE_BRACE:
+        
+        // E' -> min (VARIABLE_LIST)
+        // E' -> max (VARIABLE_LIST)
+        case TOK::MIN: case TOK::MAX: 
         {
-            PNode interval(std::make_shared<Node>(INTERVAL, parent)); 
-            interval->add_child(parse_primary_expression(interval));
-            if (lexer->peek(0)->get_token_type() == COMMA) lexer->expect_and_consume(COMMA);
-            interval->add_child(parse_primary_expression(interval));
-            lexer->expect_and_consume(CLOSE_SQUARE_BRACE);
-            return interval; 
+            PNode minmax(create_lost_node(tok->get_token_type() == TOK::MIN ? AST::MIN_EXPRESSION : AST::MAX_EXPRESSION, parent, tok));
 
+            lexer->expect_and_consume(tok->get_token_type());
+            lexer->expect_and_consume(TOK::OPEN_PAREN);
+            parse_variable_list(minmax);
+            lexer->expect_and_consume(TOK::CLOSE_PAREN);
+            return minmax;
         }
 
-        case SORT:
+        // E' -> BUILT_IN_MATHEMATIC_FUN
+        // E' -> BUILT_IN_MATHEMATIC_FUN (E)
+        case CASE_BUILT_IN_MATH_FUN:
         {
-            // E -> sort (E, ascend)
-            // E -> sort (E, descend)
-            lexer->expect_and_consume(OPEN_PAREN);
-            node->add_child(precedence_climber(parent, 0));
-            lexer->expect_and_consume(COMMA);
-            node->add_child(make_terminal(node, lexer->next()));
-            lexer->expect_and_consume(CLOSE_PAREN);
-            
-            return node;
-        }
+            PNode mathfun(create_lost_node(AST::BUILTIN_FUNC_TERMINAL, parent, tok));
 
-        case ANYOCCURRENCES:
-        {
-            // E -> anyoccurances (E in E)
-            lexer->expect_and_consume(OPEN_PAREN);
-            node->add_child(precedence_climber(node, 5));
-            lexer->expect_and_consume(WITHIN);
-            node->add_child(precedence_climber(node, 5));
-            lexer->expect_and_consume(CLOSE_PAREN);
-            return node;
-        }   
+            lexer->expect_and_consume(tok->get_token_type());
 
-        case ANYOF: case ALLOF: case SQRT: case ABS: case COS:  case SIN: case TAN: case SINH: case COSH: case TANH: case EXP: case LOG: case AVE: case SUM: 
-        {
-            lexer->expect_and_consume(OPEN_PAREN);
-            node->add_child(precedence_climber(parent, 0));
-            lexer->expect_and_consume(CLOSE_PAREN);
-            return node;
-        }
-        case LETTER_E: case LETTER_P: case LETTER_M: case LETTER_Q: case CHARGE: case MASS:
-        case FLAVOR: case CONSTITUENTS: case PDG_ID: case JET_ID: case IS_TAUTAG: case IS_CTAG: case IS_BTAG: 
-        case DXY: case DZ:
-        case GENPART_IDX: case PHI: case RAPIDITY: case ETA: case MSOFTDROP: case THETA: 
-        case MINI_ISO: case IS_TIGHT: case IS_MEDIUM: case IS_LOOSE: 
-        case PT: case PZ: case DR: case DPHI: case DETA: case DR_HADAMARD: case DPHI_HADAMARD: case DETA_HADAMARD: case NUMOF: case DISTINCT:
-        {
-            if (lexer->peek(0)->get_token_type() != OPEN_PAREN) {
-                // the next token is not an open parenthesis - this is not a function call per se, so either the argument is implicit or this is being used in reverse order in some way. That's not our problem here, so we just save that token.
-                return node;
+            if (lexer->peek(0)->get_token_type() == TOK::OPEN_PAREN) {
+
+                lexer->expect_and_consume(TOK::OPEN_PAREN);
+                mathfun->add_child(precedence_climber(parent, 0));
+                lexer->expect_and_consume(TOK::CLOSE_PAREN);            
             }
 
-            lexer->expect_and_consume(OPEN_PAREN);
+            return mathfun;
+        }
+        
+        // Functions which take a particle as an argument
+        // E' -> BUILT_IN_PARTICLE_FUN
+        // E' -> BUILT_IN_PARTICLE_FUN (PARTICLE_LIST)
+        case CASE_BUILT_IN_PARTICLE_FUN_ONE_ARG:
+        case CASE_BUILT_IN_PARTICLE_FUN_TWO_ARG:
+        {
 
-            PNode particle_list(std::make_shared<Node>(PARTICLE_LIST, node));
-            parse_particle_list(particle_list);
-            node->add_child(particle_list);
+            PNode partfun(create_lost_node(AST::BUILTIN_FUNC_TERMINAL, parent, tok));
 
-            lexer->expect_and_consume(CLOSE_PAREN);
-            return node;
+            lexer->expect_and_consume(tok->get_token_type());
+
+            if (lexer->peek(0)->get_token_type() == TOK::OPEN_PAREN) {
+
+                lexer->expect_and_consume(TOK::OPEN_PAREN);
+                parse_particle_list(partfun);
+                lexer->expect_and_consume(TOK::CLOSE_PAREN);            
+            }
+
+
+            return partfun;
         }
         
 
-        case ALL: case NONE: case EVENT_NO: case RUN_NO: case LB_NO: case MC_CHANNEL_NUMBER: case RUNYEAR:
-        // allow all particles to be a token per se - this will usually not be valid in cases other than externally defined attributes
-        case GEN: case ELECTRON: case MUON: case TAU: case TRACK: case PHOTON: 
-        case JET: case FJET: case QGJET: case METLV: case THIS:
-       {
-            return node;
-        }
 
-        case STRING: case VARNAME:
+        // E -> ID
+        // E -> ID (VARIABLE_LIST)
+        case TOK::STRING: case TOK::VARNAME:
         {
+            PNode name(create_lost_node(AST::VARYING_TERMINAL, parent, tok));
+            lexer->expect_and_consume(tok->get_token_type());
             // here, we are met with a token that isn't any other known form. If it is immediately followed by parentheses, then this is probably some external function. 
-            if (lexer->peek(0)->get_token_type() == OPEN_PAREN) {
-                PNode func(std::make_shared<Node>(USER_FUNCTION, parent));
-                func->add_child(node);
-                node->set_parent(func);
+            if (lexer->peek(0)->get_token_type() == TOK::OPEN_PAREN) {
+                PNode func(create_lost_node(AST::USER_FUNCTION, parent, tok));
+                func->add_child(name);
+                name->set_parent(func);
 
-                lexer->expect_and_consume(OPEN_PAREN);
-                parse_variable_list(node);
-                lexer->expect_and_consume(CLOSE_PAREN);
+                lexer->expect_and_consume(TOK::OPEN_PAREN);
+                parse_variable_list(func);
+                lexer->expect_and_consume(TOK::CLOSE_PAREN);
                 return func;
-            }
-            // check if this is a variable name that has an index
-            if (lexer->peek(0)->get_token_type() == OPEN_SQUARE_BRACE) {
-                node->add_child(parse_index(parent));
-                return node;
             }
             
             // otherwise, it is unclear what this is other than just some variable name - we will leave it like that
-            return node;
+            return name;
         }
-        case MIN: case MAX: 
+
+
+        // E' -> - E
+        case TOK::MINUS: 
         {
-            lexer->expect_and_consume(OPEN_PAREN);
-            parse_variable_list(node);
-            lexer->expect_and_consume(CLOSE_PAREN);
-            return node;
+            PNode negate_node(create_lost_node(AST::NEGATE, parent, tok));
+            lexer->expect_and_consume(TOK::MINUS);
+            // precedence of negation should be stronger than multiplication but weaker than power
+            negate_node->add_child(precedence_climber(negate_node, 85));
+            return negate_node;
         }
+        // E' -> not E
+        case TOK::NOT:
+        {   
+            PNode not_node(create_lost_node(AST::L_NOT, parent, tok));
+            lexer->expect_and_consume(TOK::NOT);
+            // precedence of the logical not should be higher than the other logical operations but lower than comparison
+            not_node->add_child(precedence_climber(not_node, 15));
+            return not_node;
+        }
+
+        // E -> NUMBER
         default:
             if(!is_numerical(tok->get_token_type())) raise_parsing_exception("Invalid token used in expression", tok);
-            return node;
+            lexer->expect_and_consume(tok->get_token_type());
+            PNode number(create_lost_node(AST::VARYING_TERMINAL, parent, tok));
+            return number;
     }
 }
 
-/* EXPRESSION productions:
----
-
-All productions are done via precedence climbing. Stated grammar does not correctly specify the precedences, but they are accounted for.
-
----
-
-
- */
+// helper to create an AST node for an E
 PNode Parser::parse_expression(PNode parent) {
     
-    PNode expression(std::make_shared<Node>(EXPRESSION, parent));
+    PNode expression(create_node(AST::EXPRESSION, parent));
     expression->add_child(precedence_climber(expression, 0));
 
     return expression;
@@ -1825,14 +1877,17 @@ void Parser::print_children_and_yourself(PNode node, int *top_number) {
 
     int reserved_number_for_me = (*top_number)++;
 
-    if (node->has_token()) {
+    AST_type ast_type = node->get_ast_type();
+    bool is_terminal = ast_type == AST::VARYING_TERMINAL || ast_type == AST::OPERATOR_TERMINAL || ast_type == AST::BUILTIN_FUNC_TERMINAL;
+
+    if (node->has_token() && is_terminal) {
         std::string lexeme(node->get_token()->get_lexeme());
         std::regex quotes = std::regex("\"+");
         lexeme = std::regex_replace(lexeme, quotes, "");
 
         std::cout << "    " << reserved_number_for_me << " [label=\"" << lexeme << "\"]" << std::endl;
     } else {
-        std::cout << "    " << reserved_number_for_me << " [label=\"ID:" << node->get_ast_type_as_string() << "\"]" <<std::endl;
+        std::cout << "    " << reserved_number_for_me << " [label=\"NT:" << node->get_ast_type_as_string() << "\"]" <<std::endl;
     }
 
     auto children_vector = node->get_children();

@@ -11,38 +11,36 @@ using namespace ROOT::VecOps;
 const int ALL = 1;
 const int NONE = 0;
 
-RVec<bool> create_mask(RVec<float> in) {
+RVec<int> create_mask(RVec<float> in) {
     // begin all masks as including all elements
     auto start_true_lamb = [](float value_m){
-            return true;
+            return 1;
          };
 
     auto starter = Map(in, start_true_lamb);
     return starter;
 }
 
-
-
-RVec<bool> limit_mask(RVec<bool> mask, RVec<bool> conditions) {
-    auto zero_lamb = [](bool mask_m, bool cond_m){
+RVec<int> limit_mask(RVec<int> mask, RVec<int> conditions) {
+    auto zero_lamb = [](int mask_m, int cond_m){
             if (cond_m) return mask_m;
-            return false;
+            return 0;
          };
 
     auto value_zeroed = Map(mask, conditions, zero_lamb);
     return value_zeroed;
 }
 
-RVec<float> apply_mask(RVec<bool> mask, RVec<float> value) {
+RVec<float> apply_mask(RVec<int> mask, RVec<float> value) {
 
     auto invert_mask_lamb = [](bool mask_m) {
-        if (mask_m) return false;
-        return true;
+        if (mask_m) return 0;
+        return 1;
     };
 
     auto inverted_mask = Map(mask, invert_mask_lamb);
-    auto nonzero_elem = Nonzero(inverted_mask);
-    auto masked = Drop(value, nonzero_elem);
+    auto zero_elem = Nonzero(inverted_mask);
+    auto masked = Drop(value, zero_elem);
     return masked;
 }
 
@@ -58,8 +56,9 @@ RVec<float> index_get(RVec<float> value, int start, int end) {
     RVec<int> indices;
 
     if (end == 0) end = value.size();
-    for (int i = start; i != end; i++) {
-        indices.push_back(i);
+
+    for (int i = 0; i < static_cast<int>(value.size()); i++) {
+        indices.push_back((i < end && i >= start) ? 1 : 0);
     }
 
     return value[indices];
@@ -68,6 +67,15 @@ RVec<float> index_get(RVec<float> value, int start, int end) {
 float index_get(RVec<float> value, int index) {
     return value[index];
 }
+
+RVec<float> index_from(RVec<float> value, int start) {
+    return index_get(value, start, 0);
+}
+
+RVec<float> index_until(RVec<float> value, int end) {
+    return index_get(value, 0, end);
+}
+
 
 int size(RVec<float> vec) {
     return vec.size();
@@ -92,6 +100,9 @@ float LVDeltaR(ROOT::Math::PtEtaPhiMVector v1, ROOT::Math::PtEtaPhiMVector v2) {
 }
 
 RVec<float> LVDeltaRHadamard(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+    if (v1.size() != v2.size()) {
+        throw std::runtime_error("LVDeltaRHadamard: input vectors have different lengths");
+    }
     auto dR_lamb = [](ROOT::Math::PtEtaPhiMVector vec1, ROOT::Math::PtEtaPhiMVector vec2) {
         return LVDeltaR(vec1, vec2);
     };
@@ -148,6 +159,53 @@ RVec<int> AllOf(RVec<RVec<int>> matrix) {
     return truth_list;
 }
 
+
+float MaxOf(RVec<float> vec) {
+    return Max(vec);
+}
+
+RVec<float> MaxOf(RVec<RVec<float>> matrix) {
+    auto max_lamb = [](RVec<float> row) {
+        return MaxOf(row);
+    };
+    auto truth_list = Map(matrix, max_lamb);
+    return truth_list;
+}
+
+float MinOf(RVec<float> vec) {
+    return Min(vec);
+}
+
+RVec<float> MinOf(RVec<RVec<float>> matrix) {
+    auto min_lamb = [](RVec<float> row) {
+        return MinOf(row);
+    };
+    return Map(matrix, min_lamb);
+}
+
+float MeanOf(RVec<float> vec) {
+    return Mean(vec);
+}
+
+RVec<float> MeanOf(RVec<RVec<float>> matrix) {
+    auto mean_lamb = [](RVec<float> row) {
+        return MeanOf(row);
+    };
+    return Map(matrix, mean_lamb);
+}
+
+float SumOf(RVec<float> vec) {
+    return Sum(vec);
+}
+
+RVec<float> SumOf(RVec<RVec<float>> matrix) {
+    auto sum_lamb = [](RVec<float> row) {
+        return SumOf(row);
+    };
+    return Map(matrix, sum_lamb);
+}
+
+
 // a truly horrifying solution to a problem, the base RVec code forces the return type to be an RVec<int>, while we really need RVec<RVec<int>> for our matrix-like situations.
 // here we force this new code into the VecOps namespace to act as a more specific template to force the interpreter to go with this one, giving us the right return type.
 namespace ROOT { namespace VecOps {
@@ -180,6 +238,9 @@ float LVDeltaPhi(ROOT::Math::PtEtaPhiMVector v1, ROOT::Math::PtEtaPhiMVector v2)
 }
 
 RVec<float> LVDeltaPhiHadamard(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+    if (v1.size() != v2.size()) {
+        throw std::runtime_error("LVDeltaPhiHadamard: input vectors have different lengths");
+    }
     auto dR_lamb = [](ROOT::Math::PtEtaPhiMVector vec1, ROOT::Math::PtEtaPhiMVector vec2) {
         return LVDeltaPhi(vec1, vec2);
     };
@@ -205,6 +266,9 @@ float LVDeltaEta(ROOT::Math::PtEtaPhiMVector v1, ROOT::Math::PtEtaPhiMVector v2)
 }
 
 RVec<float> LVDeltaEtaHadamard(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+    if (v1.size() != v2.size()) {
+        throw std::runtime_error("LVDeltaEtaHadamard: input vectors have different lengths");
+    }
     auto dR_lamb = [](ROOT::Math::PtEtaPhiMVector vec1, ROOT::Math::PtEtaPhiMVector vec2) {
         return LVDeltaEta(vec1, vec2);
     };
@@ -229,6 +293,9 @@ ROOT::Math::PtEtaPhiMVector TLV(float pt, float eta, float phi, float m) {
 }
 
 RVec<ROOT::Math::PtEtaPhiMVector> TLV(RVec<float> pt,RVec<float> eta,RVec<float> phi,RVec<float> m) {
+    if (pt.size() != eta.size() || pt.size() != phi.size() || pt.size() != m.size()) {
+        throw std::runtime_error("TLV: input component vectors have different lengths");
+    }
     RVec<ROOT::Math::PtEtaPhiMVector> vs;
     vs.reserve(pt.size());
     for (size_t i = 0; i < pt.size(); i++) {
@@ -285,12 +352,28 @@ RVec<float> Phi(RVec<ROOT::Math::PtEtaPhiMVector> vecs) {
     return Phi_vec;
 }
 
+RVec<RVec<unsigned long>> MakeEmptyShape(unsigned long n) {
+    RVec<RVec<unsigned long>> out;
+    out.reserve(n);
+    for (unsigned long i = 0; i < n; ++i) {
+        out.push_back(RVec<unsigned long>{});
+    }
+    return out;
+}
+
 RVec<RVec<unsigned long>> ExpandComb(RVec<RVec<unsigned long>>  &input_tuple, RVec<float> &new_vector) {
+
+    // If there is nothing to expand from, preserve shape but return empty content.
+    if (input_tuple.empty() || new_vector.empty()) {
+        return MakeEmptyShape(input_tuple.size() + 1);
+    }
+
     auto indices = Combinations(input_tuple[0], new_vector);
     auto indices_for_new = indices[1];
     auto indices_for_all_old = indices[0];
 
     RVec<RVec<unsigned long>> new_indices;
+    new_indices.reserve(input_tuple.size() + 1);
 
     for (auto single_old_index_list : input_tuple) {
         auto new_list = Take(single_old_index_list, indices_for_all_old);
@@ -303,10 +386,22 @@ RVec<RVec<unsigned long>> ExpandComb(RVec<RVec<unsigned long>>  &input_tuple, RV
 
 RVec<RVec<unsigned long>> GeneralComb(RVec<RVec<float>> input_particles) {
 
-    if (input_particles.size() < 2) return Combinations(input_particles[0],1);
+    if (input_particles.empty()) {
+        return {};
+    }
+
+    // If any particle collection is empty, there are no valid combinations.
+    // Return the correct "shape" (one entry per particle), but empty.
+    for (const auto &p : input_particles) {
+        if (p.empty()) {
+            return MakeEmptyShape(input_particles.size());
+        }
+    }
+
+    if (input_particles.size() == 1) return Combinations(input_particles[0],1);
 
     RVec<RVec<unsigned long>> new_indices = Combinations(input_particles[0], input_particles[1]);
-    for (int i = 2; i < input_particles.size(); i++) {
+    for (unsigned long i = 2; i < input_particles.size(); i++) {
         new_indices = ExpandComb(new_indices, input_particles[i]);
     }
     return new_indices;
@@ -315,15 +410,45 @@ RVec<RVec<unsigned long>> GeneralComb(RVec<RVec<float>> input_particles) {
 
 RVec<RVec<unsigned long>> GeneralDisjoint(RVec<RVec<float>> input_particles) {
     
-    int particle_size = 0;
-    int count = 0;
+    unsigned long particle_size = 0;
+    unsigned long count = 0;
 
     for (auto it = input_particles.cbegin(); it != input_particles.cend(); ++it, ++count) {
         if (particle_size == 0) particle_size = it->size();
         assert(it->size() == particle_size);
     }
 
+    // if the disjoint is on empty vectors, return the same shape as the input and similarly empty
+    if (particle_size == 0) {
+        return MakeEmptyShape(input_particles.size());
+    }
+
     return ROOT::VecOps::Combinations(input_particles[0], count);
+}
+
+RVec<RVec<unsigned long>> GeneralDirect(RVec<RVec<float>> input_particles) {
+    
+    unsigned long particle_size = 0;
+    unsigned long count = 0;
+
+    for (auto it = input_particles.cbegin(); it != input_particles.cend(); ++it, ++count) {
+        if (particle_size == 0) particle_size = it->size();
+        assert(it->size() == particle_size);
+    }
+
+    // Empty input vectors, preserve shape to avoid crashes
+    if (particle_size == 0) {
+        return MakeEmptyShape(input_particles.size());
+    }
+
+    RVec<RVec<unsigned long>> out;
+    out.reserve(count);
+
+    for (unsigned long i = 0; i < count; i++) {
+        RVec<unsigned long> increasing_index = ROOT::VecOps::Enumerate(input_particles[0]);
+        out.push_back(increasing_index);
+    }
+    return out;
 }
 
 // turns a table into a useable correction function

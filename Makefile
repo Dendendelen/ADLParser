@@ -1,13 +1,13 @@
 # CFLAGS2 = -g -fsanitize=address
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-CFLAGS = -std=c++17 -g -Isrc/include -D'ROOT_DIR="$(ROOT_DIR)"'
+CFLAGS = -std=c++20 -g -Isrc/include -D'ROOT_DIR="$(ROOT_DIR)"'
 SRCDIR = src/
 INCDIR = src/include/
 ODIR = out/
 
-main: $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o
-	g++ $(CFLAGS) -g -o main $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)ali_converter.o $(ODIR)timber_converter.o $(ODIR)coffea_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o
-	./main _ genconfig
+adlparser: $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)alil.o $(ODIR)alil_converter.o $(ODIR)timber_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o
+	g++ $(CFLAGS) -g -o adlparser $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)alil.o $(ODIR)alil_converter.o $(ODIR)timber_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o
+	./adlparser _ genconfig
 
 $(ODIR)main.o: $(SRCDIR)main.cpp $(INCDIR)lexer.hpp 
 	mkdir -p out
@@ -29,17 +29,17 @@ $(ODIR)ast_visitor.o: $(SRCDIR)ast_visitor.cpp $(INCDIR)ast_visitor.hpp
 	mkdir -p out
 	g++ $(CFLAGS) -o $(ODIR)ast_visitor.o -c $(SRCDIR)ast_visitor.cpp
 
-$(ODIR)ali_converter.o: $(SRCDIR)ali_converter.cpp $(INCDIR)ali_converter.hpp
+$(ODIR)alil_converter.o: $(SRCDIR)alil_converter.cpp $(INCDIR)alil_converter.hpp
 	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)ali_converter.o -c $(SRCDIR)ali_converter.cpp
+	g++ $(CFLAGS) -o $(ODIR)alil_converter.o -c $(SRCDIR)alil_converter.cpp
+
+$(ODIR)alil.o: $(SRCDIR)alil.cpp $(INCDIR)alil.hpp
+	mkdir -p out
+	g++ $(CFLAGS) -o $(ODIR)alil.o -c $(SRCDIR)alil.cpp
 
 $(ODIR)timber_converter.o: $(SRCDIR)timber_converter.cpp $(INCDIR)timber_converter.hpp
 	mkdir -p out
 	g++ $(CFLAGS) -o $(ODIR)timber_converter.o -c $(SRCDIR)timber_converter.cpp
-
-$(ODIR)coffea_converter.o: $(SRCDIR)coffea_converter.cpp $(INCDIR)coffea_converter.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)coffea_converter.o -c $(SRCDIR)coffea_converter.cpp
 
 $(ODIR)exceptions.o: $(SRCDIR)exceptions.cpp $(INCDIR)exceptions.hpp
 	mkdir -p out
@@ -54,7 +54,7 @@ out:
 
 .PHONY: clean dot
 clean:
-	rm -rf out/*.o main
+	rm -rf out/*.o adlparser
 
 dot:
 	dot -T png -O graph.gv
