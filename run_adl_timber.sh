@@ -22,4 +22,6 @@ echo ""
 echo "Done."
 
 duration=$(( SECONDS - start_time ))
-echo "Elapsed time: $duration seconds."
+dur_minutes=$(( duration / 60 ))
+dur_seconds=$(( duration % 60 ))
+echo "Elapsed time: $dur_minutes minutes, $dur_seconds seconds."
