@@ -58,9 +58,9 @@ int main(int argc, char** argv) {
         final_state_compiler = std::make_unique<TimberConverter>(alil.release(), config);
     }
     
-    // if (argument == "coffea") {
-    //     final_state_compiler = std::make_unique<CoffeaConverter>(alil.release(), config);    
-    // }
+    if (argument == "coffea") {
+        final_state_compiler = std::make_unique<CoffeaConverter>(alil.release(), config);    
+    }
 
     if (!final_state_compiler) {
         std::cerr << "Error: invalid argument: " << argument << std::endl;

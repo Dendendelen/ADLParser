@@ -14,12 +14,12 @@ void TimberConverter::add_mapping(std::string source, std::string dest) {
     var_mappings.emplace(source, dest);
 }
 
-bool is_string(std::string in) {
+static bool is_string(std::string in) {
     static const std::regex reg_string("\"[^\"]*\"");
     return (std::regex_match(in, reg_string));
 }
 
-bool is_number(std::string in) {
+static bool is_number(std::string in) {
     static const std::regex reg_number("-{0,1}[0-9]*\\.{0,1}[0-9]*([Ee][-+]{0,1}[0-9]+){0,1}");
     return (std::regex_match(in, reg_number));
 }

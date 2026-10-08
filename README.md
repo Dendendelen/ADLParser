@@ -17,7 +17,7 @@ in the relevant directory. The executable produced can then be run.
 The syntax for the tool is:
 
 ```
-main FILENAME.adl [timber]|[coffea]|[lex]|[parse]|[alil]
+adlparser FILENAME.adl [timber]|[coffea]|[lex]|[parse]|[alil]
 ```
 
 This will output to standard output. To create an output file, simply pipe into the desired target.

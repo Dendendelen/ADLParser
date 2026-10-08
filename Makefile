@@ -5,8 +5,8 @@ SRCDIR = src/
 INCDIR = src/include/
 ODIR = out/
 
-adlparser: $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)alil.o $(ODIR)alil_converter.o $(ODIR)timber_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o
-	g++ $(CFLAGS) -g -o adlparser $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)alil.o $(ODIR)alil_converter.o $(ODIR)timber_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o
+adlparser: $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)alil.o $(ODIR)alil_converter.o $(ODIR)timber_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o $(ODIR)coffea_converter.o 
+	g++ $(CFLAGS) -g -o adlparser $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)alil.o $(ODIR)alil_converter.o $(ODIR)timber_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o $(ODIR)coffea_converter.o
 	./adlparser _ genconfig
 
 $(ODIR)main.o: $(SRCDIR)main.cpp $(INCDIR)lexer.hpp 
@@ -40,6 +40,11 @@ $(ODIR)alil.o: $(SRCDIR)alil.cpp $(INCDIR)alil.hpp
 $(ODIR)timber_converter.o: $(SRCDIR)timber_converter.cpp $(INCDIR)timber_converter.hpp
 	mkdir -p out
 	g++ $(CFLAGS) -o $(ODIR)timber_converter.o -c $(SRCDIR)timber_converter.cpp
+
+$(ODIR)coffea_converter.o: $(SRCDIR)coffea_converter.cpp $(INCDIR)coffea_converter.hpp
+	mkdir -p out
+	g++ $(CFLAGS) -o $(ODIR)coffea_converter.o -c $(SRCDIR)coffea_converter.cpp
+
 
 $(ODIR)exceptions.o: $(SRCDIR)exceptions.cpp $(INCDIR)exceptions.hpp
 	mkdir -p out
