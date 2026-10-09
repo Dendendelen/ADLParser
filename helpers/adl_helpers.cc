@@ -495,3 +495,32 @@ auto create_table_function(int num_vars, RVec<RVec<float>> lower_bounds, RVec<RV
 }
 
     
+
+class ConstCorr {
+public:
+    ConstCorr(double nom, double up, double down)
+        : nom_(nom), up_(up), down_(down) {}
+
+    std::vector<double> eval() {
+        return { nom_, up_, down_ };
+    }
+
+private:
+    double nom_;
+    double up_;
+    double down_;
+};
+
+class ConstWeight {
+public:
+    ConstWeight(double nom)
+        : nom_(nom) {}
+
+    double eval() {
+        return nom_;
+    }
+
+private:
+    double nom_;
+
+};

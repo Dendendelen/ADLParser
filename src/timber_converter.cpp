@@ -495,10 +495,11 @@ std::string TimberConverter::convert_hist_2d(const AnalysisCommand &command) {
 }
 std::string TimberConverter::convert_weight_apply(const AnalysisCommand &command) {
     std::string prev = get_mapped_source(command,0);
-    std::string weight = get_mapped_source(command,1);
+    std::string name = get_mapped_source(command,1);
+    std::string weight = get_mapped_source(command,2);
 
     emit_comment("Apply weight correction: ", weight);
-    emit(get_mapped_dest(command), " = [",prev,"[0], " ,prev,"[1] + [Correction('", weight, "', '', '", weight, "')] ]");
+    emit(get_mapped_dest(command), " = [",prev,"[0], " ,prev,"[1] + [Correction(name='ConstCorr', script='', constructor=[", weight,  "], mainFunc='eval', corrtype='corr')] ]");
     return get_mapped_dest(command);
 }
 

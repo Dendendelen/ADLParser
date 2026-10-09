@@ -57,10 +57,13 @@ int main(int argc, char** argv) {
     std::unique_ptr<ALILCollection> alil(alil_converter->get_commands());
 
     if (argument == "type") {
-        auto cleaner = std::make_unique<RedundancyEliminator>(alil.release(), config);
-        std::unique_ptr<ALILCollection> cleaned(cleaner->get_converted());
+        // auto cleaner = std::make_unique<RedundancyEliminator>(alil.release(), config);
+        // std::unique_ptr<ALILCollection> cleaned(cleaner->get_converted());
 
-        auto typer = std::make_unique<Typer>(cleaned.release(), config);
+        auto cleaned = alil.release();
+
+        // auto typer = std::make_unique<Typer>(cleaned.release(), config);
+        auto typer = std::make_unique<Typer>(cleaned, config);
         typer->print();
         return 0;
     }

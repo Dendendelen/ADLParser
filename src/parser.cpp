@@ -788,9 +788,9 @@ void Parser::parse_region_command(PNode parent) {
         {
             PNode weight(create_node(AST::REGION_WEIGHT, parent, tok));
 
-            // REGION_COMMAND -> weight ID E
+            // REGION_COMMAND -> weight STRING E
             lexer->expect_and_consume(TOK::WEIGHT);
-            parse_id(weight);
+            parse_string(weight);
             parse_expression(weight);
             return;
         }

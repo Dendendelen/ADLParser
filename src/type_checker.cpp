@@ -380,12 +380,10 @@ PType Typer::convert_cut_region(const AnalysisCommand &) {
 }
 
 PType Typer::convert_create_bin_of_region(const AnalysisCommand &) {
-    // Region x Number x Number x Number -> Region
+    // Region x Cond -> Region
     PType fun(std::make_shared<Type>(TYPE_FUNCTION));
     fun->add_source_type(TYPE_REGION);
-    fun->add_source_type(TYPE_NUMBER);
-    fun->add_source_type(TYPE_NUMBER);
-    fun->add_source_type(TYPE_NUMBER);
+    fun->add_source_type(TYPE_COND);
     fun->add_dest_type(TYPE_REGION);
     return fun;
 }
@@ -437,8 +435,20 @@ PType Typer::convert_add_extern_particle(const AnalysisCommand &) {
 }
 
 PType Typer::convert_add_correctionlib(const AnalysisCommand &) {
-    assert(false);
-    return nullptr;
+    // String x String -> (List<Number> -> Number)
+
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    auto dest_fun = std::make_shared<Type>(TYPE_FUNCTION);
+    auto source_list = std::make_shared<Type>(TYPE_LIST);
+
+    dest_fun->add_source_type(source_list);
+    dest_fun->add_dest_type(TYPE_NUMBER);
+
+    fun->add_source_type(TYPE_STRING);
+    fun->add_source_type(TYPE_STRING);
+    fun->add_dest_type(dest_fun);
+
+    return fun;
 }
 
 PType Typer::convert_create_mask(const AnalysisCommand &) {
@@ -502,7 +512,7 @@ PType Typer::convert_use_hist(const AnalysisCommand &) {
 }
 
 PType Typer::convert_use_hist_list(const AnalysisCommand &) {
-    // String x Number x Number x Number x Number -> Hist
+    // List<String> x Number x Number x Number x Number -> Hist
     PType fun(std::make_shared<Type>(TYPE_FUNCTION));
     fun->add_source_type(TYPE_STRING);
     fun->add_source_type(TYPE_NUMBER);
@@ -514,9 +524,13 @@ PType Typer::convert_use_hist_list(const AnalysisCommand &) {
 }
 
 PType Typer::convert_hist_1d(const AnalysisCommand &) {
-    // String x Number x Number x Number x Number -> Hist
+    // List<String> x Number x Number x Number x Number -> Hist
     PType fun(std::make_shared<Type>(TYPE_FUNCTION));
-    fun->add_source_type(TYPE_STRING);
+
+    PType src_list(std::make_shared<Type>(TYPE_LIST));
+    src_list->add_dest_type(TYPE_STRING);
+
+    fun->add_source_type(src_list);
     fun->add_source_type(TYPE_NUMBER);
     fun->add_source_type(TYPE_NUMBER);
     fun->add_source_type(TYPE_NUMBER);
@@ -526,10 +540,13 @@ PType Typer::convert_hist_1d(const AnalysisCommand &) {
 }
 
 PType Typer::convert_hist_2d(const AnalysisCommand &) {
-    // String x Number x Number x Number x Number x Number x Number x Number x Number -> Hist
+    // List<String> x Number x Number x Number x Number x Number x Number x Number x Number -> Hist
     PType fun(std::make_shared<Type>(TYPE_FUNCTION));
-    fun->add_source_type(TYPE_STRING);
-    fun->add_source_type(TYPE_NUMBER);
+
+    PType src_list(std::make_shared<Type>(TYPE_LIST));
+    src_list->add_dest_type(TYPE_STRING);
+
+    fun->add_source_type(src_list);    fun->add_source_type(TYPE_NUMBER);
     fun->add_source_type(TYPE_NUMBER);
     fun->add_source_type(TYPE_NUMBER);
     fun->add_source_type(TYPE_NUMBER);
@@ -542,8 +559,15 @@ PType Typer::convert_hist_2d(const AnalysisCommand &) {
 }
 
 PType Typer::convert_weight_apply(const AnalysisCommand &) {
-    assert(false);
-    return nullptr;
+    // Region x String x Number -> Region
+
+
+    PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    fun->add_source_type(TYPE_REGION);
+    fun->add_source_type(TYPE_STRING);
+    fun->add_source_type(TYPE_NUMBER);
+    fun->add_dest_type(TYPE_REGION);
+    return fun;
 }
 
 PType Typer::convert_do_cutflow_on_region(const AnalysisCommand &) {
@@ -1455,7 +1479,9 @@ PType Typer::convert_add_part_to_composite(const AnalysisCommand &) {
     // Using generic composite type
     PType fun(std::make_shared<Type>(TYPE_FUNCTION));
     fun->add_source_type(TYPE_COMB);
-    fun->add_source_type(TYPE_PARTICLEINSTANCE);
+    auto list_type = std::make_shared<Type>(TYPE_LIST);
+    list_type->add_dest_type(TYPE_PARTICLEINSTANCE);
+    fun->add_source_type(list_type);
     fun->add_dest_type(TYPE_COMB);
     return fun;
 }
@@ -1488,14 +1514,25 @@ PType Typer::convert_create_empty_particle(const AnalysisCommand &) {
 }
 
 PType Typer::convert_add_particle(const AnalysisCommand &) {
-    // List<ParticleInstance> x List<ParticleInstance> -> List<ParticleInstance>
+    // `a x `a -> `a | `a <<: ParticleInstalce
     PType fun(std::make_shared<Type>(TYPE_FUNCTION));
-    auto element_type = std::make_shared<Type>(TYPE_LIST);
-    element_type->add_dest_type(TYPE_PARTICLEINSTANCE);
-
+    auto element_type = std::make_shared<Type>(TYPE_GENERIC);
     fun->add_source_type(element_type);
     fun->add_source_type(element_type);
     fun->add_dest_type(element_type);
+
+    Constraint particlelike;
+    particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, element_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    fun->add_constraint(particlelike);
+
+    // // List<ParticleInstance> x List<ParticleInstance> -> List<ParticleInstance>
+    // PType fun(std::make_shared<Type>(TYPE_FUNCTION));
+    // auto element_type = std::make_shared<Type>(TYPE_LIST);
+    // element_type->add_dest_type(TYPE_PARTICLEINSTANCE);
+
+    // fun->add_source_type(element_type);
+    // fun->add_source_type(element_type);
+    // fun->add_dest_type(element_type);
 
     return fun;
 }
@@ -1553,11 +1590,7 @@ void EquivalenceClasses::union_of_classes(PType first, PType second) {
         if (!first_generic_class && !second_generic_class) {
             //TODO: replace with exception
             if (first_representative->get_base_type() != second_representative->get_base_type()) {
-                first_representative->print();
-                std::cout  << "---";
-                second_representative->print();
-                std::cout << std::endl;
-                assert(first_representative->get_base_type() == second_representative->get_base_type());
+                parent[second_representative] = first;
             }
 
             if (first_representative->get_base_type() == TYPE_FUNCTION) {
@@ -1627,6 +1660,54 @@ std::unordered_map<PType, PType> EquivalenceClasses::resolve_all() {
     return resolved_map;
 }
 
+std::optional<int> DepthEquivalence::compute_structural_depth(PType type) {
+    if (!type) return std::nullopt;
+    
+    switch (type->get_base_type()) {
+        case TYPE_GENERIC:
+            return std::nullopt;
+        case TYPE_LIST: {
+            auto elem = compute_structural_depth(type->get_dest_type());
+            return elem.has_value() ? std::optional<int>(1 + *elem) : std::nullopt;
+        }
+        case TYPE_FUNCTION:
+            return compute_structural_depth(type->get_dest_type());
+        default:
+            return 0;
+    }
+}
+
+std::optional<int> DepthEquivalence::get_depth(PType type) {
+    PType rep = internal_equiv.find_representative(type);
+    return compute_structural_depth(rep);
+}
+
+bool DepthEquivalence::add_equal_depth(PType first, PType second) {
+    auto d1 = get_depth(first);
+    auto d2 = get_depth(second);
+    
+    if (d1.has_value() && d2.has_value() && *d1 != *d2) {
+        return false; // contradiction
+    }
+    
+    internal_equiv.union_of_classes(first, second);
+    return true;
+}
+
+Ternary DepthEquivalence::have_equal_depth(PType first, PType second) {
+    if (internal_equiv.find_representative(first) == internal_equiv.find_representative(second)) {
+        return Ternary::TERN_TRUE;
+    }
+    
+    auto d1 = get_depth(first);
+    auto d2 = get_depth(second);
+    
+    if (d1.has_value() && d2.has_value()) {
+        return (*d1 == *d2) ? Ternary::TERN_TRUE : Ternary::TERN_FALSE;
+    }
+    
+    return Ternary::TERN_UNKNOWN;
+}
 
 void PartialOrder::ensure_exists(PType type) {
         if (supertypes.find(type) == supertypes.end()) {
@@ -1858,9 +1939,70 @@ std::vector<PType> PartialOrder::topological_sort() {
 
 void Typer::equality_of_types(PType first, PType second) {
 
+    auto first_representative = equiv.find_representative(first);
+    auto second_representative = equiv.find_representative(second);
+
+    bool first_generic_class = (first_representative->get_base_type() == TYPE_GENERIC);
+    bool second_generic_class = (second_representative->get_base_type() == TYPE_GENERIC);
+
+    if (!first_generic_class && !second_generic_class && first_representative->get_base_type() != second_representative->get_base_type()) {
+        first_representative->print();
+        std::cout  << "---";
+        second_representative->print();
+        std::cout << std::endl;
+        assert(first_representative->get_base_type() == second_representative->get_base_type());    
+    }
+
+
     equiv.union_of_classes(first, second);
+    depth_equiv.add_equal_depth(first, second);
 }
 
+
+void Typer::equal_depth_of_types(PType first, PType second) {
+    if (!depth_equiv.add_equal_depth(first, second)) {
+        std::cerr << "Depth contradiction detected" << std::endl;
+    }
+}
+
+void Typer::apply_depth_hereditary_simplification() {
+    std::cout << "Simplifyinh" << std::endl;
+    // For all pairs where a ~=~ b and a <<: b, add a <: b
+    
+    auto all_hereditary = hereditary_subtyping.get_all_supertypes();
+    
+    for (const auto& [sub, supers] : all_hereditary) {
+        for (PType super : supers) {
+
+            sub->print();
+            depth_equiv.find_representative(sub)->print();
+            std::cout << "\n";
+            super->print();
+            std::cout << std::endl;
+
+            Ternary same_depth = depth_equiv.have_equal_depth(sub, super);
+            
+            auto sub_depth = depth_equiv.get_depth(sub);
+
+            if (same_depth == Ternary::TERN_TRUE) {
+                // a ~=~ b and a <<: b => a <: b
+                // subtyping.add_subtype(sub, super);
+
+                // TODO: remove this simplification
+                equality_of_types(sub, super);
+                // equiv.union_of_classes(sub, super);
+            } else if (sub_depth.has_value()) {
+                auto super_depth = depth_equiv.get_depth(super);
+                if (super_depth.has_value() && *sub_depth == *super_depth) {
+                    // subtyping.add_subtype(sub, super);
+                    // continue;
+                    equality_of_types(sub, super);
+                    // equiv.union_of_classes(sub, super);
+                }
+            }
+        }
+    }
+}
 
 void Typer::subtype_of_types(PType sub, PType super) {
     subtyping.add_subtype(sub, super);
@@ -1920,7 +2062,7 @@ Ternary Typer::truth_of_premise(PType lhs, PType rhs, StatementForm form) {
             } break;            
         case STATEMENT_HEREDITARY_SUPERTYPE:
         case STATEMENT_EQUAL_DEPTH:
-            return Ternary::TERN_UNKNOWN;
+            return depth_equiv.have_equal_depth(lhs, rhs);
     }
 }
 
@@ -1970,10 +2112,15 @@ void Typer::resolve_constraints() {
             if (conclusion.get_form() == STATEMENT_EQUALITY) {
                 std::cout <<"equaling " << i <<"\n";
                 equality_of_types(first, second);
-            // } else if (conclusion.get_form() == STATEMENT_SUBTYPE) {
-            //     subtype_of_types(first, second);
-            // } else if (conclusion.get_form() == STATEMENT_HEREDITARY_SUBTYPE) {
-            //     hereditary_subtype_of_types(first, second);
+            } else if (conclusion.get_form() == STATEMENT_SUBTYPE) {
+                std::cout << "subtyping " << i <<"\n";
+                subtype_of_types(first, second);
+            } else if (conclusion.get_form() == STATEMENT_HEREDITARY_SUBTYPE) {
+                std::cout << "chain-subtyping " << i <<"\n";
+                hereditary_subtype_of_types(first, second);
+            } else if (conclusion.get_form() == STATEMENT_EQUAL_DEPTH) {
+                std::cout <<"enforcing equal depth of " << i <<"\n";
+                equal_depth_of_types(first, second);
             } else {
                 // the consequent is not something we are equipped to deal wwith yet, we add it and only it
                 // remaining constraints are constraints of exclusion - not much to be done with them at this point
@@ -1984,6 +2131,9 @@ void Typer::resolve_constraints() {
 
         }
     }
+
+    // allow depths to matter
+    apply_depth_hereditary_simplification();
 
     auto equalities = equiv.resolve_all();
 
@@ -2010,6 +2160,8 @@ void Typer::resolve_constraints() {
         std::cout << "\n";
     }
 
+    running_valid_constraints = new_running_valid_constraints;
+
 }
 
 
@@ -2029,6 +2181,7 @@ void Typer::collect_existing_constraints() {
         // all the constraints this type comes with, we add to ours
         for (auto constraint : type_of_function->get_constraints()) {
             running_valid_constraints.push_back(constraint);
+            constraint.print();
         }
 
         // generate a series of constraints for the inputs to match with the 
@@ -2058,6 +2211,7 @@ void Typer::collect_existing_constraints() {
                 assert(false);
             } 
             equality_of_input.add_conclusion(Statement(STATEMENT_EQUALITY, type_of_arg, type_of_function->get_source_type(i)));
+            equality_of_input.print();
             running_valid_constraints.push_back(equality_of_input);
         }
 
@@ -2098,6 +2252,23 @@ void Typer::print() {
     std::cout << "\n\n\n" << "Second pass \n" << std::endl;
 
     resolve_constraints();
+
+    std::cout << "\n\n\n" << "Thirdm pass \n" << std::endl;
+
+    resolve_constraints();
+
+    auto equals = equiv.resolve_all();
+
+    for (auto command : alil->get_commands()) {
+        if (command.has_dest_argument()) {
+            types_of_variables[command.get_dest_argument()]->print(equals);
+        } else {
+            std::cout << "void";
+        }
+        std::cout << " : ";
+        command.print_instruction();
+        std::cout << std::endl;
+    }
 
     // while (alil->clear_to_next()) {
     //     auto out = command_handle(alil->next_command());

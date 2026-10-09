@@ -173,6 +173,8 @@ public:
 };
 
 
+
+
 struct Ternary {
     enum TernaryType {
         TERN_TRUE,
@@ -201,19 +203,41 @@ struct Ternary {
     }
 };
 
+
+class DepthEquivalence {
+private:
+    EquivalenceClasses internal_equiv;
+    
+    std::optional<int> compute_structural_depth(PType type);
+
+public:
+    std::optional<int> get_depth(PType type);
+    bool add_equal_depth(PType first, PType second);
+    Ternary have_equal_depth(PType first, PType second);
+    PType find_representative(PType type) {
+        return internal_equiv.find_representative(type);
+    }
+};
+
+
 #define CONVERTER_FUNCS_DECLARE(ENUM, NAME) \
     PType convert_##NAME(const AnalysisCommand &) override;
+
 
 class Typer : public ALILToFrameworkCompiler<PType> {
     private:
 
         EquivalenceClasses equiv;
+        DepthEquivalence depth_equiv;
         PartialOrder subtyping;
         PartialOrder hereditary_subtyping;
 
         void equality_of_types(PType, PType);
+        void equal_depth_of_types(PType, PType);
         void subtype_of_types(PType, PType);
         void hereditary_subtype_of_types(PType sub, PType super);
+
+        void apply_depth_hereditary_simplification();
 
         Ternary truth_of_premise(PType lhs, PType rhs, StatementForm form);
 

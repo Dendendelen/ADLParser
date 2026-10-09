@@ -666,6 +666,7 @@ void ALILConverter::visit_region_weight(PNode node) {
     visit_children(node);
 
     AnalysisCommandBuilder weight(ALIL::WEIGHT_APPLY);
+    weight.add_source_argument(last_region);
     weight.add_source_argument(node->get_child(0)->consume_associated_string());
     weight.add_source_argument(node->get_child(1)->consume_associated_string());
     
