@@ -1,3 +1,6 @@
+#ifndef EXCEPTIONS_H
+#define EXCEPTIONS_H
+
 #include <string>
 #include "lexer.hpp"
 
@@ -20,3 +23,5 @@ void raise_lexing_exception(PToken token);
 void raise_parsing_exception(std::string error, PToken token);
 void raise_analysis_conversion_exception(std::string error, PToken token);
 void raise_non_implemented_conversion_exception(std::string inst, std::string context="");
+
+#endif
