@@ -15,7 +15,7 @@
 #include "tokens.hpp"
 
 static void report_error(const std::runtime_error &e) {        
-    std::cerr << CMDCOLOR::red << "ERROR: " << CMDCOLOR::reset << "Syntax error in parsing: \n\t" << e.what() << std::endl;
+    std::cerr << CMDCOLOR::red << "ERROR: " << CMDCOLOR::reset << "Syntax error in tokenization: \n\t" << e.what() << std::endl;
 }
 
 Token::Token(Token_type in): type(in) {}
@@ -582,6 +582,12 @@ void Lexer::erase_whitespace() {
         }
     }
 
+}
+
+void Lexer::reset_with_whitespace() {
+    non_whitespace_tokens.clear();
+    non_whitespace_tokens = tokens;
+    current_token = non_whitespace_tokens.begin();
 }
 
 void Lexer::reset() {
