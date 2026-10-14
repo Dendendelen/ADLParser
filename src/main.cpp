@@ -1,6 +1,7 @@
 #include "alil_converter.hpp"
 #include "coffea_converter.hpp"
 #include "config.hpp"
+#include "exceptions.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
 #include "timber_converter.hpp"
@@ -11,6 +12,8 @@
 int main(int argc, char** argv) {
 
     std::string argument;
+
+    bool success = true;
 
     if (argc < 2) {
         std::cerr << "Usage: main FILENAME.adl [genconfig]|[timber]|[coffea]|[lex]|[parse]|[alil] " << std::endl;
@@ -29,19 +32,19 @@ int main(int argc, char** argv) {
 
     std::unique_ptr<Lexer> lexer = std::make_unique<Lexer>();
 
-    lexer->read_lines(filename);
+    success = success && lexer->read_file(filename);
 
     if (argument == "lex") {
         lexer->print();
-        return 0;
+        return success ? 0 : 1;
     }
     
     std::unique_ptr<Parser> parser = std::make_unique<Parser>(lexer.release());
-    parser->parse();
+    success = success && parser->parse();
 
     if (argument == "parse") {
         parser->print_parse_dot();
-        return 0;
+        return success ? 0 : 1;
     }
 
     std::unique_ptr<ALILConverter> alil = std::make_unique<ALILConverter>(config);
@@ -49,7 +52,12 @@ int main(int argc, char** argv) {
 
     if (argument == "alil") {
         alil->print_commands();
-        return 0;
+        return success ? 0 : 1;
+    }
+
+    if (!success) {
+        std::cerr << CMDCOLOR::red << CMDCOLOR::bold <<  "Fatal error in compiler, ending here." << CMDCOLOR::reset << std::endl;
+        return 1;  
     }
 
     std::unique_ptr<ALILToFrameworkCompiler> final_state_compiler;

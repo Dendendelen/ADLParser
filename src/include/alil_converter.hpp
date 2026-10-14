@@ -16,6 +16,9 @@ class ALILConverter : ASTVisitor {
     private:
 
         ALILCollection commands;
+        bool has_fatal_error;
+
+        PNode get_node_child(PNode parent, size_t index);
         void clean_command_list();
 
         std::string reserve_scoped_value_name();
@@ -50,6 +53,8 @@ class ALILConverter : ASTVisitor {
         Config &config;
 
     protected:
+        void visit_error(PNode node) override;
+
         void visit_info(PNode node) override;
         void visit_definition(PNode node) override;
         void visit_composite(PNode node) override;
@@ -109,7 +114,7 @@ class ALILConverter : ASTVisitor {
     public:
         ALILConverter(Config &conf);
 
-        void visitation(PNode root);
+        bool visitation(PNode root);
 
         ALILCollection &get_commands();
         void print_commands();

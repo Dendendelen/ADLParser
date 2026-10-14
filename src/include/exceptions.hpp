@@ -4,6 +4,9 @@
 #include <string>
 #include "lexer.hpp"
 
+
+
+
 class LexingException : public std::runtime_error {
     public:
         LexingException(const char* what) : runtime_error(what) {}
@@ -23,5 +26,12 @@ void raise_lexing_exception(PToken token);
 void raise_parsing_exception(std::string error, PToken token);
 void raise_analysis_conversion_exception(std::string error, PToken token);
 void raise_non_implemented_conversion_exception(std::string inst, std::string context="");
+
+namespace CMDCOLOR {
+    inline constexpr std::string red = "\033[31m";
+    inline constexpr std::string reset = "\033[0m";
+    inline constexpr std::string underline = "\033[4:3m";
+    inline constexpr std::string bold =    "\033[1m";
+}
 
 #endif

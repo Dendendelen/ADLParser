@@ -3,13 +3,15 @@
 
 #include "lexer.hpp"
 #include "node.hpp"
+#include "tokens.hpp"
 
 class Parser {
     private:
         std::unique_ptr<Lexer> lexer;
         Tree tree;
+        bool has_fatal_error;
 
-        void parse_blocks(PNode parent);
+        void parse_blocks(PNode parent, bool do_errors=true);
 
         void parse_info(PNode parent);
         void parse_initializations(PNode parent);
@@ -55,7 +57,7 @@ class Parser {
         void parse_scientific(PNode parent, std::string error = "");
         void parse_decimal(PNode parent, std::string error = "");
 
-        void parse_assignment();
+        void parse_assignment(PNode parent);
 
         void parse_particle_sum(PNode parent);
         void parse_particle_sum_tail(PNode parent);
@@ -79,13 +81,14 @@ class Parser {
         PNode create_lost_node(AST_type in, PNode parent);
         PNode make_list_root_node(AST_type in, PNode parent);
 
+        void expect_and_consume(PNode parent, Token_type type, std::string error = "");
         void print_children_and_yourself(PNode node, int *top_number);
 
 
     public:
         Parser(Lexer *lex);
         
-        void parse();
+        bool parse();
 
         void parse_input();
 

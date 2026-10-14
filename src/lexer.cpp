@@ -8,17 +8,23 @@
 #include <ostream>
 #include <regex>
 #include <sstream>
+#include <stdexcept>
 #include <vector>
 
 #include "exceptions.hpp"
 #include "tokens.hpp"
 
+static void report_error(const std::runtime_error &e) {        
+    std::cerr << CMDCOLOR::red << "ERROR: " << CMDCOLOR::reset << "Syntax error in parsing: \n\t" << e.what() << std::endl;
+}
+
 Token::Token(Token_type in): type(in) {}
 
-void Token::set_data(int line, int column, std::string actual_lexeme) {
+void Token::set_data(int line, int column, std::string actual_lexeme, std::shared_ptr<std::string> line_reference) {
     line_number = line;
     column_number = column;
     lexeme = actual_lexeme;
+    source_line = line_reference;
 }
 
 int Token::get_line() {
@@ -32,6 +38,10 @@ Token_type Token::get_token_type() {
 }
 std::string Token::get_lexeme() {
     return lexeme;
+}
+
+std::string Token::get_source_line_text() {
+    return source_line ? *source_line : "";
 }
 
 // Is the character an inherently delimiting symbol?
@@ -61,7 +71,7 @@ std::string Lexer::convert_to_uppercase(std::string &input) {
     return uppercase;
 }
 
-Lexer::Lexer() {
+Lexer::Lexer(): has_fatal_error(false) {
     current_token = tokens.begin();
 
     reg_int = std::regex("-{0,1}[0-9]+");
@@ -386,26 +396,130 @@ std::string Token::get_token_type_as_string() {
     return token_type_to_string(type);
 }
 
-void Lexer::lex_token(std::string &token, int &line_number, int &column_number) {
+void Lexer::lex_token(std::string &token, int &line_number, int &column_number, std::shared_ptr<std::string> line_reference) {
 
-    // Do not lex an empty token
-    if (token.size() == 0) return;
+    try {
+        // Do not lex an empty token
+        if (token.size() == 0) return;
 
-    auto tok = std::make_shared<Token>(identify_token(token));
-    tok->set_data(line_number, column_number, token);
+        auto tok = std::make_shared<Token>(identify_token(token));
 
-    if (tok->get_token_type() == TOK::LEXER_ERROR) {
-        raise_lexing_exception(tok);
+        if (line_reference) {
+            tok->set_data(line_number, column_number, token, line_reference);
+        } else {
+            tok->set_data(line_number, column_number, token);
+        }
+
+
+        if (tok->get_token_type() == TOK::LEXER_ERROR) {
+            raise_lexing_exception(tok);
+        }
+
+        tokens.push_back(tok);
+
+        // move the lexer along
+        column_number += token.length();
+        token.clear();
+    } catch (const std::runtime_error &e) {
+        report_error(e);
+        column_number += token.length();
+        token.clear();
     }
-
-    tokens.push_back(tok);
-
-    // move the lexer along
-    column_number += token.length();
-    token.clear();
 }
 
-void Lexer::read_lines(std::string filename, bool is_verbose) {
+
+void Lexer::read_line(std::string line_content, int line_number) {
+
+    std::shared_ptr<std::string> line_content_reference(std::make_shared<std::string>(line_content));
+
+    std::string running_token;
+
+    bool is_commented_out = false;
+    bool is_quoted_out = false;
+
+    int column_number = 1;
+    for (auto it = line_content.begin(); it != line_content.end(); ++it) {
+        char current_char = *it;
+
+        // If we have a comment start symbol, this entire line from here on must be one comment token
+        if (current_char == '#' && !is_commented_out) {
+            lex_token(running_token, line_number, column_number, line_content_reference);
+            is_commented_out = true;
+            running_token += current_char;
+            continue;
+
+        } else if (is_commented_out) {
+            // If this line is commented out, this is all just one comment
+            running_token += current_char;
+            continue;
+        }
+
+        // if we have a quote character, and we are in a quote scope, then we have ceased to be so.
+        if (is_quoted_out && current_char == '"') {
+            running_token += current_char;
+            lex_token(running_token, line_number, column_number, line_content_reference);
+            is_quoted_out = false;
+            continue;
+        } else if (current_char == '"') {
+            // We are now beginning a quoted scope, within which we want to always add characters to this same token
+            lex_token(running_token, line_number, column_number, line_content_reference);
+            is_quoted_out = true;
+            running_token += current_char;
+            continue;
+        } else if(is_quoted_out) {
+            // If we are in a quote, we simply add until the quote is over
+            running_token += current_char;
+            continue;
+        }
+
+        bool delimiter = is_delimiter(current_char);
+        bool symbol = is_symbol(current_char);
+
+        if (current_char == '(' || current_char == ')' || current_char == ','|| current_char == '{' || current_char == '}' || current_char == '[' || current_char == ']') {
+            // Exception: commas and brackets of all kinds must be allowed to be stacked adjacent to whatever, and that must unequivocably be its own token - there is never a situation in which this should not be the case
+            lex_token(running_token, line_number, column_number, line_content_reference);
+            running_token += current_char;
+            lex_token(running_token, line_number, column_number, line_content_reference);
+            continue;
+        }
+
+        // if the running string is empty, we add this character to the running string and await further input
+        if (running_token.size() <= 0) {
+            running_token += current_char;
+            continue;
+        }
+
+        char prev_char = running_token.back();
+
+        bool previous_delimiter = is_delimiter(prev_char);
+        bool previous_symbol = is_symbol(prev_char);
+
+        char next_char = std::next(it) != line_content.end() ? *std::next(it) : ' ';
+
+        // if the running token is of the same type as the current char, then we add it to the string and keep going
+        if (delimiter != previous_delimiter || symbol != previous_symbol) {
+
+            bool was_negative_sign_for_number = prev_char == '-' && current_char >= '0' && current_char <= '9';
+            bool was_decimal_point_for_number = prev_char == '.' && current_char >= '0' && current_char <= '9';
+            bool is_decimal_point_in_number = current_char == '.' && next_char <= '9' && next_char >= '0';
+
+            if (!was_negative_sign_for_number && !was_decimal_point_for_number && !is_decimal_point_in_number) {
+                // Otherwise, we do not have compatible symbols, so this clearly must be the end of a running token
+                lex_token(running_token, line_number, column_number, line_content_reference);
+            }
+        } 
+        running_token = running_token + current_char;
+    }
+    // The line is over, we lex the remainder
+    lex_token(running_token, line_number, column_number, line_content_reference);
+
+    auto endline = std::make_shared<Token>(TOK::NEWLINE);
+    endline->set_data(line_number, column_number, "\n");
+    tokens.push_back(endline);
+}
+
+
+bool Lexer::read_file(std::string filename, bool is_verbose) {
 
     verbose = is_verbose;
 
@@ -416,96 +530,26 @@ void Lexer::read_lines(std::string filename, bool is_verbose) {
     int line = 0;
     while (std::getline(read_file, content)) {
         line++;
-
-        std::string running_token;
-
-        bool is_commented_out = false;
-        bool is_quoted_out = false;
-
-        int column = 1;
-        for (auto it = content.begin(); it != content.end(); ++it) {
-            char current_char = *it;
-
-            // If we have a comment start symbol, this entire line from here on must be one comment token
-            if (current_char == '#' && !is_commented_out) {
-                lex_token(running_token, line, column);
-                is_commented_out = true;
-                running_token += current_char;
-                continue;
-
-            } else if (is_commented_out) {
-                // If this line is commented out, this is all just one comment
-                running_token += current_char;
-                continue;
-            }
-
-            // if we have a quote character, and we are in a quote scope, then we have ceased to be so.
-            if (is_quoted_out && current_char == '"') {
-                running_token += current_char;
-                lex_token(running_token, line, column);
-                is_quoted_out = false;
-                continue;
-            } else if (current_char == '"') {
-                // We are now beginning a quoted scope, within which we want to always add characters to this same token
-                lex_token(running_token, line, column);
-                is_quoted_out = true;
-                running_token += current_char;
-                continue;
-            } else if(is_quoted_out) {
-                // If we are in a quote, we simply add until the quote is over
-                running_token += current_char;
-                continue;
-            }
-
-            bool delimiter = is_delimiter(current_char);
-            bool symbol = is_symbol(current_char);
-
-            if (current_char == '(' || current_char == ')' || current_char == ','|| current_char == '{' || current_char == '}' || current_char == '[' || current_char == ']') {
-                // Exception: commas and brackets of all kinds must be allowed to be stacked adjacent to whatever, and that must unequivocably be its own token - there is never a situation in which this should not be the case
-                lex_token(running_token, line, column);
-                running_token += current_char;
-                lex_token(running_token, line, column);
-                continue;
-            }
-
-            // if the running string is empty, we add this character to the running string and await further input
-            if (running_token.size() <= 0) {
-                running_token += current_char;
-                continue;
-            }
-
-            char prev_char = running_token.back();
-
-            bool previous_delimiter = is_delimiter(prev_char);
-            bool previous_symbol = is_symbol(prev_char);
-
-            char next_char = std::next(it) != content.end() ? *std::next(it) : ' ';
-
-            // if the running token is of the same type as the current char, then we add it to the string and keep going
-            if (delimiter != previous_delimiter || symbol != previous_symbol) {
-
-                bool was_negative_sign_for_number = prev_char == '-' && current_char >= '0' && current_char <= '9';
-                bool was_decimal_point_for_number = prev_char == '.' && current_char >= '0' && current_char <= '9';
-                bool is_decimal_point_in_number = current_char == '.' && next_char <= '9' && next_char >= '0';
-
-                if (!was_negative_sign_for_number && !was_decimal_point_for_number && !is_decimal_point_in_number) {
-                    // Otherwise, we do not have compatible symbols, so this clearly must be the end of a running token
-                    lex_token(running_token, line, column);
-                }
-            } 
-            running_token = running_token + current_char;
-        }
-        // The line is over, we lex the remainder
-        lex_token(running_token, line, column);
-
-        auto endline = std::make_shared<Token>(TOK::NEWLINE);
-        endline->set_data(line, column, "\n");
-        tokens.push_back(endline);
-
+        read_line(content, line);
         // Return to the start of the next line
     }
 
     read_file.close();
+
+    return !has_fatal_error;
+}
+
+
+void Lexer::read_lines(std::vector<std::string> &lines, bool is_verbose) {
+
+    verbose = is_verbose;
+
+    int line_number = 0;
+    for (auto line : lines) {
+        line_number++;
+        read_line(line, line_number);
+        // Return to the start of the next line
+    }
 }
 
 void Lexer::print() {
