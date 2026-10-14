@@ -169,6 +169,7 @@ bool Type::is_fundamental_type() {
     return (this_type != TYPE_FUNCTION && this_type != TYPE_GENERIC && this_type != TYPE_LIST);
 }
 
+
 void Type::add_source_type(PType type) {
     if (this_type != TYPE_FUNCTION) {
         assert(false);
@@ -183,6 +184,8 @@ void Type::add_source_type(BaseType type) {
         // all generics are unique
         add_source_type(std::make_shared<Type>(TYPE_GENERIC));
     }
+
+
 }
 
 void Type::add_dest_type(PType type) {
@@ -299,11 +302,18 @@ void Type::print(std::unordered_map<PType, PType> &substitutions) {
             it->print(substitutions);
         }
         std::cout << " -> ";
-        dest_type->print(substitutions);
+
+        if (has_dest_type) {
+            dest_type->print(substitutions);
+        } else {
+            std::cout << " () ";
+        }
         std::cout << ")";
     } else if (this_type == TYPE_LIST) {
         std::cout << "<";
-        dest_type->print(substitutions);
+        if  (has_dest_type) {
+            dest_type->print(substitutions);
+        }
         std::cout << ">";
     }
 
@@ -440,6 +450,7 @@ PType Typer::convert_add_correctionlib(const AnalysisCommand &) {
     PType fun(std::make_shared<Type>(TYPE_FUNCTION));
     auto dest_fun = std::make_shared<Type>(TYPE_FUNCTION);
     auto source_list = std::make_shared<Type>(TYPE_LIST);
+    source_list->add_dest_type(TYPE_NUMBER);
 
     dest_fun->add_source_type(source_list);
     dest_fun->add_dest_type(TYPE_NUMBER);
@@ -1514,7 +1525,7 @@ PType Typer::convert_create_empty_particle(const AnalysisCommand &) {
 }
 
 PType Typer::convert_add_particle(const AnalysisCommand &) {
-    // `a x `a -> `a | `a <<: ParticleInstalce
+    // `a x `a -> `a | `a <<: ParticleInstance
     PType fun(std::make_shared<Type>(TYPE_FUNCTION));
     auto element_type = std::make_shared<Type>(TYPE_GENERIC);
     fun->add_source_type(element_type);
@@ -1538,14 +1549,16 @@ PType Typer::convert_add_particle(const AnalysisCommand &) {
 }
 
 PType Typer::convert_sub_particle(const AnalysisCommand &) {
-    // List<ParticleInstance> x List<ParticleInstance> -> List<ParticleInstance>
+    // `a x `a -> `a | `a <<: ParticleInstance
     PType fun(std::make_shared<Type>(TYPE_FUNCTION));
-    auto element_type = std::make_shared<Type>(TYPE_LIST);
-    element_type->add_dest_type(TYPE_PARTICLEINSTANCE);
-
+    auto element_type = std::make_shared<Type>(TYPE_GENERIC);
     fun->add_source_type(element_type);
     fun->add_source_type(element_type);
     fun->add_dest_type(element_type);
+
+    Constraint particlelike;
+    particlelike.add_conclusion(Statement(STATEMENT_HEREDITARY_SUBTYPE, element_type, Type::fundamental_type_instance(TYPE_PARTICLEINSTANCE)));
+    fun->add_constraint(particlelike);
 
     return fun;
 }
@@ -2181,7 +2194,7 @@ void Typer::collect_existing_constraints() {
         // all the constraints this type comes with, we add to ours
         for (auto constraint : type_of_function->get_constraints()) {
             running_valid_constraints.push_back(constraint);
-            constraint.print();
+            // constraint.print();
         }
 
         // generate a series of constraints for the inputs to match with the 
@@ -2211,7 +2224,7 @@ void Typer::collect_existing_constraints() {
                 assert(false);
             } 
             equality_of_input.add_conclusion(Statement(STATEMENT_EQUALITY, type_of_arg, type_of_function->get_source_type(i)));
-            equality_of_input.print();
+            // equality_of_input.print();
             running_valid_constraints.push_back(equality_of_input);
         }
 
