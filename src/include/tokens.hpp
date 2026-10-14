@@ -1,159 +1,143 @@
 #ifndef TOKENS_H
 #define TOKENS_H
 
+#define TOKEN_LIST(X)                                                        \
+    /* Lexer tokens */                                          \
+    X(LEXER_ERROR)    /* signifies that a lexing error has occurred */        \
+    X(COMMENT)                                                               \
+    X(SPACE)                                                                 \
+    X(NEWLINE)                                                               \
+    X(END_OF_FILE)                                                           \
+                                                                             \
+    /* Literals / identifiers */                                              \
+    X(DECIMAL)       /* decimal/floating-point-like */                        \
+    X(SCIENTIFIC)    /* scientific notation e.g. 2E4 */                       \
+    X(INTEGER)       /* standard integer */                                   \
+    X(STRING)                                                               \
+    X(VARNAME)       /* variable name format, name_LikeThis or Variable42 */  \
+                                                                             \
+    /* Definitions / declarations */                                          \
+    X(DEF)                                                                   \
+    X(OBJ)                                                                   \
+    X(REG)                                                                   \
+    X(COMP)                                                                  \
+    X(HISTOLIST)                                                             \
+    X(ADLINFO)                                                              \
+    X(PARTICLE_KEYWORD)                                                     \
+    X(ADD)                                                                  \
+    X(EXTERNAL)                                                             \
+    X(ATTRIBUTE)                                                            \
+    X(CORRECTIONLIB) /* TODO: check implementation */                         \
+                                                                             \
+    /* Selection / booleans */                                                \
+    X(SELECT)                                                               \
+    X(REJEC)                                                                \
+    X(TRUE)                                                                 \
+    X(FALSE)                                                                \
+                                                                             \
+    /* Region / histogram / table */                                          \
+    X(NVARS)                                                                \
+    X(ERRORS)                                                               \
+    X(TABLETYPE)                                                            \
+    X(TAKE)                                                                 \
+    X(HISTO)                                                                \
+    X(WEIGHT)                                                               \
+    X(TABLE)                                                                \
+    X(BIN)                                                                  \
+    X(NAMED)                                                                \
+    X(BINS)                                                                 \
+    X(UNION)                                                                \
+    X(ALIAS)                                                                \
+                                                                             \
+    /* particle-related quantities */                                         \
+    X(PHI)                                                                  \
+    X(ETA)                                                                  \
+    X(CHARGE)                                                               \
+    X(MASS)                                                                 \
+    X(PT)                                                                   \
+    X(DR)                                                                   \
+    X(DPHI)                                                                 \
+    X(DETA)                                                                 \
+    X(DR_HADAMARD)                                                          \
+    X(DPHI_HADAMARD)                                                        \
+    X(DETA_HADAMARD)                                                        \
+    X(DISTINCT)                                                             \
+    X(ANYOF)                                                                \
+    X(ALLOF)                                                                \
+    X(THIS)                                                                 \
+                                                                             \
+    /* operators */                                                           \
+    X(EQ)                                                                   \
+    X(NE)                                                                   \
+    X(LE)                                                                   \
+    X(GE)                                                                   \
+    X(LT)                                                                   \
+    X(GT)                                                                   \
+    X(AND)                                                                  \
+    X(OR)                                                                   \
+    X(NOT)                                                                  \
+    X(WITHIN)                                                               \
+    X(OUTSIDE)                                                              \
+    X(MINUS)                                                                \
+    X(PLUS)                                                                 \
+    X(MULTIPLY)                                                             \
+    X(DIVIDE)                                                               \
+    X(AMPERSAND)    /* bitwise operator */                                   \
+    X(PIPE)         /* bitwise operator */                                   \
+    X(COLON)                                                                \
+    X(RAISED_TO_POWER)                                                      \
+    X(DOT_INDEX)                                                            \
+    X(ARROW_INDEX)                                                          \
+    X(OPEN_PAREN)                                                           \
+    X(CLOSE_PAREN)                                                          \
+    X(OPEN_SQUARE_BRACE)                                                    \
+    X(CLOSE_SQUARE_BRACE)                                                   \
+    X(OPEN_CURLY_BRACE)                                                     \
+    X(CLOSE_CURLY_BRACE)                                                    \
+    X(QUESTION)                                                             \
+    X(ASSIGN)       /* single = */                                           \
+                                                                             \
+    /* aggregates / functions */                                              \
+    X(NUMOF)                                                                \
+    X(AVE)                                                                  \
+    X(SUM)                                                                  \
+    X(ASCEND)                                                               \
+    X(DESCEND)                                                              \
+    X(TAN)                                                                  \
+    X(SIN)                                                                  \
+    X(COS)                                                                  \
+    X(SINH)                                                                 \
+    X(COSH)                                                                 \
+    X(TANH)                                                                 \
+    X(EXP)                                                                  \
+    X(LOG)                                                                  \
+    X(ABS)                                                                  \
+    X(SQRT)                                                                 \
+    X(SORT)                                                                 \
+    X(COMB)                                                                 \
+    X(DISJOINT)                                                             \
+    X(DIRECT)                                                               \
+    X(MIN)                                                                  \
+    X(MAX)                                                                  \
+                                                                             \
+    /* separators */                                                   \
+    X(COMMA)                                                                \
+    X(UNDERSCORE)                                                           \
+                                                                             \
+    /* single-letter tokens */                                                \
+    X(LETTER_M)                                                             \
+    X(LETTER_Q)                                                             \
+    X(LETTER_P)                                                             \
+    X(LETTER_E)
+
+#define MAKE_ENUM(ENUM) ENUM,
+
 enum class Token_type {
-    LEXER_ERROR, // signifies that a lexing error has occurred
-
-    COMMENT,
-
-    SPACE,
-    NEWLINE,
-    END_OF_FILE,
-
-    DECIMAL,    // Decimal/floating-point-like
-    SCIENTIFIC, // Scientific notation e.g. 2E4
-    INTEGER,    // standard integer
-
-    STRING,
-    VARNAME,    // variable name format, name_LikeThis or Variable42 or similar
-    
-    DEF,
-    OBJ,
-    REG,
-    COMP,
-
-    HISTOLIST,
-
-    ADLINFO,
-
-    PARTICLE_KEYWORD,
-    ADD,
-
-    EXTERNAL,
-    ATTRIBUTE,
-    CORRECTIONLIB,  //TODO: check implementation
-
-    SELECT,
-    REJEC,
-
-    TRUE,
-    FALSE,
-    
-    NVARS,
-    ERRORS,
-    TABLETYPE,
-
-    TAKE,
-
-    HISTO,
-    WEIGHT,
-
-    TABLE,
-
-    BIN,
-    NAMED,
-    BINS,
-
-    UNION,
-    ALIAS,
-
-    PHI,
-    ETA,
-    CHARGE,
-    MASS,
-    PT,
-
-    DR,
-    DPHI,
-    DETA,
-
-    DR_HADAMARD,
-    DPHI_HADAMARD,
-    DETA_HADAMARD,
-
-    DISTINCT,
-
-    ANYOF,
-    ALLOF,
-
-    THIS,
-
-    EQ,
-    NE,
-    LE,
-    GE,
-    LT,
-    GT,
-    AND,
-    OR,
-    NOT,
-    WITHIN,
-    OUTSIDE,
-
-    MINUS,
-    PLUS,
-    MULTIPLY,
-    DIVIDE,
-
-    AMPERSAND, // bitwise operator
-    PIPE, // bitwise operator
-
-    COLON,
-    RAISED_TO_POWER,
-
-    DOT_INDEX,
-    ARROW_INDEX,
-
-    OPEN_PAREN,
-    CLOSE_PAREN,
-    OPEN_SQUARE_BRACE,
-    CLOSE_SQUARE_BRACE,
-    OPEN_CURLY_BRACE,
-    CLOSE_CURLY_BRACE,
-
-    QUESTION,
-    ASSIGN, // single =
-
-    NUMOF,
-    AVE,
-    SUM,
-
-
-    ASCEND,
-    DESCEND,
-
-    TAN,
-    SIN,
-    COS,
-
-    SINH,
-    COSH,
-    TANH,
-
-    EXP,
-    LOG,
-    ABS,
-    SQRT,
-
-    SORT,
-
-    COMB,
-    DISJOINT,
-    DIRECT,
-
-    MIN,
-    MAX,
-
-
-    COMMA,
-    UNDERSCORE,
-
-    LETTER_M,
-    LETTER_Q,
-    LETTER_P,
-    LETTER_E,
-
+    TOKEN_LIST(MAKE_ENUM)
 };
+
+#undef MAKE_ENUM
+
 
 typedef Token_type TOK;
 
