@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
     }
     
     std::unique_ptr<Parser> parser = std::make_unique<Parser>(lexer.release());
-    success = success && parser->parse();
+    success = parser->parse() && success;
 
     if (argument == "parse") {
         parser->print_parse_dot();
@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
     }
 
     std::unique_ptr<ALILConverter> alil = std::make_unique<ALILConverter>(config);
-    alil->visitation(parser->get_root());
+    success = alil->visitation(parser->get_root()) && success;
 
     if (argument == "alil") {
         alil->print_commands();

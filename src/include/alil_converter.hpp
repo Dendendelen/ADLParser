@@ -3,20 +3,21 @@
 
 #include "ast_visitor.hpp"
 #include "config.hpp"
+#include "exceptions.hpp"
 #include "node.hpp"
 #include "alil.hpp"
 
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 
 
-class ALILConverter : ASTVisitor {
+class ALILConverter : ASTVisitor, public ADLErrorLogger {
     private:
 
         ALILCollection commands;
-        bool has_fatal_error;
 
         PNode get_node_child(PNode parent, size_t index);
         void clean_command_list();
@@ -53,6 +54,9 @@ class ALILConverter : ASTVisitor {
         Config &config;
 
     protected:
+
+        void report_error(const std::runtime_error &e) override;
+
         void visit_error(PNode node) override;
 
         void visit_info(PNode node) override;

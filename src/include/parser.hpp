@@ -1,15 +1,16 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "exceptions.hpp"
 #include "lexer.hpp"
 #include "node.hpp"
 #include "tokens.hpp"
+#include <vector>
 
-class Parser {
+class Parser : public ADLErrorLogger {
     private:
         std::unique_ptr<Lexer> lexer;
         Tree tree;
-        bool has_fatal_error;
 
         void parse_blocks(PNode parent, bool do_errors=true);
 
@@ -84,6 +85,8 @@ class Parser {
         void expect_and_consume(PNode parent, Token_type type, std::string error = "");
         void print_children_and_yourself(PNode node, int *top_number);
 
+    protected:
+        void report_error(const std::runtime_error &e) override;
 
     public:
         Parser(Lexer *lex);
@@ -93,6 +96,8 @@ class Parser {
         void parse_input();
 
         void print_parse_dot();
+
+        std::vector<ADLCompilerException> &get_errors();
 
         PNode get_root();
 

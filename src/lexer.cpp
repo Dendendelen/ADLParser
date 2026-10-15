@@ -14,9 +14,11 @@
 #include "exceptions.hpp"
 #include "tokens.hpp"
 
-static void report_error(const std::runtime_error &e) {        
-    std::cerr << CMDCOLOR::red << "ERROR: " << CMDCOLOR::reset << "Syntax error in tokenization: \n\t" << e.what() << std::endl;
+void Lexer::report_error(const std::runtime_error &e) {   
+    ::report_error(e, "Syntax error in tokenization");     
 }
+
+
 
 Token::Token(Token_type in): type(in) {}
 
@@ -71,7 +73,7 @@ std::string Lexer::convert_to_uppercase(std::string &input) {
     return uppercase;
 }
 
-Lexer::Lexer(): has_fatal_error(false) {
+Lexer::Lexer() {
     current_token = tokens.begin();
 
     reg_int = std::regex("-{0,1}[0-9]+");
@@ -410,18 +412,17 @@ void Lexer::lex_token(std::string &token, int &line_number, int &column_number, 
             tok->set_data(line_number, column_number, token);
         }
 
+        tokens.push_back(tok);
 
         if (tok->get_token_type() == TOK::LEXER_ERROR) {
             raise_lexing_exception(tok);
         }
 
-        tokens.push_back(tok);
-
         // move the lexer along
         column_number += token.length();
         token.clear();
     } catch (const std::runtime_error &e) {
-        report_error(e);
+        error_handler();
         column_number += token.length();
         token.clear();
     }

@@ -5,6 +5,7 @@
 #include "exceptions.hpp"
 #include "tokens.hpp"
 #include <cassert>
+#include <exception>
 #include <memory>
 #include <optional>
 #include <queue>
@@ -15,9 +16,10 @@
 #include <string>
 
 
-static void report_error(const std::runtime_error &e) {        
-    std::cerr << CMDCOLOR::red << "ERROR: " << CMDCOLOR::reset << "Semantic error in analysis conversion: \n\t" << e.what() << std::endl;
+void ALILConverter::report_error(const std::runtime_error &e) {        
+    ::report_error(e, "Semantic error in analysis conversion");
 }
+
 
 std::string ALILConverter::reserve_scoped_value_name() {
     std::stringstream new_var_name;
@@ -94,8 +96,7 @@ void ALILConverter::visit_info(PNode node) {
         display_info.collect_into(commands);
 
     } catch (const std::runtime_error &e) {
-        has_fatal_error = true;
-        report_error(e);
+        error_handler();
     }
 }
 
@@ -144,8 +145,7 @@ void ALILConverter::visit_definition(PNode node) {
         operation->collect_into(commands);
 
     } catch (const std::runtime_error &e) {
-        has_fatal_error = true;
-        report_error(e);
+        error_handler();
     }
 }
 
@@ -257,8 +257,8 @@ void ALILConverter::visit_composite(PNode node) {
         }
 
     } catch (const std::runtime_error &e) {
-        has_fatal_error = true;
-        report_error(e);
+        error_handler();
+
     }
 
     what_global_name_for_this_comp_name.clear();
@@ -293,8 +293,7 @@ void ALILConverter::visit_object(PNode node) {
         cut_down_object.collect_into(commands);
 
     } catch (const std::runtime_error &e) {
-        has_fatal_error = true;
-        report_error(e);
+        error_handler();
     }
 
     what_object_is_this = "";
@@ -405,8 +404,7 @@ void ALILConverter::visit_table_def(PNode node) {
         final_naming.collect_into(commands);
 
     } catch (const std::runtime_error &e) {
-        has_fatal_error = true;
-        report_error(e);
+        error_handler();
     }
 }
 
@@ -444,8 +442,7 @@ void ALILConverter::visit_region(PNode node) {
         do_eventlist.collect_into(commands);
 
     } catch (const std::runtime_error &e) {
-        has_fatal_error = true;
-        report_error(e);
+        error_handler();
     }
 }
 
@@ -484,8 +481,7 @@ void ALILConverter::visit_histo_list(PNode node) {
         finish_list.collect_into(commands);
 
     } catch (const std::runtime_error &e) {
-        has_fatal_error = true;
-        report_error(e);
+        error_handler();
     }
 }
 
@@ -1570,7 +1566,7 @@ void ALILConverter::print_commands() {
 //     return command_list[iter_command++];
 // }
 
-ALILConverter::ALILConverter(Config &conf): has_fatal_error(false), highest_var_val(0),  iter_command(0), config(conf){}
+ALILConverter::ALILConverter(Config &conf): highest_var_val(0),  iter_command(0), config(conf){}
 
 ALILCollection &ALILConverter::get_commands() {
     return commands;

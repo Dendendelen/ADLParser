@@ -1,6 +1,9 @@
 #ifndef TOKENS_H
 #define TOKENS_H
 
+
+#include <memory>
+#include <string>
 #define TOKEN_LIST(X)                                                        \
     /* Lexer tokens */                                          \
     X(LEXER_ERROR)    /* signifies that a lexing error has occurred */        \
@@ -149,5 +152,27 @@ case TOK::CHARGE: case TOK::MASS: case TOK::PHI: case TOK::ETA: case TOK::PT
 #define CASE_BUILT_IN_PARTICLE_FUN_TWO_ARG TOK::DR: case TOK::DPHI: case TOK::DETA: \
 case TOK::DR_HADAMARD: case TOK::DPHI_HADAMARD: case TOK::DETA_HADAMARD: \
 case TOK::NUMOF: case TOK::DISTINCT
+
+
+class Token {
+    private:
+        Token_type type;
+        std::string lexeme;
+        int line_number;
+        int column_number;
+        std::shared_ptr<std::string> source_line;
+
+    public:
+        Token(Token_type);
+        void set_data(int line, int column, std::string actual_lexeme, std::shared_ptr<std::string> line_reference = nullptr);
+        int get_line();
+        int get_column();
+        Token_type get_token_type();
+        std::string get_token_type_as_string();
+        std::string get_lexeme();
+        std::string get_source_line_text();
+};
+
+typedef std::shared_ptr<Token> PToken;
 
 #endif

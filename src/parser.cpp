@@ -11,10 +11,9 @@
 #include "tokens.hpp"
 
 
-static void report_error(const std::runtime_error &e) {        
-    std::cerr << CMDCOLOR::red << "ERROR: " << CMDCOLOR::reset << "Syntax error in parsing: \n\t" << e.what() << std::endl;
+void Parser::report_error(const std::runtime_error &e) {   
+    ::report_error(e, "Syntax error in parsing");     
 }
-
 
 void Parser::expect_and_consume(PNode parent, Token_type type, std::string error) {
     PToken tok = lexer->peek(0);
@@ -71,7 +70,7 @@ bool is_numerical(Token_type t) {
     return false;
 } 
 
-Parser::Parser (Lexer *lex): lexer(lex), tree(AST::INPUT), has_fatal_error(false) {
+Parser::Parser (Lexer *lex): lexer(lex), tree(AST::INPUT) {
 }
 
 bool Parser::parse() {
@@ -178,7 +177,7 @@ void Parser::parse_blocks(PNode parent, bool do_errors) {
         has_fatal_error = true;
         if (do_errors) {
             // this is the first error we encountered for this block - we report the failure
-            report_error(e);
+            error_handler();
         } else {
             // this is a continuation of a chain of errors with a failure to parse a block correctly - just keep going
         }

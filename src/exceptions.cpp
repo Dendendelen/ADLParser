@@ -1,5 +1,6 @@
 #include "exceptions.hpp"
 #include <cstddef>
+#include <iostream>
 #include <sstream>
 
 std::string line_indicator(PToken token) {
@@ -49,7 +50,7 @@ void raise_lexing_exception(PToken token) {
 
     stream << line_indicator(token);
 
-    throw LexingException(stream.str().c_str());
+    throw LexingException(stream.str().c_str(), token);
 }
 
 void raise_parsing_exception(std::string error, PToken token) {
@@ -58,7 +59,7 @@ void raise_parsing_exception(std::string error, PToken token) {
 
     stream << line_indicator(token);
 
-    throw ParsingException(stream.str().c_str());
+    throw ParsingException(stream.str().c_str(), token);
 
 }
 
@@ -68,7 +69,7 @@ void raise_analysis_conversion_exception(std::string error, PToken token) {
 
     stream << line_indicator(token);
 
-    throw AnalysisLevelConversionException(stream.str().c_str());
+    throw AnalysisLevelConversionException(stream.str().c_str(), token);
 
 }
 
@@ -81,3 +82,28 @@ void raise_non_implemented_conversion_exception(std::string inst, std::string co
 
     throw AnalysisLevelConversionException(stream.str().c_str());
 }
+
+void report_error(const std::runtime_error &e, std::string err_type) {        
+    std::cerr << CMDCOLOR::red << "ERROR: " << CMDCOLOR::reset << err_type << ": \n\t" << e.what() << std::endl;
+}
+
+ADLErrorLogger::ADLErrorLogger(): has_fatal_error(false) {}
+
+void ADLErrorLogger::error_handler() {
+    if (auto exception = std::current_exception()) {
+        try {
+            std::rethrow_exception(exception);
+        } catch (const ADLCompilerException &e) {
+            errors.push_back(e);
+            has_fatal_error = true;
+            report_error(e);
+        } catch (const std::runtime_error &e) {
+            has_fatal_error = true;
+            report_error(e);
+        }
+    }
+}
+
+std::vector<ADLCompilerException> &ADLErrorLogger::get_errors() {
+    return errors;
+} 

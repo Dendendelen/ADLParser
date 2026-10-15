@@ -1,32 +1,14 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include "exceptions.hpp"
 #include "tokens.hpp"
 #include <regex>
 #include <string>
 #include <memory>
 #include <vector>
 
-class Token {
-    private:
-        Token_type type;
-        std::string lexeme;
-        int line_number;
-        int column_number;
-        std::shared_ptr<std::string> source_line;
-
-    public:
-        Token(Token_type);
-        void set_data(int line, int column, std::string actual_lexeme, std::shared_ptr<std::string> line_reference = nullptr);
-        int get_line();
-        int get_column();
-        Token_type get_token_type();
-        std::string get_token_type_as_string();
-        std::string get_lexeme();
-        std::string get_source_line_text();
-};
-
-class Lexer {
+class Lexer : public ADLErrorLogger{
     private:
         Token_type identify_token(std::string &token);
         void lex_token(std::string &token, int &line_number, int &column_number, std::shared_ptr<std::string> line_reference = nullptr);
@@ -34,7 +16,6 @@ class Lexer {
         std::vector<std::shared_ptr<Token>> non_whitespace_tokens;
         std::vector<std::shared_ptr<Token>>::iterator current_token;
         bool verbose;
-        bool has_fatal_error;
 
         bool is_symbol (char c);
         bool is_delimiter (char c);
@@ -51,6 +32,9 @@ class Lexer {
 
         std::shared_ptr<Token> next();
 
+    protected:
+        void report_error(const std::runtime_error &e) override;
+
     public: 
         Lexer();
         void reset();
@@ -66,7 +50,6 @@ class Lexer {
         void erase_whitespace();
 };
 
-typedef std::shared_ptr<Token> PToken;
 
 
 #endif
