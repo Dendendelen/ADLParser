@@ -6,13 +6,13 @@
 std::string line_indicator(PToken token) {
     std::string source = token->get_source_line_text();
 
-    size_t first_non_whitespace = source.find_first_not_of(" \t\n\r\v\f");
+    size_t first_non_whitespace = source.length() > 0 ? source.find_first_not_of(" \t\n\r\v\f") : 0;
 
     std::stringstream stream;
 
     stream << "\t╷ \n\t│ ";
 
-    for (int i = first_non_whitespace; i < token->get_column()-1; i++) {
+    for (int i = first_non_whitespace; i < token->get_column()-1 && i < source.size(); i++) {
         stream << source[i];
     }
 

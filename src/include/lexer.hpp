@@ -20,6 +20,7 @@ class Lexer : public ADLErrorLogger{
         bool is_symbol (char c);
         bool is_delimiter (char c);
         std::string convert_to_uppercase(std::string &input);
+        PToken make_eof();
 
 
         std::regex reg_int;
@@ -44,7 +45,7 @@ class Lexer : public ADLErrorLogger{
 
         std::shared_ptr<Token> peek(int lookahead);
         void read_line(std::string content, int line_number);
-        void read_lines(std::vector<std::string> &content, bool is_verbose = false);
+        bool read_lines(std::vector<std::string> &content, bool is_verbose = false);
         bool read_file(std::string filename, bool is_verbose = false);
         void print();
         void erase_whitespace();

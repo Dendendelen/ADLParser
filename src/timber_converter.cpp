@@ -211,8 +211,8 @@ std::string TimberConverter::add_subtract_particles(const AnalysisCommand &comma
         emit("a.Define('",dest, attribute_delimiter, main_names->phi(),"', 'Phi(",dest,"_lorentzvector)')");
         emit("a.Define('",dest, attribute_delimiter, main_names->mass(), "', 'M(",dest,"_lorentzvector)')");
 
-        emit_comment("Add charges manually");
-        emit("a.Define('",dest, attribute_delimiter, main_names->charge(),  "', '", attribute(main_names->charge(), last_val), "+", attribute(main_names->charge(), this_val), "')");
+        // emit_comment("Add charges manually");
+        // emit("a.Define('",dest, attribute_delimiter, main_names->charge(),  "', '", attribute(main_names->charge(), last_val), "+", attribute(main_names->charge(), this_val), "')");
 
         return dest;
     }
@@ -302,8 +302,8 @@ std::string TimberConverter::convert_merge_regions(const AnalysisCommand &comman
 
     emit_newline();
     emit_comment("Merge regions ", name_first, " and ", name_second);
-    emit(get_mapped_dest(command)," = [", name_first,"[0] + ",name_second,"[0], "
-    , name_first,"[1] + ", name_second,"[1]","]");
+    emit(get_mapped_dest(command)," = [", name_second,"[0] + ",name_first,"[0], "
+    , name_second,"[1] + ", name_first,"[1]","]");
 
     return get_mapped_dest(command);
 }

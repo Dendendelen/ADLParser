@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     }
 
     std::string filename(argv[1]);
-    Config config("config.txt");
+    Config config("config.conf");
 
     if (argc > 2) argument = std::string(argv[2]);
     else argument = "timber";

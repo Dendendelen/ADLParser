@@ -541,7 +541,7 @@ bool Lexer::read_file(std::string filename, bool is_verbose) {
 }
 
 
-void Lexer::read_lines(std::vector<std::string> &lines, bool is_verbose) {
+bool Lexer::read_lines(std::vector<std::string> &lines, bool is_verbose) {
 
     verbose = is_verbose;
 
@@ -551,6 +551,8 @@ void Lexer::read_lines(std::vector<std::string> &lines, bool is_verbose) {
         read_line(line, line_number);
         // Return to the start of the next line
     }
+
+    return !has_fatal_error;
 }
 
 void Lexer::print() {
@@ -596,9 +598,21 @@ void Lexer::reset() {
     current_token = non_whitespace_tokens.begin();
 }
 
+std::shared_ptr<Token> Lexer::make_eof() {
+    auto eof_tok = std::make_shared<Token>(TOK::END_OF_FILE);
+    if (tokens.size() < 1) {
+        eof_tok->set_data(0, 0, "");
+    } else {
+        auto last_token = tokens.back();
+        eof_tok->set_data(last_token->get_line(), last_token->get_column()+last_token->get_lexeme().length(), "", std::make_shared<std::string>(last_token->get_source_line_text()));
+    }
+
+    return eof_tok;
+
+}
+
 std::shared_ptr<Token> Lexer::next() {
-    if (current_token == non_whitespace_tokens.end()) return 
-    std::make_shared<Token>(TOK::END_OF_FILE);
+    if (current_token == non_whitespace_tokens.end()) return make_eof();
 
     auto tok = *current_token;
     ++current_token;
@@ -626,12 +640,10 @@ std::shared_ptr<Token> Lexer::peek(int lookahead) {
     while (lookahead > 0) {
         ++ahead_tok_it;
         lookahead--;
-        if (ahead_tok_it == non_whitespace_tokens.end()) return 
-        std::make_shared<Token>(TOK::END_OF_FILE);
+        if (ahead_tok_it == non_whitespace_tokens.end()) return make_eof();
     }
 
-    if (ahead_tok_it == non_whitespace_tokens.end()) return 
-    std::make_shared<Token>(TOK::END_OF_FILE);
+    if (ahead_tok_it == non_whitespace_tokens.end()) return make_eof();
 
     return *ahead_tok_it;
 }

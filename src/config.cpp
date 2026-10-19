@@ -4,6 +4,7 @@
 #include <fstream>
 #include <ostream>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -54,17 +55,18 @@ void Config::read_config_file(std::string filename) {
         std::vector<std::string> args;
         std::string token;
         while (std::getline(ss, token, '\x1d')) {
-            args.push_back(token);
+            if (token != "") args.push_back(token);
         }
+
+        if (args.size() == 0) continue;
         
-        if (args.size() > 0 && args[0][0] == '#') {
+        if (args[0][0] == '#') {
             // in this case we have a comment line, we don't need to do anything here
             continue;
         }
 
         if (args.size() != 2) {
-            //TODO: add proper exception
-            assert(false);
+            throw std::runtime_error("Incorrect amount of arguments in some line of config file");
         }
 
         config_entries.insert(std::pair(args[0], args[1]));

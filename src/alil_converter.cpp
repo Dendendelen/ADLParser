@@ -56,7 +56,7 @@ ALILConverter::NameScope::~NameScope() {
 
 PNode ALILConverter::get_node_child(PNode parent, size_t index) {
 
-    if (index > parent->get_children().size()) {
+    if (index >= parent->get_children().size()) {
         raise_analysis_conversion_exception("This parsing resulted in too few children, likely due to parsing failure.", parent->get_token());
     }
 

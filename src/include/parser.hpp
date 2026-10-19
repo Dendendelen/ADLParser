@@ -97,8 +97,6 @@ class Parser : public ADLErrorLogger {
 
         void print_parse_dot();
 
-        std::vector<ADLCompilerException> &get_errors();
-
         PNode get_root();
 
 
