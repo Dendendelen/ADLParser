@@ -135,7 +135,6 @@ class Node {
         int unique_id;
 
     public:
-        Node(AST_type in, PNode parent);
         Node(AST_type in, PNode parent, std::shared_ptr<Token> tok);
         
         void set_parent(PNode parent);

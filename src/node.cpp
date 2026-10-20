@@ -8,7 +8,7 @@
 // private constructor allows node to have no parent
 Node::Node(AST_type in): type(in), has_relevant_token(false), has_associated_string(false) {}
 
-Node::Node(AST_type in, std::shared_ptr<Node> parent): type(in), m_parent(parent), has_relevant_token(false), has_associated_string(false) {}
+// Node::Node(AST_type in, std::shared_ptr<Node> parent): type(in), m_parent(parent), has_relevant_token(false), has_associated_string(false) {}
 
 Node::Node(AST_type in, std::shared_ptr<Node> parent, std::shared_ptr<Token> tok): type(in), m_parent(parent), relevant_token(tok), has_relevant_token(true), has_associated_string(false){}
 

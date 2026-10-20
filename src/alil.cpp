@@ -5,9 +5,7 @@
 #include <iomanip>
 #include <memory>
 
-AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok): instruction(inst), source_token(tok) {}
-
-AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst): instruction(inst) {}
+AnalysisCommand::AnalysisCommand(AnalysisLevelInstruction inst, PToken tok): instruction(inst), source_token(tok) {}
 
 AnalysisCommand::AnalysisCommand(const AnalysisCommand &other): instruction(other.instruction), dest_argument(other.dest_argument), source_arguments(other.source_arguments), source_token(other.source_token) {}
 
@@ -37,7 +35,9 @@ int AnalysisCommand::get_num_arguments() const{
     return static_cast<int>(dest_argument.has_value()) + source_arguments.size();
 }
 
-
+const PToken AnalysisCommand::get_token() const {
+    return source_token;
+}
 
 void AnalysisCommand::print_instruction(int width_of_dest, int width_of_inst) {
 
@@ -82,9 +82,11 @@ AnalysisCommandBuilder : the uncollected version of an analysis command, capable
 
 */
 
-AnalysisCommandBuilder::AnalysisCommandBuilder(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok) MAKE_UNCONSUMED: AnalysisCommand(inst, tok), has_been_collected(false) , dest_declared(false), source_declared(false){}
+AnalysisCommandBuilder::AnalysisCommandBuilder(AnalysisLevelInstruction inst, PToken tok) MAKE_UNCONSUMED: AnalysisCommand(inst, tok), has_been_collected(false) , dest_declared(false), source_declared(false){}
 
-AnalysisCommandBuilder::AnalysisCommandBuilder(AnalysisLevelInstruction inst) MAKE_UNCONSUMED: AnalysisCommand(inst), has_been_collected(false), dest_declared(false), source_declared(false) {}
+AnalysisCommandBuilder::AnalysisCommandBuilder(AnalysisLevelInstruction inst, PNode node) MAKE_UNCONSUMED: AnalysisCommand(inst, node->get_token()), has_been_collected(false) , dest_declared(false), source_declared(false){}
+
+// AnalysisCommandBuilder::AnalysisCommandBuilder(AnalysisLevelInstruction inst) MAKE_UNCONSUMED: AnalysisCommand(inst), has_been_collected(false), dest_declared(false), source_declared(false) {}
 
 AnalysisCommandBuilder::AnalysisCommandBuilder(const AnalysisCommandBuilder &other): AnalysisCommand(other), has_been_collected(other.has_been_collected), dest_declared(other.dest_declared), source_declared(other.source_declared) {}
 

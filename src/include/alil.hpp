@@ -2,6 +2,7 @@
 #define ALIL_H
 
 #include "lexer.hpp"
+#include "node.hpp"
 
 #include <ranges>
 #include <span>
@@ -202,10 +203,9 @@ class AnalysisCommand {
         std::optional<std::string> dest_argument;
         std::vector<std::string> source_arguments;
 
-        std::optional<std::weak_ptr<Token>> source_token;
+        PToken source_token;
 
-        AnalysisCommand(AnalysisLevelInstruction inst, std::weak_ptr<Token>);
-        AnalysisCommand(AnalysisLevelInstruction inst);
+        AnalysisCommand(AnalysisLevelInstruction inst, PToken);
     public:
         AnalysisCommand(const AnalysisCommand& other);
 
@@ -217,7 +217,9 @@ class AnalysisCommand {
         const std::string get_dest_argument() const;
         int get_num_source_arguments() const;
         const std::string get_source_argument(size_t pos) const;
-    
+
+        const PToken get_token() const;
+        
         void print_instruction();
         void print_instruction(int width_of_dest, int width_of_inst);
 
@@ -233,10 +235,9 @@ class CONSUMABLE(unconsumed) AnalysisCommandBuilder : public AnalysisCommand{
         bool dest_declared;
         bool source_declared;
 
-        std::optional<std::weak_ptr<Token>> source_token;
     public:
-        AnalysisCommandBuilder(AnalysisLevelInstruction inst, std::weak_ptr<Token> tok) MAKE_UNCONSUMED;
-        AnalysisCommandBuilder(AnalysisLevelInstruction inst) MAKE_UNCONSUMED;
+        AnalysisCommandBuilder(AnalysisLevelInstruction inst, PToken tok) MAKE_UNCONSUMED;
+        AnalysisCommandBuilder(AnalysisLevelInstruction inst, PNode node) MAKE_UNCONSUMED;
         AnalysisCommandBuilder(const AnalysisCommandBuilder& other);
         AnalysisCommandBuilder(const AnalysisCommand& other);
 

@@ -3,6 +3,7 @@
 
 #include "alil.hpp"
 #include "alil_converter.hpp"
+#include "lexer.hpp"
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -18,10 +19,11 @@ enum BaseType {
     TYPE_LIST,
     TYPE_NUMBER,
     TYPE_PARTICLEINSTANCE,
-    TYPE_UNION,
     TYPE_COMB,
     TYPE_DISJOINT,
     TYPE_HIST,
+    TYPE_TABLE,
+    TYPE_ERRORED_NUMBER,
     TYPE_ERROR,
     TYPE_FUNCTION,
     TYPE_GENERIC,
@@ -80,13 +82,16 @@ class Constraint {
     private:
         std::vector<Statement> premises;
         std::vector<Statement> conclusions;
+        std::weak_ptr<Type> originator_type;
         void internal_print(bool,std::unordered_map<PType, PType> *);
     public:
+        Constraint(std::weak_ptr<Type>);
         void add_premise(Statement);
         void add_conclusion(Statement);
 
         std::vector<Statement> &get_premises();
         std::vector<Statement> &get_conclusions();
+        std::weak_ptr<Type> get_originator_type();
 
         void print();
         void print(std::unordered_map<PType, PType> &);
@@ -105,6 +110,8 @@ class Type : public std::enable_shared_from_this<Type>{
         bool has_dest_type;
 
         std::string get_name_string();
+
+        PToken originator_token;
 
         static std::unordered_map<BaseType, PType> base_type_instances_map;
     public:
@@ -126,6 +133,9 @@ class Type : public std::enable_shared_from_this<Type>{
         PType get_dest_type();
         PType get_source_type(int);
         int get_num_of_sources();
+
+        void set_origin_token(PToken);
+        PToken get_origin_token();
 
         void print();
         void print(std::unordered_map<PType, PType> &);
@@ -158,7 +168,7 @@ private:
     bool has_path(PType, PType, std::unordered_set<PType> &);
     
 public:
-    void add_subtype(PType sub, PType super);
+    bool add_subtype(PType sub, PType super);
 
     bool is_subtype(PType, PType);
     std::unordered_set<PType> get_supertypes(PType);
@@ -232,15 +242,20 @@ class Typer : public ALILToFrameworkCompiler<PType> {
         PartialOrder subtyping;
         PartialOrder hereditary_subtyping;
 
-        void equality_of_types(PType, PType);
-        void equal_depth_of_types(PType, PType);
-        void subtype_of_types(PType, PType);
-        void hereditary_subtype_of_types(PType sub, PType super);
+        bool equality_of_types(PType, PType);
+        bool equal_depth_of_types(PType, PType);
+        bool subtype_of_types(PType, PType);
+        bool hereditary_subtype_of_types(PType sub, PType super);
+
+        bool types_hereditarily_incompatible(PType lhs, PType rhs);
+        bool types_structurally_incompatible(PType lhs, PType rhs);
+
 
         void apply_depth_hereditary_simplification();
 
         Ternary truth_of_premise(PType lhs, PType rhs, StatementForm form);
 
+        std::vector<PType> all_live_types;
 
         std::vector<Constraint> running_valid_constraints;
         std::unordered_map<std::string, PType> types_of_variables;
