@@ -1,150 +1,18 @@
 #ifndef TYPE_CHECKER_H
 #define TYPE_CHECKER_H
 
+#include "type.hpp"
 #include "alil.hpp"
 #include "alil_converter.hpp"
-#include "lexer.hpp"
-#include <memory>
+#include "type_generator.hpp"
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 
 
-enum BaseType {
-    TYPE_REGION,
-    TYPE_COND,
-    TYPE_MASK,
-    TYPE_STRING,
-    TYPE_LIST,
-    TYPE_NUMBER,
-    TYPE_PARTICLEINSTANCE,
-    TYPE_COMB,
-    TYPE_DISJOINT,
-    TYPE_HIST,
-    TYPE_TABLE,
-    TYPE_ERRORED_NUMBER,
-    TYPE_ERROR,
-    TYPE_FUNCTION,
-    TYPE_GENERIC,
-    // Region,
-    // Cond,
-    // Mask
-    // String
-    // List<>
-    // Number < Numeric, 
-    // NumberList = List<Number> < Numeric,
-    // NumberMatrix = List<List<Number>> < Numeric
-    // ParticleInstance < Particlelike
-    // Particle = List<ParticleInstance> < Particlelike
-    // Error
-};
 
-class Statement;
-class Constraint;
-class Type;
-
-typedef std::shared_ptr<Type> PType;
-
-
-enum StatementForm {
-    STATEMENT_EQUALITY, // a = b
-    STATEMENT_INEQUALITY, // a =/= b
-    STATEMENT_SUBTYPE, // a <: b
-    STATEMENT_NONSUBTYPE, // a ~<: b
-    STATEMENT_SUPERTYPE, // a :> b
-    STATEMENT_NONSUPERTYPE, // a ~:> b
-    STATEMENT_HEREDITARY_SUBTYPE, // a <<: b
-    STATEMENT_HEREDITARY_SUPERTYPE, // a :>> b
-    STATEMENT_EQUAL_DEPTH, // a ~=~ b
-};
-
-
-class Statement {
-    private:
-        StatementForm form;
-        PType lhs;
-        PType rhs;
-        std::string get_infix_string();
-    public:
-        Statement(StatementForm, PType, PType);
-        
-        PType get_lhs();
-        PType get_rhs();
-        StatementForm get_form();
-
-        void print();
-        void print(std::unordered_map<PType, PType> &);
-
-};
-
-class Constraint {
-    private:
-        std::vector<Statement> premises;
-        std::vector<Statement> conclusions;
-        std::weak_ptr<Type> originator_type;
-        void internal_print(bool,std::unordered_map<PType, PType> *);
-    public:
-        Constraint(std::weak_ptr<Type>);
-        void add_premise(Statement);
-        void add_conclusion(Statement);
-
-        std::vector<Statement> &get_premises();
-        std::vector<Statement> &get_conclusions();
-        std::weak_ptr<Type> get_originator_type();
-
-        void print();
-        void print(std::unordered_map<PType, PType> &);
-};
-
-
-
-class Type : public std::enable_shared_from_this<Type>{
-
-    
-    private:
-        BaseType this_type;
-        std::vector<PType> source_types;
-        PType dest_type;
-        std::vector<Constraint> constraints;
-        bool has_dest_type;
-
-        std::string get_name_string();
-
-        PToken originator_token;
-
-        static std::unordered_map<BaseType, PType> base_type_instances_map;
-    public:
-        static std::unordered_map<PType, int> generic_map;
-        static int highest_mapped_generic;
-
-        Type(BaseType);
-        BaseType get_base_type();
-
-        bool is_fundamental_type();
-
-        void add_source_type(PType);
-        void add_source_type(BaseType);
-        void add_dest_type(PType);
-        void add_dest_type(BaseType);
-        void add_constraint(Constraint);
-
-        std::vector<Constraint> &get_constraints();
-        PType get_dest_type();
-        PType get_source_type(int);
-        int get_num_of_sources();
-
-        void set_origin_token(PToken);
-        PToken get_origin_token();
-
-        void print();
-        void print(std::unordered_map<PType, PType> &);
-        
-        static PType fundamental_type_instance(BaseType);
-
-};
-
-class EquivalenceClasses {
+class EquivalenceRelation {
     // union-find data structure for equivalence classes
 
     private:
@@ -155,10 +23,11 @@ class EquivalenceClasses {
         void union_of_classes(PType first, PType second);
         PType resolve_higher_order(PType source);
         std::unordered_map<PType, PType> resolve_all();
+        std::unordered_set<PType> get_all_representatives();
 
 };
 
-class PartialOrder {
+class PreOrder {
 private:
     std::unordered_map<PType, std::unordered_set<PType>> supertypes;
     std::unordered_map<PType, std::unordered_set<PType>> subtypes;
@@ -174,16 +43,85 @@ public:
     std::unordered_set<PType> get_supertypes(PType);
     std::unordered_set<PType> get_subtypes(PType);
 
-    PType least_upper_bound(PType a, PType b);
-    PType greatest_lower_bound(PType a, PType b);
-
     std::unordered_map<PType, std::unordered_set<PType>> get_all_supertypes();
     std::unordered_map<PType, std::unordered_set<PType>> get_all_subtypes();
     std::vector<PType> topological_sort();
 };
 
+class DeepSubtypeRelation {
+    private:
+        std::unordered_map<PType, std::unordered_set<PType>> deep_supers;
+        std::unordered_map<PType, std::unordered_set<PType>> deep_subs;
+
+        void ensure_exists(PType type) {
+            if (deep_supers.find(type) == deep_supers.end()) {
+                deep_supers[type] = {};
+                deep_subs[type] = {};
+            }
+        }
+
+    public:
+        // Record a ≪: b. No structural checks — ≪: crosses constructor boundaries.
+        void add_deep_subtype(PType sub, PType super) {
+            ensure_exists(sub);
+            ensure_exists(super);
+            deep_supers[sub].insert(super);
+            deep_subs[super].insert(sub);
+        }
 
 
+        bool is_deep_subtype(PType sub, PType super);
+
+        // Get all direct deep-super edges (for iteration in propagation)
+        const std::unordered_map<PType, std::unordered_set<PType>>& 
+        get_all_edges() const {
+            return deep_supers;
+        }
+
+        // Get all types b such that a ≪: b (transitive closure)
+        std::unordered_set<PType> get_deep_supertypes(PType type) ;
+};
+
+class ConstructorContentSet {
+    // implements the content_L (type) function
+    // e.g. if OrderedList <: List<Number>, then content_List(OrderedList) = {Number}
+    private:
+        std::unordered_map<PType, std::unordered_set<PType>> content_mapping;
+    public:
+        void record_subtype_of_constructor(PType type, PType content);
+        std::unordered_set<PType> get_contents(PType type);
+
+        std::optional<PType> get_core(PType type, PreOrder& subtyping);
+        bool is_structured(PType type);
+};
+
+class DeclaredConstructorRelations {
+    private:
+        std::unordered_map<PType, std::vector<std::pair<BaseType, PType>>> declared_constructor_subtypes;
+    public:
+        void declare_subtype_of_constructor(PType fundamental_type, BaseType constructor_type, PType content);
+        bool could_be_subtype(PType sub, PType super);
+};
+
+// All constructor-specific operations parameterized by ConstructorId
+class ConstructorSystem {
+    BaseType id;
+    ConstructorContentSet contents;
+    
+    // Per-constructor ≪: facts
+    std::vector<std::pair<PType, PType>> hereditary_facts;
+    
+public:
+    bool is_structured(PType t);
+    std::optional<PType> get_core(PType t, PreOrder& ord);
+    bool is_hereditary_subtype(PType a, PType b, PreOrder& ord, 
+                                EquivalenceRelation& eq);
+    bool are_similar(PType a, PType b, PreOrder& ord, 
+                      EquivalenceRelation& eq);
+    
+    // Unwrap: given t of this constructor, return content type
+    std::optional<PType> unwrap(PType t);
+};
 
 struct Ternary {
     enum TernaryType {
@@ -214,19 +152,59 @@ struct Ternary {
 };
 
 
-class DepthEquivalence {
-private:
-    EquivalenceClasses internal_equiv;
-    
-    std::optional<int> compute_structural_depth(PType type);
-
-public:
-    std::optional<int> get_depth(PType type);
-    bool add_equal_depth(PType first, PType second);
-    Ternary have_equal_depth(PType first, PType second);
-    PType find_representative(PType type) {
-        return internal_equiv.find_representative(type);
+struct PTypePairHash {
+    std::size_t operator()(const std::pair<PType, PType>& p) const {
+        auto h1 = std::hash<PType>{}(p.first);
+        auto h2 = std::hash<PType>{}(p.second);
+        return h1 ^ (h2 << 32) ^ (h2 >> 32);
     }
+};
+
+// Replace DepthEquivalence with proper similarity computation
+// a ≃_List b iff (both List-free) or 
+//                 (both List-structured and core(a) ≃_List core(b))
+class Similarity {
+    private:
+        ConstructorContentSet& contents;
+        PreOrder& subtyping;
+        EquivalenceRelation& equiv;
+
+        bool contradiction = false;
+
+        std::unordered_map<PType, PType> sim_parent;
+
+        enum Structure { UNKNOWN, L_FREE, L_STRUCTURED };
+        struct GroupInfo {
+            Structure structure = UNKNOWN;
+            PType core = nullptr;  // meaningful only when L_STRUCTURED
+        };
+        std::unordered_map<PType, GroupInfo> group_info;
+
+        PType sim_find(PType t);
+        PType sim_union(PType a, PType b);  // returns new representative
+        GroupInfo& get_info(PType rep);
+
+        bool are_similar_impl(PType a, PType b, std::unordered_set<std::pair<PType,PType>, PTypePairHash>& visited);
+        Ternary have_similar_impl(PType a, PType b, std::unordered_set<std::pair<PType,PType>, PTypePairHash>& visited);
+
+        Structure classify(PType t);
+        std::optional<PType> resolve_core(PType t);
+                        
+    public:
+        Similarity(ConstructorContentSet& c, PreOrder& s, EquivalenceRelation& e);
+        // Coinductive check with visited set to handle cycles
+        
+        bool add_similar(PType a, PType b);
+        void notify_structured(PType t, PType content);
+        bool assert_structured(PType t_in);
+        bool assert_free(PType t_in);
+
+        Ternary is_structured_query(PType t_in);
+        Ternary is_free_query(PType t_in) ;
+        
+        bool are_similar(PType a, PType b);
+        Ternary have_similar(PType a, PType b);
+        bool has_contradiction() const { return contradiction; }
 };
 
 
@@ -237,21 +215,31 @@ public:
 class Typer : public ALILToFrameworkCompiler<PType> {
     private:
 
-        EquivalenceClasses equiv;
-        DepthEquivalence depth_equiv;
-        PartialOrder subtyping;
-        PartialOrder hereditary_subtyping;
+        TypeGenerator type_generator;
 
-        bool equality_of_types(PType, PType);
-        bool equal_depth_of_types(PType, PType);
-        bool subtype_of_types(PType, PType);
-        bool hereditary_subtype_of_types(PType sub, PType super);
+        EquivalenceRelation equiv;
+        PreOrder subtyping;
+        DeepSubtypeRelation hereditary_subtyping;
+
+        ConstructorContentSet list_content_set;
+        DeclaredConstructorRelations list_declared_structure;
+        Similarity similarity;
+
+        std::optional<PType> get_list_core(PType type);
+
+        bool constrain_equality(PType, PType);
+        bool constrain_similar_depth(PType, PType);
+        bool constrain_subtype(PType, PType);
+        bool constrain_hereditary_subtype(PType sub, PType super);
 
         bool types_hereditarily_incompatible(PType lhs, PType rhs);
+        bool types_subtype_incompatible(PType sub, PType super);
         bool types_structurally_incompatible(PType lhs, PType rhs);
+        bool types_structurally_equal(PType lhs, PType rhs);
 
-
-        void apply_depth_hereditary_simplification();
+        bool propagate_once();
+        void propagate_to_fixed_point();
+        void apply_conclusion(Statement &conclusion, Constraint &constraint);
 
         Ternary truth_of_premise(PType lhs, PType rhs, StatementForm form);
 
@@ -268,7 +256,7 @@ class Typer : public ALILToFrameworkCompiler<PType> {
         ALIL_INSTRUCTION_LIST(CONVERTER_FUNCS_DECLARE);
 
     public:
-        using ALILToFrameworkCompiler::ALILToFrameworkCompiler;
+        Typer(ALILCollection *alil_in, Config &conf): ALILToFrameworkCompiler<PType>(alil_in, conf), type_generator(nullptr, conf), similarity(list_content_set, subtyping, equiv) {}
 
     
         void collect_existing_constraints();
