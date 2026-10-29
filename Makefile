@@ -1,65 +1,35 @@
-# CFLAGS2 = -g -fsanitize=address
-ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-CFLAGS = -std=c++20 -g -Isrc/include -D'ROOT_DIR="$(ROOT_DIR)"'
-SRCDIR = src/
-INCDIR = src/include/
-ODIR = out/
+#CFLAGS2 :=-g -fsanitize=address
+ROOT_DIR :=$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+CFLAGS :=-std=c++20 -g -Isrc/include -D'ROOT_DIR="$(ROOT_DIR)"'
+SRCDIR :=src/
+INCDIR :=src/include/
+ODIR_NAME=out
+ODIR :=$(ODIR_NAME)/
 
-adlparser: $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)alil.o $(ODIR)alil_converter.o $(ODIR)timber_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o $(ODIR)coffea_converter.o 
-	g++ $(CFLAGS) -g -o adlparser $(ODIR)main.o $(ODIR)node.o $(ODIR)lexer.o $(ODIR)parser.o $(ODIR)exceptions.o $(ODIR)alil.o $(ODIR)alil_converter.o $(ODIR)timber_converter.o $(ODIR)ast_visitor.o $(ODIR)config.o $(ODIR)coffea_converter.o
+HEADERS_LIST :=node lexer parser exceptions alil alil_converter timber_converter coffea_converter ast_visitor config 
+SOURCES_LIST :=main $(HEADERS_LIST) 
+
+ALL_HEADERS := $(foreach x, $(HEADERS_LIST), $(INCDIR)$(x).hpp)
+
+adlparser: $(foreach obj, $(SOURCES_LIST), $(ODIR)$(obj).o)
+	g++ $(CFLAGS) -g -o adlparser $^
 	./adlparser _ genconfig
 
-$(ODIR)main.o: $(SRCDIR)main.cpp $(INCDIR)lexer.hpp 
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)main.o -c $(SRCDIR)main.cpp
+define ALL_OUTS
+$$(ODIR)$(1).o: $$(SRCDIR)$(1).cpp $$(ALL_HEADERS)
+	mkdir -p $$(ODIR_NAME)
+	g++ $$(CFLAGS) -o $$(ODIR)$(1).o -c $$(SRCDIR)$(1).cpp
+endef
 
-$(ODIR)node.o: $(SRCDIR)node.cpp $(INCDIR)node.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)node.o -c $(SRCDIR)node.cpp
-
-$(ODIR)lexer.o: $(SRCDIR)lexer.cpp $(INCDIR)lexer.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)lexer.o -c $(SRCDIR)lexer.cpp
-
-$(ODIR)parser.o: $(SRCDIR)parser.cpp $(INCDIR)parser.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)parser.o -c $(SRCDIR)parser.cpp
-
-$(ODIR)ast_visitor.o: $(SRCDIR)ast_visitor.cpp $(INCDIR)ast_visitor.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)ast_visitor.o -c $(SRCDIR)ast_visitor.cpp
-
-$(ODIR)alil_converter.o: $(SRCDIR)alil_converter.cpp $(INCDIR)alil_converter.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)alil_converter.o -c $(SRCDIR)alil_converter.cpp
-
-$(ODIR)alil.o: $(SRCDIR)alil.cpp $(INCDIR)alil.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)alil.o -c $(SRCDIR)alil.cpp
-
-$(ODIR)timber_converter.o: $(SRCDIR)timber_converter.cpp $(INCDIR)timber_converter.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)timber_converter.o -c $(SRCDIR)timber_converter.cpp
-
-$(ODIR)coffea_converter.o: $(SRCDIR)coffea_converter.cpp $(INCDIR)coffea_converter.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)coffea_converter.o -c $(SRCDIR)coffea_converter.cpp
+$(foreach item, $(SOURCES_LIST), $(eval $(call ALL_OUTS,$(item))))
 
 
-$(ODIR)exceptions.o: $(SRCDIR)exceptions.cpp $(INCDIR)exceptions.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)exceptions.o -c $(SRCDIR)exceptions.cpp
-
-$(ODIR)config.o: $(SRCDIR)config.cpp $(INCDIR)config.hpp
-	mkdir -p out
-	g++ $(CFLAGS) -o $(ODIR)config.o -c $(SRCDIR)config.cpp
-
-out:
-	mkdir out
+$(ODIR_NAME):
+	mkdir $(ODIR_NAME)
 
 .PHONY: clean dot
 clean:
-	rm -rf out/*.o adlparser
+	rm -rf $(ODIR_NAME)/*.o adlparser
 
 dot:
 	dot -T png -O graph.gv

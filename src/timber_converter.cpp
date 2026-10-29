@@ -1,6 +1,7 @@
 #include "timber_converter.hpp"
 #include "alil.hpp"
 #include "alil_converter.hpp"
+#include "config.hpp"
 #include "exceptions.hpp"
 #include <cassert>
 #include <filesystem>
@@ -513,64 +514,22 @@ std::string TimberConverter::convert_do_cutflow_on_region(const AnalysisCommand 
     emit_newline();
     emit_comment("Generate cutflow report for region: ", reg_name);
 
-    return use_within_region("cutflow_generate", reg_name + ",'" + clean_reg_name + "'", command);
-    
-    // emit("_old_node = a.GetActiveNode()");
-    // std::stringstream line;
-
-    // emit_comment("Apply region cuts and corrections for cutflow");
-    // emit("_cutflow_node_", reg_name, " = a.Apply(", reg_name, "[0])");
-    // emit("_cutflow_node_", reg_name, " = a.AddCorrections(", reg_name, "[1])");
-    
-    // emit_newline();
-    // emit_comment("Print cutflow table in LaTeX format");
-    // emit("print('\\n---\\n \\\\begin{tabular}{c c c c} \\\\multicolumn{4}{c}{Cutflow report for region "
-    //     , clean_reg_name
-    //     ,"}\\\\\\\\ \\\\hline Cut & Events left & Eff from previous & Eff from initial \\\\\\\\ \\\\hline')");
-    // emit("for _cutflow_k, _cutflow_v in CutflowDict(_cutflow_node_", reg_name, ").items():");
-    // emit("    _this_name = _cutflow_k");
-    // emit("    if _this_name != 'Initial':");
-    // emit("        _this_name = ", reg_name, "[0].items[_cutflow_k]");
-    // emit("        _this_name = re.sub('[A-Za-z0-9]*UNION','',_this_name)");
-    // emit("    else:");
-    // emit("        _init = _cutflow_v\n        _prev = _init");
-    // emit("    print('\\\\verb`' + _this_name + '` "
-    //     , "& ' + str(_cutflow_v) + ' & ' + f'{(_cutflow_v/(_prev+1e-9)):.2%}'[:-1] + '\\\\% & ' + f'{(_cutflow_v/_init):.4%}'[:-1] + '\\\\%\\\\\\\\')");
-    // emit("    _prev = _cutflow_v");
-    // emit("print('\\\\end{tabular} \\n---\\n')");
-    
-    // emit_newline();
-    // emit_comment("Restore previous node after cutflow");
-    // emit("a.SetActiveNode(_old_node)");
-
-    return "";
+    return use_within_region("cutflow_generate", reg_name + ",'" + clean_reg_name + "'," + config.get_argument("cutflowout") ==  "file" ? ("'" + config.get_argument("outfile") + "'") : "None", command);
 }
 std::string TimberConverter::convert_do_eventlist_on_region(const AnalysisCommand &command) {
 
     std::string reg_name = get_mapped_source(command,0);
 
+    std::regex e("^V[0-9]+REG");
+    std::string clean_reg_name = std::regex_replace(reg_name, e, "");
+
     emit_newline();
     emit_comment("Generate event list for region: ", reg_name);
-    emit("_old_node = a.GetActiveNode()");
-    
-    emit_comment("Apply region cuts and corrections for event list");
-    emit("_eventlist_node_", reg_name, " = a.Apply(", reg_name, "[0])");
 
-    emit("_eventlist_node_", reg_name, " = a.AddCorrections(", reg_name, "[1])");
-
-    emit_newline();
-    emit_comment("Print event list with run, luminosity block, and event numbers");
-    emit("print('\\n---\\nBeginning event list for region ", reg_name, "')");
-
-
-    emit("_eventlist_node_", reg_name, ".DataFrame.Display(columnList=['run', 'luminosityBlock', 'event'], nRows=1000).Print()");
-    emit("print('\\n---\\n')");
-    
-    emit_comment("Restore previous node after event list");
-    emit("a.SetActiveNode(_old_node)");
-
-    return "";
+    return use_within_region("eventlist_generate", reg_name + ",'" + clean_reg_name + "'", command);
+        return use_within_region("eventlist_generate", reg_name + ",'" + clean_reg_name + "'," + config.get_argument("eventlistout") ==  "file" ? ("'" + config.get_argument("outfile") + "'") : "None", command);
 }
+
 std::string TimberConverter::convert_create_table(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
     return "[ ]";

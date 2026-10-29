@@ -3,12 +3,13 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 class Config {
     private:
         std::unordered_map<std::string, std::string> config_entries;
 
-        const std::unordered_map<std::string, std::string> default_entries;
-        void write_out_file(const std::unordered_map<std::string, std::string> &in_map, std::string filename);
+        const std::unordered_map<std::string, std::vector<std::string>> default_entries;
+        void write_out_file(const std::unordered_map<std::string, std::vector<std::string>> &in_map, std::string filename);
         void read_config_file(std::string filename);
     public:
         Config(std::string filename);

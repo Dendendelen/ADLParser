@@ -443,7 +443,7 @@ void Lexer::read_line(std::string line_content, int line_number) {
         char current_char = *it;
 
         // If we have a comment start symbol, this entire line from here on must be one comment token
-        if (current_char == '#' && !is_commented_out) {
+        if (current_char == '#' && !is_commented_out && !is_quoted_out) {
             lex_token(running_token, line_number, column_number, line_content_reference);
             is_commented_out = true;
             running_token += current_char;

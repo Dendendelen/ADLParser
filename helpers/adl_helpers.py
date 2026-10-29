@@ -33,27 +33,52 @@ def use_histo_list(histo_list, node):
 
 import re
 
-def cutflow_generate(reg_name, clean_reg_name, cutflow_node):
-    # Print cutflow table in LaTeX format
-    print('\n---\n \\begin{tabular}{c c c c} \\multicolumn{4}{c}{Cutflow report for region '
-        + clean_reg_name
-        +'}\\\\ \\hline Cut & Events left & Eff from previous & Eff from initial \\\\ \\hline')
-    from TIMBER.Tools.Common import CutflowDict # type: ignore
+def eventlist_generate(reg_name, clean_reg_name, file_out, eventlist_node):
 
-    _init = 0
-    _prev = 0
 
-    for _cutflow_k, _cutflow_v in CutflowDict(cutflow_node).items():
-        _this_name = _cutflow_k
-        if _this_name != 'Initial':
-            _this_name = reg_name[0].items[_cutflow_k]
-            _this_name = re.sub('[A-Za-z0-9]*UNION','',_this_name)
-        else:
-            _init = _cutflow_v
-            _prev = _init
-        print('\\verb`' + _this_name + '` & ' + str(_cutflow_v) + ' & ' + f'{(_cutflow_v/(_prev+1e-9)):.2%}'[:-1] + '\\\\% & ' + f'{(_cutflow_v/_init):.4%}'[:-1] + '\\%\\\\')
-        _prev = _cutflow_v
-    print('\\\\end{tabular} \\n---\\n')
+
+    print('\n---\nBeginning event list for region ' + clean_reg_name +'\n')
+
+    eventlist_node.DataFrame.Display(columnList=['run', 'luminosityBlock', 'event'], nRows=1000).Print()
+    print('\n---\n')
+
+import sys
+
+def cutflow_generate(reg_name, clean_reg_name, file_out, cutflow_node):
+
+    orig_stdout = sys.stdout
+
+    file = open(file_out+'.txt') if file_out is not None else None
+    
+    try:
+        if file is not None:
+            sys.stdout = file
+
+        # Print cutflow table in LaTeX format
+        print('\n---\n \\begin{tabular}{c c c c} \\multicolumn{4}{c}{Cutflow report for region '
+            + clean_reg_name
+            +'}\\\\ \\hline Cut & Events left & Eff from previous & Eff from initial \\\\ \\hline')
+        from TIMBER.Tools.Common import CutflowDict # type: ignore
+
+        _init = 0
+        _prev = 0
+
+        for _cutflow_k, _cutflow_v in CutflowDict(cutflow_node).items():
+            _this_name = _cutflow_k
+            if _this_name != 'Initial':
+                _this_name = reg_name[0].items[_cutflow_k]
+                _this_name = re.sub('[A-Za-z0-9]*UNION','',_this_name)
+            else:
+                _init = _cutflow_v
+                _prev = _init
+            print('\\verb`' + _this_name + '` & ' + str(_cutflow_v) + ' & ' + f'{(_cutflow_v/(_prev+1e-9)):.2%}'[:-1] + '\\% & ' + f'{(_cutflow_v/_init):.4%}'[:-1] + '\\%\\\\')
+            _prev = _cutflow_v
+        print('\\end{tabular} \n---\n')
+    finally:
+        sys.stdout = orig_stdout
+        if file is not None:
+            file.close()
+
 
 def create_function_out_of_table(name, table):
 
