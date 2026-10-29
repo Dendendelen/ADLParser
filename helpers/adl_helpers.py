@@ -48,7 +48,7 @@ def cutflow_generate(reg_name, clean_reg_name, file_out, cutflow_node):
 
     orig_stdout = sys.stdout
 
-    file = open(file_out+'.txt') if file_out is not None else None
+    file = open(file_out+'.txt', 'a') if file_out is not None else None
     
     try:
         if file is not None:
