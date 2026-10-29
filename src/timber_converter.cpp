@@ -514,7 +514,7 @@ std::string TimberConverter::convert_do_cutflow_on_region(const AnalysisCommand 
     emit_newline();
     emit_comment("Generate cutflow report for region: ", reg_name);
 
-    return use_within_region("cutflow_generate", reg_name + ",'" + clean_reg_name + "'," + config.get_argument("cutflowout") ==  "file" ? ("'" + config.get_argument("outfile") + "'") : "None", command);
+    return use_within_region("cutflow_generate", reg_name + ",'" + clean_reg_name + "'," + (config.get_argument("cutflowout") ==  "file" ? ("'" + config.get_argument("outfile") + "'") : "None"), command);
 }
 std::string TimberConverter::convert_do_eventlist_on_region(const AnalysisCommand &command) {
 
@@ -527,7 +527,7 @@ std::string TimberConverter::convert_do_eventlist_on_region(const AnalysisComman
     emit_comment("Generate event list for region: ", reg_name);
 
     return use_within_region("eventlist_generate", reg_name + ",'" + clean_reg_name + "'", command);
-        return use_within_region("eventlist_generate", reg_name + ",'" + clean_reg_name + "'," + config.get_argument("eventlistout") ==  "file" ? ("'" + config.get_argument("outfile") + "'") : "None", command);
+        return use_within_region("eventlist_generate", reg_name + ",'" + clean_reg_name + "'," + (config.get_argument("eventlistout") ==  "file" ? ("'" + config.get_argument("outfile") + "'") : "None"), command);
 }
 
 std::string TimberConverter::convert_create_table(const AnalysisCommand &command) {
