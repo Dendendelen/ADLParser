@@ -33,9 +33,27 @@ class FourVectorNames2 {
         std::string charge() {return name_charge;}
 };
 
+/**
+ * Information about a composite (cartesian product, combination, or direct pairing).
+ */
+struct CompositeInfo {
+    std::string type;  // "cartesian", "combinations", or "direct"
+    std::vector<std::string> collections;  // The clean collection variable names
+};
+
+/**
+ * A single step in a region's cutflow.
+ */
+struct CutflowStep {
+    std::string mask_var;    // The mask variable name at this step (e.g. "V259REGmain_mask")
+    std::string description; // Human-readable description of the cut
+};
+
 class CoffeaConverter : public ALILToFrameworkCompiler {
 
     private:
+
+        int level_of_indent;
 
         std::unordered_map<std::string, std::string> var_mappings;
 
@@ -44,7 +62,16 @@ class CoffeaConverter : public ALILToFrameworkCompiler {
         std::unordered_set<std::string> region_already_has_node;
 
         std::unordered_set<std::string> is_attribute;
-        std::unordered_set<std::string> is_lorentz;
+        std::unordered_set<std::string> known_lorentz;
+
+        std::map<std::string, bool> synthetic_particle_vars;
+        std::map<std::string, std::string> provenance_map;
+
+        std::map<std::string, CompositeInfo> composite_info;
+        std::unordered_set<std::string> composite_indices_computed;
+
+    std::map<std::string, std::vector<CutflowStep>> region_cutflow_steps;
+
 
         std::string met_name;
         std::string attribute_delimiter;
@@ -57,10 +84,14 @@ class CoffeaConverter : public ALILToFrameworkCompiler {
         std::string get_mapped_source(const AnalysisCommand &command, size_t pos);
         std::string get_mapped_dest(const AnalysisCommand &command);
 
+        std::string strip_collection_marker(std::string in);
         std::string list_append(std::string list_end, std::string delimiter, const AnalysisCommand &command, std::string to_add = "");
         std::string attribute(std::string attr, std::string object, std::string separator_chars);
         std::string attribute(std::string attr, std::string object);
+        std::string synthetic_attribute(std::string attr, std::string object);
         std::string lorentzify(std::string object);
+            std::string provenance_attr(std::string object);
+    std::string find_provenance(std::string object);
         std::string multi_arg_function(std::string func_name, int num_args, const AnalysisCommand &command, std::string ending_tok = "", bool is_lorentz = false);
         std::string multi_arg_lorentz_function(std::string func_name, int num_args, const AnalysisCommand &command, std::string ending_tok = "");
         std::string binary_infix_operation(std::string op_name, const AnalysisCommand &command);
@@ -68,8 +99,12 @@ class CoffeaConverter : public ALILToFrameworkCompiler {
         std::string add_subtract_particles(const AnalysisCommand &command, bool is_subtraction = false);
         std::string use_within_region(std::string fun_within_node, std::string extra_arg, const AnalysisCommand &command);
 
+  void track_region_cut(std::string region_base, std::string mask_var, std::string description);
+    std::string get_region_base_name(std::string mapped_name);
+
         template<typename... Args>
         void emit(Args... args) {
+            std::cout << std::string(level_of_indent, ' ');
             (std::cout << ... << args) << '\n' << std::flush;
         };
         void emit_newline() {

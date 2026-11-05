@@ -205,6 +205,13 @@ RVec<float> SumOf(RVec<RVec<float>> matrix) {
     return Map(matrix, sum_lamb);
 }
 
+RVec<float> Ternary(RVec<int> cond, RVec<float> lhs, RVec<float> rhs) {
+    return Where(cond, lhs, rhs);
+} 
+
+float Ternary(int cond, float lhs, float rhs) {
+    return cond ? lhs : rhs;
+}
 
 // a truly horrifying solution to a problem, the base RVec code forces the return type to be an RVec<int>, while we really need RVec<RVec<int>> for our matrix-like situations.
 // here we force this new code into the VecOps namespace to act as a more specific template to force the interpreter to go with this one, giving us the right return type.
@@ -259,6 +266,19 @@ RVec<float> LVDeltaPhi(RVec<ROOT::Math::PtEtaPhiMVector> list_vec, ROOT::Math::P
 RVec<float> LVDeltaPhi(ROOT::Math::PtEtaPhiMVector single_vec, RVec<ROOT::Math::PtEtaPhiMVector> list_vec) {
     return LVDeltaPhi(list_vec, single_vec);
 }
+
+RVec<RVec<float>> LVDeltaPhiOuter(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+    auto dR_lamb = [v2](ROOT::Math::PtEtaPhiMVector single_vec) {
+        return LVDeltaPhi(v2, single_vec);
+    };
+    auto dR_matrix = Map(v1, dR_lamb);
+    return dR_matrix;
+}
+
+RVec<RVec<float>> LVDeltaPhi(RVec<ROOT::Math::PtEtaPhiMVector> v1, RVec<ROOT::Math::PtEtaPhiMVector> v2) {
+    return LVDeltaPhiOuter(v1, v2);
+}
+
 
 float LVDeltaEta(ROOT::Math::PtEtaPhiMVector v1, ROOT::Math::PtEtaPhiMVector v2) {
     float deta = v1.Eta()-v2.Eta();
@@ -406,7 +426,6 @@ RVec<RVec<unsigned long>> GeneralComb(RVec<RVec<float>> input_particles) {
     }
     return new_indices;
 }
-
 
 RVec<RVec<unsigned long>> GeneralDisjoint(RVec<RVec<float>> input_particles) {
     

@@ -89,27 +89,47 @@ std::string CoffeaConverter::list_append(std::string list_end, std::string delim
     return add_val.str();
 }
 
-std::string CoffeaConverter::attribute(std::string attr, std::string object, std::string separator_chars) {
-    std::stringstream delimit;
-    std::stringstream attributed_text;
+std::string CoffeaConverter::strip_collection_marker(std::string in) {
+    std::string result = in;
+    // Remove trailing \x1d
+    while (!result.empty() && result.back() == '\x1d') {
+        result.pop_back();
+    }
+    return result;
+}
 
+std::string CoffeaConverter::attribute(std::string attr, std::string object, std::string separator_chars) {
+    // Strip any trailing \x1d first
+    std::string clean_object = strip_collection_marker(object);
+    
+    if (attr.empty()) {
+        return clean_object;
+    }
+    
+    // Check if there's an internal \x1d (attribute insertion point)
+    std::stringstream delimit;
     delimit << object;
     std::vector<std::string> delimited_at_attributing_points;
     std::string buffer;
     while (std::getline(delimit, buffer, '\x1d')) {
-        delimited_at_attributing_points.push_back(buffer);
+        if (!buffer.empty()) {
+            delimited_at_attributing_points.push_back(buffer);
+        }
     }
 
-    if (delimited_at_attributing_points.size() == 1) {
-        attributed_text << delimited_at_attributing_points[0] << separator_chars << attr;
+    if (delimited_at_attributing_points.size() <= 1) {
+        std::stringstream attributed_text;
+        attributed_text << clean_object << separator_chars << attr;
         return attributed_text.str();
     }
 
+    // Multiple segments: insert attribute at each join point
+    std::stringstream attributed_text;
     bool is_first = true;
-    for (std::string chunk : delimited_at_attributing_points) {
+    for (const std::string &chunk : delimited_at_attributing_points) {
         if (is_first) {
             attributed_text << chunk;
-            is_first = false; 
+            is_first = false;
         } else {
             attributed_text << separator_chars << attr << chunk;
         }
@@ -123,14 +143,27 @@ std::string CoffeaConverter::attribute(std::string attr, std::string object) {
 }
 
 std::string CoffeaConverter::lorentzify(std::string object) {
-    std::stringstream lorentz;
-    lorentz << "ak.zip({";
-    lorentz << "'pt': " << attribute(main_names->pt(), object);
-    lorentz << ", 'eta': " << attribute(main_names->eta(), object);
-    lorentz << ", 'phi': " << attribute(main_names->phi(), object);
-    lorentz << ", 'mass': " << attribute(main_names->mass(), object);
-    lorentz << "}, with_name='PtEtaPhiMLorentzVector', behavior=vector.behavior)";
-    return lorentz.str();
+    std::string stripped = strip_collection_marker(object);
+    
+    // Already known as a Lorentz vector
+    if (known_lorentz.count(stripped) > 0) {
+        return stripped;
+    }
+    
+    // Already an ak.zip Lorentz vector expression — don't re-wrap
+    if (stripped.find("with_name='PtEtaPhiMLorentzVector'") != std::string::npos) {
+        return stripped;
+    }
+    
+    // Build the ak.zip from components
+    std::stringstream lv;
+    lv << "ak.zip({"
+       << "'pt': " << synthetic_attribute(main_names->pt(), object) << ", "
+       << "'eta': " << synthetic_attribute(main_names->eta(), object) << ", "
+       << "'phi': " << synthetic_attribute(main_names->phi(), object) << ", "
+       << "'mass': " << synthetic_attribute(main_names->mass(), object)
+       << "}, with_name='PtEtaPhiMLorentzVector', behavior=coffea.nanoevents.methods.vector.behavior)";
+    return lv.str();
 }
 
 std::string CoffeaConverter::multi_arg_function(std::string func_name, int num_args, const AnalysisCommand &command, std::string ending_tok, bool is_lorentz) {
@@ -176,39 +209,65 @@ std::string CoffeaConverter::interval(std::string left_bound_op, std::string rig
     return within.str();
 }
 
+
 std::string CoffeaConverter::add_subtract_particles(const AnalysisCommand &command, bool is_subtraction) {
-    std::string last_val = get_mapped_source(command, 0);
-    std::string this_val = get_mapped_source(command, 1);
+    std::string last_val = get_mapped_source(command, 0);  // accumulated value or ""
+    std::string this_val = get_mapped_source(command, 1);   // new particle to add/subtract
     
-    if (last_val == "") {
+    if (last_val.empty()) {
+        // First particle in the chain — just return it (lorentzified when needed later)
         if (is_subtraction) {
-            std::stringstream negate;
-            negate << "-(" << lorentzify(this_val) << ")";
-            return negate.str();
+            // Negate: will be used as (-lv) in next step
+            return "(-(" + lorentzify(this_val) + "))";
         }
-        return lorentzify(this_val);
-    } else {
-        std::stringstream lorentz_addition;
-        std::string dest = get_mapped_dest(command);
-        
-        emit_newline();
-        emit_comment("Particle ", is_subtraction ? "subtraction" : "addition", " by combining Lorentz vectors");
-        
-        lorentz_addition << "(" << lorentzify(last_val) << (is_subtraction ? " - " : " + ") << lorentzify(this_val) << ")";
-        
-        emit(dest, "_lorentzvector = ", lorentz_addition.str());
-        
-        emit_comment("Get NanoAOD equivalent variables from Lorentz vector");
-        emit(dest, attribute_delimiter, main_names->pt(), " = ", dest, "_lorentzvector.pt");
-        emit(dest, attribute_delimiter, main_names->eta(), " = ", dest, "_lorentzvector.eta");
-        emit(dest, attribute_delimiter, main_names->phi(), " = ", dest, "_lorentzvector.phi");
-        emit(dest, attribute_delimiter, main_names->mass(), " = ", dest, "_lorentzvector.mass");
-
-        emit_comment("Add charges manually");
-        emit(dest, attribute_delimiter, main_names->charge(), " = ", attribute(main_names->charge(), last_val), " + ", attribute(main_names->charge(), this_val));
-
-        return dest;
+        return this_val;  // Don't lorentzify yet — let the final step do it
     }
+    
+    // We have two operands to combine
+    std::string dest = get_mapped_dest(command);
+    
+    emit_newline();
+    emit_comment("Particle ", is_subtraction ? "subtraction" : "addition", 
+                 " by combining Lorentz vectors");
+    
+    // Store each operand in a temp variable to avoid nested lorentzify
+    std::string lv_a_var = dest + "_lv_a";
+    std::string lv_b_var = dest + "_lv_b";
+    
+    emit(lv_a_var, " = ", lorentzify(last_val));
+    known_lorentz.insert(lv_a_var);
+    
+    emit(lv_b_var, " = ", lorentzify(this_val));
+    known_lorentz.insert(lv_b_var);
+    
+    // Combine
+    std::string op = is_subtraction ? " - " : " + ";
+    emit(dest, "_lv = ", lv_a_var, op, lv_b_var);
+    known_lorentz.insert(dest + "_lv");
+    
+    // Extract components
+    emit_comment("Extract kinematic variables from combined Lorentz vector");
+    emit(dest, "_pt = ", dest, "_lv.pt");
+    emit(dest, "_eta = ", dest, "_lv.eta");
+    emit(dest, "_phi = ", dest, "_lv.phi");
+    emit(dest, "_mass = ", dest, "_lv.mass");
+    
+    // Charge — must come from original collection, NOT from Lorentz vector
+    emit_comment("Add charges manually");
+    emit(dest, "_charge = ", 
+         synthetic_attribute(main_names->charge(), last_val), op,
+         synthetic_attribute(main_names->charge(), this_val));
+    
+    synthetic_particle_vars[dest] = true;
+    
+    return dest;
+}
+
+std::string CoffeaConverter::synthetic_attribute(std::string attr, std::string object) {
+    if (synthetic_particle_vars.contains(object)) {
+        return object + "_" + attr;
+    }
+    return attribute(attr, object);
 }
 
 std::string CoffeaConverter::use_within_region(std::string fun_within_node, std::string extra_arg, const AnalysisCommand &command) {
@@ -231,6 +290,29 @@ std::string CoffeaConverter::use_within_region(std::string fun_within_node, std:
     return command.has_dest_argument() ? get_mapped_dest(command) : "";
 }
 
+
+void CoffeaConverter::track_region_cut(std::string region_base, std::string mask_var, std::string description) {
+    region_cutflow_steps[region_base].push_back({mask_var, description});
+}
+
+/**
+ * Extract a clean region base name from a mapped region variable.
+ * E.g., "V274REGmain" -> "main", "V258REGmain" -> "main"
+ */
+std::string CoffeaConverter::get_region_base_name(std::string mapped_name) {
+    std::regex e("^V[0-9]+REG");
+    return std::regex_replace(mapped_name, e, "");
+}
+
+/**
+ * Provenance for a collection: an integer index array [0, 1, 2, ..., N-1]
+ * per event, where N is the number of objects in that event.
+ * This is the Coffea equivalent of TIMBER's ROOT::VecOps::Range(nParticle).
+ */
+std::string CoffeaConverter::provenance_attr(std::string object) {
+    std::string clean = strip_collection_marker(object);
+    return clean + "_provenance";
+}
 
 // Conversion methods
 
@@ -259,6 +341,9 @@ std::string CoffeaConverter::convert_display_info(const AnalysisCommand &command
 }
 
 std::string CoffeaConverter::convert_create_region(const AnalysisCommand &command) {
+    std::string dest = get_mapped_dest(command);
+    std::string base_name = get_region_base_name(dest);
+
     emit_newline();
     emit_comment("Create new region: ", command.get_dest_argument());
     emit(get_mapped_dest(command), "_mask = ak.ones_like(events.event, dtype=bool)");
@@ -267,38 +352,50 @@ std::string CoffeaConverter::convert_create_region(const AnalysisCommand &comman
 }
 
 std::string CoffeaConverter::convert_merge_regions(const AnalysisCommand &command) {
+    std::string dest = get_mapped_dest(command);
     std::string name_first = get_mapped_source(command, 0);
     std::string name_second = get_mapped_source(command, 1);
+    std::string base_name = get_region_base_name(dest);
 
     emit_newline();
     emit_comment("Merge regions ", name_first, " and ", name_second);
     emit(get_mapped_dest(command), "_mask = ", name_first, "_mask & ", name_second, "_mask");
     emit(get_mapped_dest(command), "_weights = ", name_first, "_weights + ", name_second, "_weights");
 
+    track_region_cut(base_name, dest + "_mask", "Merge(" + name_first + ", " + name_second + ")");
+
     return get_mapped_dest(command);
 }
 
 std::string CoffeaConverter::convert_cut_region(const AnalysisCommand &command) {
+    std::string dest = get_mapped_dest(command);
     std::string prev = get_mapped_source(command, 0);
     std::string cut = get_mapped_source(command, 1);
+    std::string base_name = get_region_base_name(dest);
 
     emit_newline();
     emit_comment("Apply cut to region");
     emit(get_mapped_dest(command), "_mask = ", prev, "_mask & (", cut, ")");
     emit(get_mapped_dest(command), "_weights = ", prev, "_weights.copy()");
     
+    track_region_cut(base_name, dest + "_mask", cut);
+
     return get_mapped_dest(command);
 }
 
 std::string CoffeaConverter::convert_create_bin_of_region(const AnalysisCommand &command) {
+    std::string dest = get_mapped_dest(command);
     std::string prev = get_mapped_source(command, 0);
     std::string cut = get_mapped_source(command, 1);
-    
+    std::string base_name = get_region_base_name(dest);
+
     emit_newline();
     emit_comment("Create bin of region");
     emit(get_mapped_dest(command), "_mask = ", prev, "_mask & (", cut, ")");
     emit(get_mapped_dest(command), "_weights = ", prev, "_weights.copy()");
     
+    track_region_cut(base_name, dest + "_mask", "Bin: " + cut);
+
     return get_mapped_dest(command);
 }
 
@@ -322,8 +419,23 @@ std::string CoffeaConverter::convert_add_extern_attr(const AnalysisCommand &comm
 
 std::string CoffeaConverter::convert_add_extern_particle(const AnalysisCommand &command) {
     std::regex reg_quote("\"");
+    std::string particle_name = std::regex_replace(command.get_source_argument(0), reg_quote, "");
+    
     std::stringstream extern_part;
-    extern_part << "events." << std::regex_replace(command.get_source_argument(0), reg_quote, "");
+    extern_part << "events." << particle_name;
+
+    // Emit runtime-checked provenance creation
+    std::string prov_var = "events_" + particle_name + "_provenance";
+    
+    emit_newline();
+    emit_comment("Attempt provenance tracking for ", particle_name);
+    emit(prov_var, " = try_create_provenance(events.", 
+         particle_name, ", \"", main_names->pt(), "\")");
+    
+    // Always register in provenance_map — downstream code checks for None at runtime
+    provenance_map[extern_part.str()] = prov_var;
+    provenance_map[extern_part.str() + "\x1d"] = prov_var;
+
     extern_part << '\x1d';
     return extern_part.str();
 }
@@ -363,12 +475,34 @@ std::string CoffeaConverter::convert_limit_mask(const AnalysisCommand &command) 
 std::string CoffeaConverter::convert_apply_mask(const AnalysisCommand &command) {
     std::string last_mask = get_mapped_source(command, 0);
     std::string source_name = get_mapped_source(command, 1);
+    std::string clean_source = strip_collection_marker(source_name);
+    std::string dest = get_mapped_dest(command);
 
     emit_newline();
     emit_comment("Create object ", command.get_dest_argument(), " from mask");
-    emit(get_mapped_dest(command), " = ", attribute("", source_name, ""), "[", last_mask, "]");
 
-    return get_mapped_dest(command) + "\x1d";
+    if (synthetic_particle_vars.contains(clean_source)) {
+        emit(dest, " = ak.zip({");
+        emit("    'pt': ", clean_source, "_pt[", last_mask, "],");
+        emit("    'eta': ", clean_source, "_eta[", last_mask, "],");
+        emit("    'phi': ", clean_source, "_phi[", last_mask, "],");
+        emit("    'mass': ", clean_source, "_mass[", last_mask, "],");
+        emit("    'charge': ", clean_source, "_charge[", last_mask, "]");
+        emit("})");
+    } else {
+        emit(dest, " = ", clean_source, "[", last_mask, "]");
+    }
+
+    // Propagate provenance through the mask
+    std::string source_prov = find_provenance(source_name);
+    if (!source_prov.empty()) {
+        std::string dest_prov = dest + "_provenance";
+        emit(dest_prov, " = ", source_prov, "[", last_mask, "] if ", source_prov, " is not None else None");
+        provenance_map[dest] = dest_prov;
+        provenance_map[dest + "\x1d"] = dest_prov;
+    }
+
+    return dest + "\x1d";
 }
 
 std::string CoffeaConverter::convert_create_empty_hist_list(const AnalysisCommand &command) {
@@ -409,7 +543,7 @@ std::string CoffeaConverter::convert_hist_1d(const AnalysisCommand &command) {
     emit(get_mapped_dest(command), " = {");
     emit("    'name': '", get_mapped_dest(command), "',");
     emit("    'hist': hist.Hist(hist.axis.Regular(", nbins, ", ", low, ", ", high, ", name='x', label=", title, ")),");
-    emit("    'fill_var': '", fill_var, "'");
+    emit("    'fill_expr': lambda ev: ", fill_var);
     emit("}");
     
     return get_mapped_dest(command);
@@ -440,8 +574,8 @@ std::string CoffeaConverter::convert_hist_2d(const AnalysisCommand &command) {
     emit("        hist.axis.Regular(", nbins_x, ", ", low_x, ", ", high_x, ", name='x'),");
     emit("        hist.axis.Regular(", nbins_y, ", ", low_y, ", ", high_y, ", name='y')");
     emit("    ),");
-    emit("    'fill_var_x': '", fill_var_x, "',");
-    emit("    'fill_var_y': '", fill_var_y, "'");
+    emit("    'fill_expr_x': lambda ev: ", fill_var_x, ",");
+    emit("    'fill_expr_y': lambda ev: ", fill_var_y);
     emit("}");
     
     return get_mapped_dest(command);
@@ -450,26 +584,42 @@ std::string CoffeaConverter::convert_hist_2d(const AnalysisCommand &command) {
 std::string CoffeaConverter::convert_weight_apply(const AnalysisCommand &command) {
     std::string prev = get_mapped_source(command, 0);
     std::string weight = get_mapped_source(command, 1);
+    std::string dest = get_mapped_dest(command);
+    std::string base_name = get_region_base_name(dest);
 
     emit_newline();
     emit_comment("Apply weight correction: ", weight);
-    emit(get_mapped_dest(command), "_mask = ", prev, "_mask");
-    emit(get_mapped_dest(command), "_weights = ", prev, "_weights + ['", weight, "']");
+    emit(dest, "_mask = ", prev, "_mask");
+    emit(dest, "_weights = ", prev, "_weights + ['", weight, "']");
+
+    track_region_cut(base_name, dest + "_mask", "Weight: " + weight);
     
-    return get_mapped_dest(command);
+    return dest;
 }
 
 std::string CoffeaConverter::convert_do_cutflow_on_region(const AnalysisCommand &command) {
     std::string reg_name = get_mapped_source(command, 0);
-
-    std::regex e("^V[0-9]+REG");
-    std::string clean_reg_name = std::regex_replace(reg_name, e, "");
+    std::string base_name = get_region_base_name(reg_name);
 
     emit_newline();
-    emit_comment("Generate cutflow report for region: ", reg_name);
-    emit("print('Cutflow for region ", clean_reg_name, "')");
-    emit("print(f'Events passing: {ak.sum(", reg_name, "_mask)}')");
-    
+    emit_comment("Cutflow for region: " + base_name);
+
+    // Initial count before any cuts
+    emit("output[\"cutflow_", base_name, "::Initial\"] += float(len(events))");
+
+    if (region_cutflow_steps.contains(base_name)) {
+        const auto &steps = region_cutflow_steps[base_name];
+        for (const auto &step : steps) {
+            std::string safe;
+            for (char c : step.description) {
+                if (c == '\\') safe += "\\\\";
+                else if (c == '"') safe += "\\\"";
+                else safe += c;
+            }
+            emit("output[\"cutflow_", base_name, "::", safe, "\"] += float(ak.sum(", step.mask_var, "))");
+        }
+    }
+
     return "";
 }
 
@@ -529,17 +679,48 @@ std::string CoffeaConverter::convert_finish_table(const AnalysisCommand &command
 }
 
 std::string CoffeaConverter::convert_obj_sort_ascend(const AnalysisCommand &command) {
+    std::string source_obj = get_mapped_source(command, 0);
+    std::string sort_key = get_mapped_source(command, 1);
+    std::string clean_source = strip_collection_marker(source_obj);
+    std::string dest = get_mapped_dest(command);
+
     emit_newline();
     emit_comment("Sort collection in ascending order");
-    emit(get_mapped_dest(command), " = ", attribute("", get_mapped_source(command, 0), ""), "[ak.argsort(", get_mapped_source(command, 1), ", ascending=True)]");
-    return get_mapped_dest(command) + "\x1d";
+    emit(dest, "_sort_idx = ak.argsort(", sort_key, ", ascending=True)");
+    emit(dest, " = ", clean_source, "[", dest, "_sort_idx]");
+
+    // Propagate provenance through the sort
+    std::string source_prov = find_provenance(source_obj);
+    if (!source_prov.empty()) {
+        std::string dest_prov = dest + "_provenance";
+        emit(dest_prov, " = ", source_prov, "[", dest, "_sort_idx] if ", source_prov, " is not None else None");
+        provenance_map[dest] = dest_prov;
+        provenance_map[dest + "\x1d"] = dest_prov;
+    }
+
+    return dest + "\x1d";
 }
 
 std::string CoffeaConverter::convert_obj_sort_descend(const AnalysisCommand &command) {
+    std::string source_obj = get_mapped_source(command, 0);
+    std::string sort_key = get_mapped_source(command, 1);
+    std::string clean_source = strip_collection_marker(source_obj);
+    std::string dest = get_mapped_dest(command);
+
     emit_newline();
     emit_comment("Sort collection in descending order");
-    emit(get_mapped_dest(command), " = ", attribute("", get_mapped_source(command, 0), ""), "[ak.argsort(", get_mapped_source(command, 1), ", ascending=False)]");
-    return get_mapped_dest(command) + "\x1d";
+    emit(dest, "_sort_idx = ak.argsort(", sort_key, ", ascending=False)");
+    emit(dest, " = ", clean_source, "[", dest, "_sort_idx]");
+
+    std::string source_prov = find_provenance(source_obj);
+    if (!source_prov.empty()) {
+        std::string dest_prov = dest + "_provenance";
+        emit(dest_prov, " = ", source_prov, "[", dest, "_sort_idx] if ", source_prov, " is not None else None");
+        provenance_map[dest] = dest_prov;
+        provenance_map[dest + "\x1d"] = dest_prov;
+    }
+
+    return dest + "\x1d";
 }
 
 std::string CoffeaConverter::convert_expr_raise(const AnalysisCommand &command) {
@@ -641,51 +822,67 @@ std::string CoffeaConverter::convert_expr_if_ternary(const AnalysisCommand &comm
 }
 
 std::string CoffeaConverter::convert_expr_index(const AnalysisCommand &command) {
-    std::stringstream index;
-    index << get_mapped_source(command, 0);
-    index << "[:, " << get_mapped_source(command, 1) << "]";
-    return index.str();
+    std::string src = get_mapped_source(command, 0);
+    std::string idx = command.get_source_argument(1);
+
+    std::string stripped = strip_collection_marker(src);
+    std::stringstream expr;
+    expr << "ak.pad_none(" << stripped << ", " << idx << "+1, axis=1)[:, " << idx << "]";
+
+    return expr.str();
 }
 
 std::string CoffeaConverter::convert_expr_index_range(const AnalysisCommand &command) {
+    std::string src = strip_collection_marker(get_mapped_source(command, 0));
+    std::string from = get_mapped_source(command, 1);
+    std::string to = get_mapped_source(command, 2);
+
     std::stringstream index;
-    index << get_mapped_source(command, 0);
-    index << "[:, " << get_mapped_source(command, 1) << ":" << get_mapped_source(command, 2) << "]";
+    index << "ak.pad_none(" << src << ", " << to << ", axis=1)[:, " << from << ":" << to << "]";
     return index.str();
 }
 
 std::string CoffeaConverter::convert_expr_index_until(const AnalysisCommand &command) {
+    std::string src = strip_collection_marker(get_mapped_source(command, 0));
+    std::string to = get_mapped_source(command, 1);
+
     std::stringstream index;
-    index << get_mapped_source(command, 0);
-    index << "[:, :" << get_mapped_source(command, 1) << "]";
+    index << "ak.pad_none(" << src << ", " << to << ", axis=1)[:, :" << to << "]";
     return index.str();
 }
 
 std::string CoffeaConverter::convert_expr_index_from(const AnalysisCommand &command) {
+    std::string src = strip_collection_marker(get_mapped_source(command, 0));
+    std::string from = get_mapped_source(command, 1);
+
     std::stringstream index;
-    index << get_mapped_source(command, 0);
-    index << "[:, " << get_mapped_source(command, 1) << ":]";
+    index << "ak.pad_none(" << src << ", " << from << ", axis=1)[:, " << from << ":]";
     return index.str();
 }
 
 std::string CoffeaConverter::convert_func_charge(const AnalysisCommand &command) {
-    return attribute(main_names->charge(), get_mapped_source(command, 0));
+    std::string src = get_mapped_source(command, 0);
+    return synthetic_attribute(main_names->charge(), src);
 }
 
 std::string CoffeaConverter::convert_func_pt(const AnalysisCommand &command) {
-    return attribute(main_names->pt(), get_mapped_source(command, 0));
+    std::string src = get_mapped_source(command, 0);
+    return synthetic_attribute(main_names->pt(), src);
 }
 
 std::string CoffeaConverter::convert_func_eta(const AnalysisCommand &command) {
-    return attribute(main_names->eta(), get_mapped_source(command, 0));
+    std::string src = get_mapped_source(command, 0);
+    return synthetic_attribute(main_names->eta(), src);
 }
 
 std::string CoffeaConverter::convert_func_phi(const AnalysisCommand &command) {
-    return attribute(main_names->phi(), get_mapped_source(command, 0));
+    std::string src = get_mapped_source(command, 0);
+    return synthetic_attribute(main_names->phi(), src);
 }
 
 std::string CoffeaConverter::convert_func_mass(const AnalysisCommand &command) {
-    return attribute(main_names->mass(), get_mapped_source(command, 0));
+    std::string src = get_mapped_source(command, 0);
+    return synthetic_attribute(main_names->mass(), src);
 }
 
 std::string CoffeaConverter::convert_func_energy(const AnalysisCommand &command) {
@@ -695,69 +892,109 @@ std::string CoffeaConverter::convert_func_energy(const AnalysisCommand &command)
 }
 
 std::string CoffeaConverter::convert_func_distinct(const AnalysisCommand &command) {
-    std::string first_provenance = attribute("provenance", get_mapped_source(command, 0));
-    std::string second_provenance = attribute("provenance", get_mapped_source(command, 1));
-
-    std::stringstream computation;
-    computation << "(" << first_provenance << " != " << second_provenance << ")";
-    return computation.str();
+    std::string src0 = get_mapped_source(command, 0);
+    std::string src1 = get_mapped_source(command, 1);
+    
+    std::string prov0 = find_provenance(src0);
+    std::string prov1 = find_provenance(src1);
+    
+    std::stringstream distinct;
+    
+    if (!prov0.empty() && !prov1.empty()) {
+        // Both have provenance entries — but they might be None at runtime
+        // Emit a helper call that checks at runtime
+        emit_newline();
+        emit_comment("Distinctness check with runtime provenance fallback");
+        
+        std::string distinct_var = get_mapped_dest(command) + "_distinct";
+        
+        emit(distinct_var, " = check_distinct(",
+             prov0, ", ", prov1, ", ",
+             synthetic_attribute(main_names->pt(), src0), ", ",
+             synthetic_attribute(main_names->pt(), src1), ", ",
+             synthetic_attribute(main_names->eta(), src0), ", ",
+             synthetic_attribute(main_names->eta(), src1), ", ",
+             synthetic_attribute(main_names->phi(), src0), ", ",
+             synthetic_attribute(main_names->phi(), src1), ")");
+        
+        distinct << distinct_var;
+    } else {
+        // No provenance at all — pure kinematic fallback
+        distinct << "((" 
+                 << synthetic_attribute(main_names->pt(), src0) << " != " 
+                 << synthetic_attribute(main_names->pt(), src1) << ") | ("
+                 << synthetic_attribute(main_names->eta(), src0) << " != " 
+                 << synthetic_attribute(main_names->eta(), src1) << ") | ("
+                 << synthetic_attribute(main_names->phi(), src0) << " != " 
+                 << synthetic_attribute(main_names->phi(), src1) << "))";
+    }
+    
+    return distinct.str();
 }
 
 std::string CoffeaConverter::convert_func_dr(const AnalysisCommand &command) {
     std::stringstream dr;
-    dr << lorentzify(get_mapped_source(command, 0)) << ".delta_r(" << lorentzify(get_mapped_source(command, 1)) << ")";
+    dr << "delta_r_cross(" << lorentzify(get_mapped_source(command, 0)) << ", " << lorentzify(get_mapped_source(command, 1)) << ")";
     return dr.str();
 }
 
 std::string CoffeaConverter::convert_func_dphi(const AnalysisCommand &command) {
     std::stringstream dphi;
-    dphi << lorentzify(get_mapped_source(command, 0)) << ".delta_phi(" << lorentzify(get_mapped_source(command, 1)) << ")";
+    dphi << "delta_phi_cross(" <<lorentzify(get_mapped_source(command, 0)) << ", " << lorentzify(get_mapped_source(command, 1)) << ")";
     return dphi.str();
 }
 
+
 std::string CoffeaConverter::convert_func_deta(const AnalysisCommand &command) {
+    std::string src0 = get_mapped_source(command, 0);
+    std::string src1 = get_mapped_source(command, 1);
+    
     std::stringstream deta;
-    deta << "(" << attribute(main_names->eta(), get_mapped_source(command, 0));
-    deta << " - " << attribute(main_names->eta(), get_mapped_source(command, 1)) << ")";
+    deta << "(" << synthetic_attribute(main_names->eta(), src0);
+    deta << " - " << synthetic_attribute(main_names->eta(), src1) << ")";
     return deta.str();
 }
 
 std::string CoffeaConverter::convert_func_dr_hadamard(const AnalysisCommand &command) {
     // for Hadamard (element-wise) operations on jagged arrays
     std::stringstream dr;
-    dr << "ak.flatten(" << lorentzify(get_mapped_source(command, 0)) << ".delta_r(" << lorentzify(get_mapped_source(command, 1)) << "))";
+    dr  << lorentzify(get_mapped_source(command, 0)) << ".delta_r(" << lorentzify(get_mapped_source(command, 1)) << ")";
     return dr.str();
 }
 
 std::string CoffeaConverter::convert_func_dphi_hadamard(const AnalysisCommand &command) {
     std::stringstream dphi;
-    dphi << "ak.flatten(" << lorentzify(get_mapped_source(command, 0)) << ".delta_phi(" << lorentzify(get_mapped_source(command, 1)) << "))";
+    dphi << lorentzify(get_mapped_source(command, 0)) << ".delta_phi(" << lorentzify(get_mapped_source(command, 1)) << ")";
     return dphi.str();
 }
 
 std::string CoffeaConverter::convert_func_deta_hadamard(const AnalysisCommand &command) {
+    std::string src0 = get_mapped_source(command, 0);
+    std::string src1 = get_mapped_source(command, 1);
+    
     std::stringstream deta;
-    deta << "ak.flatten(" << attribute(main_names->eta(), get_mapped_source(command, 0));
-    deta << " - " << attribute(main_names->eta(), get_mapped_source(command, 1)) << ")";
+    deta << "(" << synthetic_attribute(main_names->eta(), src0);
+    deta << " - " << synthetic_attribute(main_names->eta(), src1) << ")";
     return deta.str();
 }
 
 std::string CoffeaConverter::convert_func_size(const AnalysisCommand &command) {
-    std::string momentum_of_part = attribute(main_names->pt(), get_mapped_source(command, 0));
+    std::string src = get_mapped_source(command, 0);
+    std::string momentum_of_part = synthetic_attribute(main_names->pt(), src);
     std::stringstream computation;
-    computation << "ak.num(" << momentum_of_part << ", axis=1)";
+    computation << "ak.num(" << momentum_of_part << ", axis=-1)";
     return computation.str();
 }
 
 std::string CoffeaConverter::convert_func_anyof(const AnalysisCommand &command) {
     std::stringstream computation;
-    computation << "ak.any(" << get_mapped_source(command, 0) << ", axis=1)";
+    computation << "ak.any(" << get_mapped_source(command, 0) << ", axis=-1)";
     return computation.str();
 }
 
 std::string CoffeaConverter::convert_func_allof(const AnalysisCommand &command) {
     std::stringstream computation;
-    computation << "ak.all(" << get_mapped_source(command, 0) << ", axis=1)";
+    computation << "ak.all(" << get_mapped_source(command, 0) << ", axis=-1)";
     return computation.str();
 }
 
@@ -803,13 +1040,13 @@ std::string CoffeaConverter::convert_func_log(const AnalysisCommand &command) {
 
 std::string CoffeaConverter::convert_func_ave(const AnalysisCommand &command) {
     std::stringstream computation;
-    computation << "ak.mean(" << get_mapped_source(command, 0) << ", axis=1)";
+    computation << "ak.mean(" << get_mapped_source(command, 0) << ", axis=-1)";
     return computation.str();
 }
 
 std::string CoffeaConverter::convert_func_sum(const AnalysisCommand &command) {
     std::stringstream computation;
-    computation << "ak.sum(" << get_mapped_source(command, 0) << ", axis=1)";
+    computation << "ak.sum(" << get_mapped_source(command, 0) << ", axis=-1)";
     return computation.str();
 }
 
@@ -823,13 +1060,13 @@ std::string CoffeaConverter::convert_func_max_of_pair(const AnalysisCommand &com
 
 std::string CoffeaConverter::convert_func_min_of_list(const AnalysisCommand &command) {
     std::stringstream computation;
-    computation << "ak.min(" << get_mapped_source(command, 0) << ", axis=1)";
+    computation << "ak.min(" << get_mapped_source(command, 0) << ", axis=-1)";
     return computation.str();
 }
 
 std::string CoffeaConverter::convert_func_max_of_list(const AnalysisCommand &command) {
     std::stringstream computation;
-    computation << "ak.max(" << get_mapped_source(command, 0) << ", axis=1)";
+    computation << "ak.max(" << get_mapped_source(command, 0) << ", axis=-1)";
     return computation.str();
 }
 
@@ -881,55 +1118,189 @@ std::string CoffeaConverter::convert_add_part_to_union(const AnalysisCommand &co
     std::string prev_union = get_mapped_source(command, 0);
     std::string new_to_add = get_mapped_source(command, 1);
 
-    if (prev_union == "") {
+    std::string clean_prev = strip_collection_marker(prev_union);
+    std::string clean_new = strip_collection_marker(new_to_add);
+
+    if (clean_prev == "") {
+        // First collection in the union — just return it
+        // Its provenance carries over naturally
         return new_to_add;
     } else {
+        std::string dest = get_mapped_dest(command);
+        
         emit_newline();
         emit_comment("Create object ", command.get_dest_argument(), " from a union");
-        emit(get_mapped_dest(command), " = ak.concatenate([", 
-             attribute("", prev_union, ""), ", ", 
-             attribute("", new_to_add, ""), "], axis=1)");
-        return get_mapped_dest(command) + "\x1d";
+        emit(dest, " = ak.concatenate([", clean_prev, ", ", clean_new, "], axis=1)");
+
+        // Concatenate provenance arrays too
+        std::string prov_prev = find_provenance(prev_union);
+        std::string prov_new = find_provenance(new_to_add);
+        if (!prov_prev.empty() && !prov_new.empty()) {
+            std::string dest_prov = dest + "_provenance";
+            emit(dest_prov, " = concat_provenance(", 
+                prov_prev, ", ", prov_new, ")");
+            provenance_map[dest] = dest_prov;
+            provenance_map[dest + "\x1d"] = dest_prov;
+        } else if (!prov_prev.empty()) {
+            // Only previous has provenance; create indices for new and concat
+            emit(dest, "_provenance = ak.concatenate([", prov_prev, 
+                 ", ak.local_index(", synthetic_attribute(main_names->pt(), new_to_add), 
+                 ", axis=1) + ak.max(", prov_prev, ", axis=1) + 1], axis=1)");
+            provenance_map[dest] = dest + "_provenance";
+            provenance_map[dest + "\x1d"] = dest + "_provenance";
+        } else if (!prov_new.empty()) {
+            emit(dest, "_provenance = ak.concatenate([ak.local_index(", 
+                 synthetic_attribute(main_names->pt(), prev_union), ", axis=1), ",
+                 prov_new, " + ak.num(", synthetic_attribute(main_names->pt(), prev_union), 
+                 ", axis=1)], axis=1)");
+            provenance_map[dest] = dest + "_provenance";
+            provenance_map[dest + "\x1d"] = dest + "_provenance";
+        }
+
+        return dest + "\x1d";
     }
 }
 
 std::string CoffeaConverter::convert_create_empty_cartesian(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
-    return "{'type': 'cartesian', 'collections': []}";
+    // Store as a unique composite ID; actual combination computed when naming elements
+    std::string dest = get_mapped_dest(command);
+    composite_info[dest] = {"cartesian", {}};
+    return dest;
 }
 
 std::string CoffeaConverter::convert_create_empty_disjoint(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
-    return "{'type': 'disjoint', 'collections': []}";
+    std::string dest = get_mapped_dest(command);
+    composite_info[dest] = {"combinations", {}};
+    return dest;
 }
 
 std::string CoffeaConverter::convert_create_empty_direct(const AnalysisCommand &command) {
     assert(command.get_num_source_arguments() == 0);
-    return "{'type': 'direct', 'collections': []}";
+    std::string dest = get_mapped_dest(command);
+    composite_info[dest] = {"direct", {}};
+    return dest;
 }
 
 std::string CoffeaConverter::convert_add_part_to_composite(const AnalysisCommand &command) {
     std::string prev_composite = get_mapped_source(command, 0);
-    std::string new_collection = attribute(main_names->pt(), get_mapped_source(command, 1));
+    std::string new_collection = get_mapped_source(command, 1);
     
-    std::regex end_list("\\]\\}");
-    std::string unended = std::regex_replace(prev_composite, end_list, "");
+    // Track which collection was added
+    std::string clean_composite = strip_collection_marker(prev_composite);
+    std::string clean_collection = strip_collection_marker(new_collection);
     
-    std::stringstream new_composite;
-    new_composite << unended << new_collection << "]}";
-    return new_composite.str();
+    // Find the composite info and add the collection
+    if (composite_info.contains(clean_composite)) {
+        composite_info[clean_composite].collections.push_back(clean_collection);
+        // Return same composite name (with updated info)
+        return clean_composite;
+    } else {
+        // Create new composite info under dest name
+        std::string dest = get_mapped_dest(command);
+        if (composite_info.contains(clean_composite)) {
+            composite_info[dest] = composite_info[clean_composite];
+        } else {
+            composite_info[dest] = {"cartesian", {}};
+        }
+        composite_info[dest].collections.push_back(clean_collection);
+        return dest;
+    }
 }
 
 std::string CoffeaConverter::convert_name_element_of_composite(const AnalysisCommand &command) {
-    std::string source_name = get_mapped_source(command, 2);
+            std::string dest = get_mapped_dest(command);
+
     std::string comb_name = get_mapped_source(command, 0);
-    std::string comb_index = get_mapped_source(command, 1);
+    std::string comb_index_str = get_mapped_source(command, 1);
+    std::string source_name = get_mapped_source(command, 2);
+    std::string clean_source = strip_collection_marker(source_name);
+    std::string clean_comb = strip_collection_marker(comb_name);
+    
+    int comb_index = std::stoi(comb_index_str);
 
     emit_newline();
-    emit_comment("Create object ", command.get_dest_argument(), " as an element of a composite");
-    emit(get_mapped_dest(command), " = ", attribute("", source_name, ""), "[", comb_name, "[:, ", comb_index, "]]");
     
+    // Check if we've already computed the combination indices
+    if (!composite_indices_computed.contains(clean_comb)) {
+        composite_indices_computed.emplace(clean_comb);
+        
+        if (composite_info.contains(clean_comb)) {
+            auto &info = composite_info[clean_comb];
+            
+            if (info.type == "cartesian") {
+                emit_comment("Compute Cartesian product indices for composite ", clean_comb);
+                if (info.collections.size() == 2) {
+                    emit(clean_comb, "_idx = ak.argcartesian([", 
+                         info.collections[0], ", ", info.collections[1], "], axis=1)");
+                    emit(clean_comb, "_idx0, ", clean_comb, "_idx1 = ak.unzip(", clean_comb, "_idx)");
+                } else if (info.collections.size() == 3) {
+                    emit(clean_comb, "_idx = ak.argcartesian([",
+                         info.collections[0], ", ", info.collections[1], ", ", info.collections[2], "], axis=1)");
+                    emit(clean_comb, "_idx0, ", clean_comb, "_idx1, ", clean_comb, "_idx2 = ak.unzip(", clean_comb, "_idx)");
+                } else if (info.collections.size() == 4) {
+                    emit(clean_comb, "_idx = ak.argcartesian([",
+                         info.collections[0], ", ", info.collections[1], ", ", 
+                         info.collections[2], ", ", info.collections[3], "], axis=1)");
+                    emit(clean_comb, "_idx0, ", clean_comb, "_idx1, ", clean_comb, "_idx2, ", clean_comb, "_idx3 = ak.unzip(", clean_comb, "_idx)");
+                } else {
+                    // General case
+                    std::stringstream collections_list;
+                    collections_list << "[";
+                    for (size_t i = 0; i < info.collections.size(); i++) {
+                        if (i > 0) collections_list << ", ";
+                        collections_list << info.collections[i];
+                    }
+                    collections_list << "]";
+                    emit(clean_comb, "_idx = ak.argcartesian(", collections_list.str(), ", axis=1)");
+                    
+                    std::stringstream unzip_lhs;
+                    for (size_t i = 0; i < info.collections.size(); i++) {
+                        if (i > 0) unzip_lhs << ", ";
+                        unzip_lhs << clean_comb << "_idx" << i;
+                    }
+                    emit(unzip_lhs.str(), " = ak.unzip(", clean_comb, "_idx)");
+                }
+            } else if (info.type == "combinations") {
+                // Disjoint = combinations (no repetition)
+                if (info.collections.size() >= 2) {
+                    emit_comment("Compute combinations indices for composite ", clean_comb);
+                    // For disjoint, all collections should be the same; use argcombinations
+                    emit(clean_comb, "_idx = ak.argcombinations(", info.collections[0], 
+                         ", ", std::to_string(info.collections.size()), ", axis=1)");
+                    
+                    std::stringstream unzip_lhs;
+                    for (size_t i = 0; i < info.collections.size(); i++) {
+                        if (i > 0) unzip_lhs << ", ";
+                        unzip_lhs << clean_comb << "_idx" << i;
+                    }
+                    emit(unzip_lhs.str(), " = ak.unzip(", clean_comb, "_idx)");
+                }
+            } else if (info.type == "direct") {
+                emit_comment("Direct combination for composite ", clean_comb, " (element-wise pairing)");
+                for (size_t i = 0; i < info.collections.size(); i++) {
+                    emit(clean_comb, "_idx", std::to_string(i), 
+                         " = ak.local_index(", info.collections[i], ", axis=1)");
+                }
+            }
+        }
+    }
+    
+    emit_comment("Create object ", command.get_dest_argument(), " as element ", comb_index_str, " of composite ", clean_comb);
+    emit(get_mapped_dest(command), " = ", clean_source, "[", clean_comb, "_idx", comb_index_str, "]");
+    
+    // Propagate provenance: index into the source's provenance with the same index array
+    std::string source_prov = find_provenance(source_name);
+    if (!source_prov.empty()) {
+        std::string dest_prov = dest + "_provenance";
+        emit(dest_prov, " = ", source_prov, "[", clean_comb, "_idx", comb_index_str, "] if ", source_prov, " is not None else None");
+        provenance_map[dest] = dest_prov;
+        provenance_map[dest + "\x1d"] = dest_prov;
+    }
+
     return get_mapped_dest(command) + "\x1d";
+
 }
 
 std::string CoffeaConverter::convert_create_empty_particle(const AnalysisCommand &command) {
@@ -945,6 +1316,24 @@ std::string CoffeaConverter::convert_sub_particle(const AnalysisCommand &command
     return add_subtract_particles(command, true);
 }
 
+std::string CoffeaConverter::find_provenance(std::string object) {
+    std::string clean = strip_collection_marker(object);
+    
+    // Check exact match
+    if (provenance_map.contains(object)) {
+        return provenance_map[object];
+    }
+    // Check clean name
+    if (provenance_map.contains(clean)) {
+        return provenance_map[clean];
+    }
+    // Check with marker
+    if (provenance_map.contains(clean + "\x1d")) {
+        return provenance_map[clean + "\x1d"];
+    }
+    
+    return "";
+}
 
 void CoffeaConverter::handle_command(const AnalysisCommand &command) {
     std::string resultant = command_convert(command);
@@ -955,6 +1344,9 @@ void CoffeaConverter::handle_command(const AnalysisCommand &command) {
 }
 
 void CoffeaConverter::print() {
+
+    level_of_indent = 0;
+
     met_name = config.get_argument("MET");
     std::string in_file = config.get_argument("infile");
     std::string out_file = config.get_argument("outfile");
@@ -988,13 +1380,14 @@ void CoffeaConverter::print() {
 
     // Import statements
     emit("import coffea");
+    emit("from coffea import processor"); 
     emit("from coffea.nanoevents import NanoEventsFactory, NanoAODSchema");
     emit("import awkward as ak");
     emit("import numpy as np");
     emit("import hist");
     emit("import vector");
     emit("vector.register_awkward()");
-    emit("");
+    emit_newline();
     emit("import sys, os");
     
     // Add path to helper functions
@@ -1002,17 +1395,44 @@ void CoffeaConverter::print() {
     emit("if adl_help_dir not in sys.path:");
     emit("    sys.path.append(adl_help_dir)");
     
-    emit("from adl_coffea_helpers import fill_histogram, fill_histogram_list, create_function_from_table");
+    emit("from adl_helpers_coffea import fill_histogram, fill_histogram_list, create_function_from_table, try_create_provenance, concat_provenance, check_distinct, delta_r_cross, delta_phi_cross, cutflow_generate, print_all_cutflows, combine_outputs");
     
     emit_newline();
+    if (config.get_argument("cutflowout") == "file") {
+        emit("output_file_name = '", out_file, "'.replace('.root', '')");
+    }
+    emit_newline();
+
+    emit_newline();
     emit_comment("Load events from input file");
-    emit("events = NanoEventsFactory.from_root('", in_file, "', schemaclass=NanoAODSchema, treepath='", events_tree_name, "').events()");
+
+    emit("files = []");
+    emit("if '", in_file, "'[-5:] == '.root':");
+    emit("    files = ['", in_file, "',]");
+    emit("else:");
+    emit("    with open('", in_file, "', 'r') as in_file_text:");
+    emit("        for line in in_file_text:");
+    emit("            files.append(line.strip())");
+    // emit("events = NanoEventsFactory.from_root('", in_file, "', schemaclass=NanoAODSchema, treepath='", events_tree_name, "').events()");
     
+    emit("fileset = {'mainset':files}");
+    
+
+    emit("class ADLProcessor(processor.ProcessorABC):");
+    emit("    def process(self,events):");
+
+    level_of_indent = 8;
+
+    emit_newline();
+    emit("from collections import defaultdict");
+    emit("output = defaultdict(float)");
+    emit_newline();
+
     emit_newline();
     emit_comment("Setup output file");
     emit("import uproot");
     emit("out_file = uproot.recreate('", out_file, "')");
-    
+
     emit_newline();
     emit_comment("Setup MET as a Lorentz vector compatible object");
     emit("METV_pt = ak.unflatten(events.", met_name, ".", met_names->pt(), ", counts=ak.ones_like(events.event))");
@@ -1029,6 +1449,37 @@ void CoffeaConverter::print() {
         handle_command(command);
     }
 
-    emit_newline();
     emit("out_file.close()");
+
+    emit("output['n_events'] += len(events)");
+    emit("return dict(output)");
+
+    emit_newline();
+
+    level_of_indent = 0;
+
+    emit("    def postprocess(self, accumulator):");
+    emit("        return accumulator");
+
+    emit("runner = coffea.processor.Runner(");
+    emit("    executor = coffea.processor.IterativeExecutor(),");
+    emit("    schema = NanoAODSchema,");
+    emit("    chunksize=10_000,");
+    emit(")");
+
+    emit_newline();
+    emit("result = runner(");
+    emit("    fileset,");
+    emit("    treename='", events_tree_name, "',");
+    emit("    processor_instance=ADLProcessor(),");
+    emit(")");
+
+    emit_newline();
+    emit_comment("Print cutflow reports");
+    if (config.get_argument("cutflowout") == "file") {
+        emit("print_all_cutflows(result, file_out=output_file_name)");
+    } else {
+        emit("print_all_cutflows(result)");
+    }
+
 }

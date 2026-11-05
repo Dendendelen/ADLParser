@@ -113,3 +113,44 @@ def create_function_out_of_table(name, table):
     """)
 
     ROOT.gInterpreter.Declare(name + ' = create_table_function('+num_bounds_per_entry + ', lower_bounds_rvec, upper_bounds_rvec, values_rvec);')
+
+
+
+def fixed_AddBranch(self, b, btype=''):
+    '''Add a branch to track. Will deduce if it is in a collection
+    in which case, the attribute will be added to the tracked collection.
+
+    @param b (str): Branch name
+    @param btype (str, optional): Type of branch. Defaults to '' but should only be left
+        this way in rare cases.
+    '''
+    collname = b.split('_')[0]
+    varname = '_'.join(b.split('_')[1:])
+    typeStr, isVect = self._parsetype(btype)
+    
+    if typeStr == False or varname == '' or ('n'+collname not in self._baseBranches and collname not in self._collectionDict.keys()):
+        matches = [m for m in self._otherBranches.keys() if (m.startswith(collname) and '_'.join(m.split('_')[1:]) != '')]
+        if len(matches) == 0:
+            self._otherBranches[b] = {
+                'type': typeStr,
+                'isVect': isVect,
+                'alias': False
+            }
+        else:
+            if varname != '':
+                self.AddCollection(collname)
+                self._collectionDict[collname][varname] = {
+                    'type': typeStr,
+                    'isVect': isVect,
+                    'alias': False
+                }
+                for match in matches:
+                    self._collectionDict[collname]['_'.join(match.split('_')[1:])] = self._otherBranches[match]
+                    del self._otherBranches[match]
+    elif varname != '':
+        self.AddCollection(collname)
+        self._collectionDict[collname][varname] = {
+            'type': typeStr,
+            'isVect': isVect,
+            'alias': False
+        }

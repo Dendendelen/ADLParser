@@ -313,7 +313,7 @@ std::string TimberConverter::convert_cut_region(const AnalysisCommand &command) 
     std::string cut = get_mapped_source(command,1);
 
     emit_comment("Apply cut to region");
-    emit(get_mapped_dest(command), " = [",prev,"[0].Add('",get_mapped_dest(command),"','",cut,"', makeCopy=True), ",prev,"[1]","]");
+    emit(get_mapped_dest(command), " = [",prev,"[0].Add('",get_mapped_dest(command),"','!!(",cut,")', makeCopy=True), ",prev,"[1]","]");
     return get_mapped_dest(command);
 }
 std::string TimberConverter::convert_create_bin_of_region(const AnalysisCommand &command) {
@@ -334,7 +334,7 @@ std::string TimberConverter::convert_add_external(const AnalysisCommand &command
     reg_quote= std::regex("\"");
 
     std::string extern_final_name = std::regex_replace(command.get_source_argument(0),reg_quote,"");
-    is_attribute.emplace(extern_final_name);
+    // is_attribute.emplace(extern_final_name);
     return extern_final_name;
 }
 std::string TimberConverter::convert_add_extern_attr(const AnalysisCommand &command) {
@@ -351,6 +351,15 @@ std::string TimberConverter::convert_add_extern_particle(const AnalysisCommand &
     
     std::stringstream extern_part;
     extern_part << std::regex_replace(command.get_source_argument(0), reg_quote, "");
+
+    emit("if 'n", extern_part.str(), "' in a.GetColumnNames():");
+    emit("    a.Define('",extern_part.str(),"_provenance', 'ROOT::VecOps::Range(n", extern_part.str(), ")')");
+    emit("elif '", extern_part.str(), "_size' in a._collectionOrg.GetCollectionAttributes('", extern_part.str(), "'):");
+    emit("    a.Define('",extern_part.str(),"_provenance', 'ROOT::VecOps::Range(", extern_part.str(), "_size)')");
+    emit("else:");
+    emit("    a.Define('",extern_part.str(),"_provenance', 'ROOT::VecOps::Range(1)')");
+    emit("");
+
     extern_part << '\x1d';
     return extern_part.str();
 }
@@ -374,7 +383,7 @@ std::string TimberConverter::convert_create_mask(const AnalysisCommand &command)
         , get_mapped_dest(command)
         , "')");
 
-    std::string shape_of_out = attribute(main_names->pt(), get_mapped_source(command, 0));
+    std::string shape_of_out = attribute("provenance", get_mapped_source(command, 0));
 
     emit(get_mapped_dest(command)
         , ".Add('"
@@ -658,13 +667,16 @@ std::string TimberConverter::convert_expr_logical_not(const AnalysisCommand &com
 }
 std::string TimberConverter::convert_expr_if_ternary(const AnalysisCommand &command) {
 
-    std::string bin_infix_question = binary_infix_operation("?", command);
-    bin_infix_question.pop_back();
+    // std::string bin_infix_question = binary_infix_operation("?", command);
+    // bin_infix_question.pop_back();
 
-    std::stringstream ternary;
-    ternary << bin_infix_question;
-    ternary << ":" << get_mapped_source(command,2) << ")";
-    return ternary.str();
+    // std::stringstream ternary;
+    // ternary << bin_infix_question;
+    // ternary << ":" << get_mapped_source(command,2) << ")";
+    // return ternary.str();
+
+    return multi_arg_function("Ternary", 3, command);
+
 }
 std::string TimberConverter::convert_expr_index(const AnalysisCommand &command) {
     std::stringstream index;
@@ -729,7 +741,7 @@ std::string TimberConverter::convert_func_deta_hadamard(const AnalysisCommand &c
     return multi_arg_lorentz_function("LVDeltaEtaHadamard", 2, command);
 }
 std::string TimberConverter::convert_func_size(const AnalysisCommand &command) {
-    std::string momentum_of_part = attribute(main_names->pt(), get_mapped_source(command, 0));
+    std::string momentum_of_part = attribute("provenance", get_mapped_source(command, 0));
     std::stringstream computation;
     computation << "(size(" << momentum_of_part << "))";
     return computation.str();
@@ -856,7 +868,7 @@ std::string TimberConverter::convert_create_empty_direct(const AnalysisCommand &
     return "GeneralDirect({})";
 }
 std::string TimberConverter::convert_add_part_to_composite(const AnalysisCommand &command) {
-    return list_append("})", ",", command, attribute(main_names->pt(), get_mapped_source(command,1)));
+    return list_append("})", ",", command, attribute("provenance", get_mapped_source(command,1)));
 }
 std::string TimberConverter::convert_name_element_of_composite(const AnalysisCommand &command) {
 
