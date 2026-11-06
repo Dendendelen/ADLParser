@@ -6,25 +6,30 @@ import numpy as np
 
 
 def fill_histogram(hist_def, events):
-    """
-    Fill a histogram with events from a region.
-    
-    Args:
-        hist_def: Dictionary containing histogram definition with 'hist' and 'fill_var'
-        events: Awkward array of events to fill
-    """
     hist_obj = hist_def['hist']
-    fill_var = hist_def['fill_var']
-    
-    # Evaluate the fill variable
-    values = eval(fill_var, {'events': events, 'ak': ak, 'np': np})
-    
-    # Flatten if needed
+
+    if 'fill_expr_x' in hist_def and 'fill_expr_y' in hist_def:
+        x_values = hist_def['fill_expr_x'](events)
+        y_values = hist_def['fill_expr_y'](events)
+
+        if hasattr(x_values, 'ndim') and x_values.ndim > 1:
+            x_values = ak.flatten(x_values)
+        if hasattr(y_values, 'ndim') and y_values.ndim > 1:
+            y_values = ak.flatten(y_values)
+
+        hist_obj.fill(x=ak.to_numpy(x_values), y=ak.to_numpy(y_values))
+        return
+
+    if 'fill_expr' in hist_def:
+        values = hist_def['fill_expr'](events)
+    else:
+        fill_var = hist_def['fill_var']
+        values = eval(fill_var, {'events': events, 'ak': ak, 'np': np})
+
     if hasattr(values, 'ndim') and values.ndim > 1:
         values = ak.flatten(values)
-    
-    hist_obj.fill(x=ak.to_numpy(values))
 
+    hist_obj.fill(x=ak.to_numpy(values))
 
 def fill_histogram_list(hist_list, events):
     """
@@ -97,11 +102,6 @@ def try_create_provenance(events_collection, pt_field="pt"):
     return ak.local_index(field_data, axis=1)
 
 def concat_provenance(prov_a, prov_b):
-    """
-    Concatenate provenance arrays for union operations.
-    If either is None, the result is None (provenance tracking lost).
-    Offsets prov_b indices to avoid collisions with prov_a.
-    """
     import awkward as ak
     
     if prov_a is None or prov_b is None:
@@ -203,15 +203,20 @@ def print_all_cutflows(output, file_out=None):
         cutflow_generate(reg_name, steps, file_out=file_out)
 
 def combine_outputs(a, b):
-    """Accumulate processor outputs across chunks."""
     result = dict(a)
     for k, v in b.items():
-        if k.startswith("cutflow_") and isinstance(v, dict):
+        if isinstance(v, (int, float, np.number)):
+            result[k] = result.get(k, 0.0) + v
+        elif k.startswith("cutflow_") and isinstance(v, dict):
             existing = result.get(k, {})
             combined = dict(existing)
             for ck, cv in v.items():
                 combined[ck] = combined.get(ck, 0.0) + cv
             result[k] = combined
         else:
-            result[k] = v  # histograms, etc.
+            result[k] = v
     return result
+
+def ToLV(pt, eta, phi, mass):
+    import coffea
+    return ak.zip({'pt': pt,'eta': eta, 'phi': phi, 'mass': mass}, with_name='PtEtaPhiMLorentzVector', behavior=coffea.nanoevents.methods.vector.behavior)

@@ -76,9 +76,9 @@ std::string Lexer::convert_to_uppercase(std::string &input) {
 Lexer::Lexer() {
     current_token = tokens.begin();
 
-    reg_int = std::regex("-{0,1}[0-9]+");
-    reg_decimal = std::regex("-{0,1}[0-9]*\\.[0-9]+");
-    reg_scientific = std::regex("-{0,1}[0-9]+\\.{0,1}[0-9]*[Ee][-+]{0,1}[0-9]+");
+    reg_int = std::regex("[0-9]+");
+    reg_decimal = std::regex("[0-9]*\\.[0-9]+");
+    reg_scientific = std::regex("[0-9]+\\.{0,1}[0-9]*[Ee][-+]{0,1}[0-9]+");
     reg_varname = std::regex("[A-Za-z][A-Za-z0-9_]*");
     reg_string= std::regex("\"[^\"]*\"");
 
@@ -500,11 +500,10 @@ void Lexer::read_line(std::string line_content, int line_number) {
         // if the running token is of the same type as the current char, then we add it to the string and keep going
         if (delimiter != previous_delimiter || symbol != previous_symbol) {
 
-            bool was_negative_sign_for_number = prev_char == '-' && current_char >= '0' && current_char <= '9';
             bool was_decimal_point_for_number = prev_char == '.' && current_char >= '0' && current_char <= '9';
             bool is_decimal_point_in_number = current_char == '.' && next_char <= '9' && next_char >= '0';
 
-            if (!was_negative_sign_for_number && !was_decimal_point_for_number && !is_decimal_point_in_number) {
+            if (!was_decimal_point_for_number && !is_decimal_point_in_number) {
                 // Otherwise, we do not have compatible symbols, so this clearly must be the end of a running token
                 lex_token(running_token, line_number, column_number, line_content_reference);
             }

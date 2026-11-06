@@ -1499,57 +1499,56 @@ void Parser::parse_particle(PNode parent) {
 /* INDEX productions:
 ---
 
-    INDEX -> INTEGER
+    INDEX -> EXPRESSION
 
-    INDEX -> INTEGER:INTEGER
+    INDEX -> EXPRESSION:EXPRESSION
 
-    INDEX -> :INTEGER
+    INDEX -> :EXPRESSION
 
-    INDEX -> INTEGER:
+    INDEX -> EXPRESSION:
     
  */
 void Parser::parse_index(PNode parent) {
 
-    // INDEX -> INTEGER
-    // INDEX -> INTEGER:INTEGER
-    // INDEX -> :INTEGER
-    // INDEX -> INTEGER:
+    // INDEX -> E
+    // INDEX -> E:E
+    // INDEX -> :E
+    // INDEX -> E:
     
     PNode index(create_node(AST::INDEX, parent));
 
     PToken tok = lexer->peek(0);
 
     switch (tok->get_token_type()) {
-        case TOK::INTEGER:
+        case TOK::COLON:
+            create_node(AST::UNBOUNDED, index, tok);
+
+            // INDEX -> : EXPRESSION
+            expect_and_consume(parent, TOK::COLON);
+            parse_expression(index);
+            return;
+        default:
         {
-            // INTEGER
-            parse_integer(index);
+            // EXPRESSION
+            parse_expression(index);
 
             PToken next = lexer->peek(0);
             if (next->get_token_type() == TOK::COLON) {
                 // : 
                 expect_and_consume(parent, TOK::COLON);
                 PToken next2 = lexer->peek(0);
-                if (next2->get_token_type() == TOK::INTEGER) {
-                    // INDEX -> INTEGER : INTEGER
+                // the only token in the follow set for INDEX is ]
+                if (next2->get_token_type() != TOK::CLOSE_SQUARE_BRACE) {
+                    // INDEX -> EXPRESSION :        
                     parse_integer(index);
                 } else {
-                    // INDEX -> INTEGER :
+                    // INDEX -> EXPRESSION :
                     create_node(AST::UNBOUNDED, index, next);
                 }
             }
             return;
         }
-        case TOK::COLON:
-            create_node(AST::UNBOUNDED, index, tok);
 
-            // INDEX -> : INTEGER
-            expect_and_consume(parent, TOK::COLON);
-            parse_integer(index);
-            return;
-        default:
-            create_node(AST::ERROR, index, tok);
-            raise_parsing_exception("Only integers are allowed to be used as indices", tok);
     }
 
 }
