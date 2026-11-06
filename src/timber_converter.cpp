@@ -960,8 +960,11 @@ void TimberConverter::print() {
     emit("    sys.path.append(adl_help_dir)");
 
     // import all our needed python helper functions
-    emit("from adl_helpers import combine_without_duplicates, use_histo, use_histo_list, cutflow_generate");
+    emit("from adl_helpers import combine_without_duplicates, use_histo, use_histo_list, cutflow_generate, fixed_AddBranch");
     
+    emit("import TIMBER.CollectionOrganizer as co");
+    emit("co.CollectionOrganizer.AddBranch = fixed_AddBranch");
+
     if (format == "DELPHES") {
         // load the Delphes helper script           
         emit("from adl_flatten_delphes import enable_delphes");
