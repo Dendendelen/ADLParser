@@ -270,7 +270,7 @@ std::string CoffeaConverter::synthetic_attribute(std::string attr, std::string o
     return attribute(attr, object);
 }
 
-std::string CoffeaConverter::use_within_region(std::string fun_within_node, std::string extra_arg, const AnalysisCommand &command) {
+std::string CoffeaConverter::use_within_region(std::string fun_within_node, std::string extra_arg, const AnalysisCommand &command, bool merge_return_into_output) {
     std::string reg_name;
     std::string reg_mapped;
 
@@ -285,7 +285,18 @@ std::string CoffeaConverter::use_within_region(std::string fun_within_node, std:
     emit_newline();
     emit_comment("Apply function within region context: ", reg_name);
     emit("_region_events = events[", reg_mapped, "_mask]");
-    emit(fun_within_node, "(", extra_arg, ", _region_events)");
+
+    if (merge_return_into_output) {
+        emit(
+            "output = combine_outputs(output, ",
+            fun_within_node,
+            "(",
+            extra_arg,
+            ", _region_events))"
+        );
+    } else {
+        emit(fun_within_node, "(", extra_arg, ", _region_events)");
+    }
 
     return command.has_dest_argument() ? get_mapped_dest(command) : "";
 }
@@ -349,14 +360,37 @@ std::string CoffeaConverter::convert_merge_regions(const AnalysisCommand &comman
     std::string name_second = get_mapped_source(command, 1);
     std::string base_name = get_region_base_name(dest);
 
+    std::string base_first = get_region_base_name(name_first);
+    std::string base_second = get_region_base_name(name_second);
+
     emit_newline();
     emit_comment("Merge regions ", name_first, " and ", name_second);
-    emit(get_mapped_dest(command), "_mask = ", name_first, "_mask & ", name_second, "_mask");
-    emit(get_mapped_dest(command), "_weights = ", name_first, "_weights + ", name_second, "_weights");
+    emit(dest, "_mask = ", name_first, "_mask & ", name_second, "_mask");
+    emit(dest, "_weights = ", name_first, "_weights + ", name_second, "_weights");
 
-    track_region_cut(base_name, dest + "_mask", "Merge(" + name_first + ", " + name_second + ")");
+    if (region_cutflow_steps.contains(base_first)) {
+        auto first_steps = region_cutflow_steps[base_first];
+        for (const auto &step : first_steps) {
+            track_region_cut(
+                base_name,
+                step.mask_var,
+                name_first + ": " + step.description
+            );
+        }
+    }
 
-    return get_mapped_dest(command);
+    if (region_cutflow_steps.contains(base_second)) {
+        auto second_steps = region_cutflow_steps[base_second];
+        for (const auto &step : second_steps) {
+            track_region_cut(
+                base_name,
+                step.mask_var,
+                name_second + ": " + step.description
+            );
+        }
+    }
+
+    return dest;
 }
 
 std::string CoffeaConverter::convert_cut_region(const AnalysisCommand &command) {
@@ -508,12 +542,12 @@ std::string CoffeaConverter::convert_add_hist_to_list(const AnalysisCommand &com
 
 std::string CoffeaConverter::convert_use_hist(const AnalysisCommand &command) {
     emit_comment("Use histogram in region");
-    return use_within_region("fill_histogram", get_mapped_source(command, 0), command);
+    return use_within_region("fill_histogram", get_mapped_source(command, 0), command, true);
 }
 
 std::string CoffeaConverter::convert_use_hist_list(const AnalysisCommand &command) {
     emit_comment("Use histogram list in region");
-    return use_within_region("fill_histogram_list", get_mapped_source(command, 0), command);
+    return use_within_region("fill_histogram_list", get_mapped_source(command, 0), command, true);
 }
 
 std::string CoffeaConverter::convert_hist_1d(const AnalysisCommand &command) {
@@ -1386,7 +1420,7 @@ void CoffeaConverter::print() {
     emit("if adl_help_dir not in sys.path:");
     emit("    sys.path.append(adl_help_dir)");
     
-    emit("from adl_helpers_coffea import fill_histogram, fill_histogram_list, create_function_from_table, try_create_provenance, concat_provenance, check_distinct, delta_r_cross, delta_phi_cross, cutflow_generate, print_all_cutflows, combine_outputs, ToLV");
+    emit("from adl_helpers_coffea import fill_histogram, fill_histogram_list, create_function_from_table, try_create_provenance, concat_provenance, check_distinct, delta_r_cross, delta_phi_cross, cutflow_generate, print_all_cutflows, combine_outputs, write_histograms, ToLV");
     
     emit_newline();
     if (config.get_argument("cutflowout") == "file") {
@@ -1417,12 +1451,6 @@ void CoffeaConverter::print() {
     emit_newline();
     emit("from collections import defaultdict");
     emit("output = defaultdict(float)");
-    emit_newline();
-
-    emit_newline();
-    emit_comment("Setup output file");
-    emit("import uproot");
-    emit("out_file = uproot.recreate('", out_file, "')");
 
     emit_newline();
     emit_comment("Setup MET as a Lorentz vector compatible object");
@@ -1439,8 +1467,6 @@ void CoffeaConverter::print() {
     for (auto &command : commands.get_commands()) {
         handle_command(command);
     }
-
-    emit("out_file.close()");
 
     emit("output['n_events'] += len(events)");
     emit("return dict(output)");
@@ -1464,6 +1490,10 @@ void CoffeaConverter::print() {
     emit("    treename='", events_tree_name, "',");
     emit("    processor_instance=ADLProcessor(),");
     emit(")");
+
+    emit_newline();
+    emit_comment("Write histograms to output ROOT file");
+    emit("write_histograms(result, '", out_file, "')");
 
     emit_newline();
     emit_comment("Print cutflow reports");

@@ -4,43 +4,81 @@ Helper functions for ADL to Coffea conversion
 import awkward as ak
 import numpy as np
 
+def _to_flat_numpy(values):
+    """
+    Convert awkward/numpy/scalar values into a flat numpy array suitable for hist.fill.
+    Drops None values.
+    """
+    import awkward as ak
+    import numpy as np
+
+    if isinstance(values, ak.Array):
+        values = ak.drop_none(values)
+
+        # Flatten all jagged/list dimensions.
+        while getattr(values, "ndim", 1) > 1:
+            values = ak.flatten(values, axis=1)
+            values = ak.drop_none(values)
+
+        return ak.to_numpy(values)
+
+    arr = np.asarray(values)
+
+    if arr.ndim > 1:
+        arr = arr.reshape(-1)
+
+    return arr
+
 
 def fill_histogram(hist_def, events):
-    hist_obj = hist_def['hist']
+    """
+    Fill one histogram definition and return it as a processor output fragment.
 
-    if 'fill_expr_x' in hist_def and 'fill_expr_y' in hist_def:
-        x_values = hist_def['fill_expr_x'](events)
-        y_values = hist_def['fill_expr_y'](events)
+    Returns:
+        dict like {hist_name: hist.Hist}
+    """
+    hist_obj = hist_def["hist"]
+    hist_name = hist_def.get("name", "histogram")
 
-        if hasattr(x_values, 'ndim') and x_values.ndim > 1:
-            x_values = ak.flatten(x_values)
-        if hasattr(y_values, 'ndim') and y_values.ndim > 1:
-            y_values = ak.flatten(y_values)
+    if "fill_expr_x" in hist_def and "fill_expr_y" in hist_def:
+        x_values = hist_def["fill_expr_x"](events)
+        y_values = hist_def["fill_expr_y"](events)
 
-        hist_obj.fill(x=ak.to_numpy(x_values), y=ak.to_numpy(y_values))
-        return
+        x_values = _to_flat_numpy(x_values)
+        y_values = _to_flat_numpy(y_values)
 
-    if 'fill_expr' in hist_def:
-        values = hist_def['fill_expr'](events)
+        # Protect against mismatched flattening in pathological jagged cases.
+        n = min(len(x_values), len(y_values))
+        hist_obj.fill(x=x_values[:n], y=y_values[:n])
+
+        return {hist_name: hist_obj}
+
+    if "fill_expr" in hist_def:
+        values = hist_def["fill_expr"](events)
     else:
-        fill_var = hist_def['fill_var']
-        values = eval(fill_var, {'events': events, 'ak': ak, 'np': np})
+        fill_var = hist_def["fill_var"]
+        values = eval(fill_var, {"events": events, "ak": ak, "np": np})
 
-    if hasattr(values, 'ndim') and values.ndim > 1:
-        values = ak.flatten(values)
+    values = _to_flat_numpy(values)
+    hist_obj.fill(x=values)
 
-    hist_obj.fill(x=ak.to_numpy(values))
+    return {hist_name: hist_obj}
+
 
 def fill_histogram_list(hist_list, events):
     """
-    Fill a list of histograms with events from a region.
-    
-    Args:
-        hist_list: List of histogram definitions
-        events: Awkward array of events to fill
+    Fill a list of histogram definitions and return a processor output fragment.
+
+    Returns:
+        dict like {hist_name: hist.Hist, ...}
     """
+    output = {}
+
     for hist_def in hist_list:
-        fill_histogram(hist_def, events)
+        filled = fill_histogram(hist_def, events)
+        output = combine_outputs(output, filled)
+
+    return output
 
 
 def create_function_from_table(table):
@@ -205,17 +243,40 @@ def print_all_cutflows(output, file_out=None):
 def combine_outputs(a, b):
     result = dict(a)
     for k, v in b.items():
+        existing = result.get(k, None)
+
         if isinstance(v, (int, float, np.number)):
             result[k] = result.get(k, 0.0) + v
+
+        elif hasattr(v, "axes") and hasattr(v, "values"):
+            # hist.Hist-like object
+            if existing is None:
+                result[k] = v.copy()
+            else:
+                result[k] = existing + v
+
         elif k.startswith("cutflow_") and isinstance(v, dict):
             existing = result.get(k, {})
             combined = dict(existing)
             for ck, cv in v.items():
                 combined[ck] = combined.get(ck, 0.0) + cv
             result[k] = combined
+
         else:
             result[k] = v
+
     return result
+
+def write_histograms(output, filename):
+    """
+    Write all hist.Hist-like objects in the processor output to a ROOT file.
+    """
+    import uproot
+
+    with uproot.recreate(filename) as fout:
+        for name, obj in output.items():
+            if hasattr(obj, "axes") and hasattr(obj, "values"):
+                fout[name] = obj
 
 def ToLV(pt, eta, phi, mass):
     import coffea

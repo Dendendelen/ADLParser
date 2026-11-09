@@ -94,7 +94,7 @@ class CoffeaConverter : public ALILToFrameworkCompiler {
         std::string binary_infix_operation(std::string op_name, const AnalysisCommand &command);
         std::string interval(std::string left_bound_op, std::string right_bound_op, const AnalysisCommand &command);
         std::string add_subtract_particles(const AnalysisCommand &command, bool is_subtraction = false);
-        std::string use_within_region(std::string fun_within_node, std::string extra_arg, const AnalysisCommand &command);
+        std::string use_within_region(std::string fun_within_node, std::string extra_arg, const AnalysisCommand &command, bool merge_return_into_output = false);
 
         void track_region_cut(std::string region_base, std::string mask_var, std::string description);
         std::string get_region_base_name(std::string mapped_name);
