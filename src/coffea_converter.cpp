@@ -349,44 +349,38 @@ std::string CoffeaConverter::convert_create_region(const AnalysisCommand &comman
 
     emit_newline();
     emit_comment("Create new region: ", command.get_dest_argument());
-    emit(get_mapped_dest(command), "_mask = ak.ones_like(events.event, dtype=bool)");
-    emit(get_mapped_dest(command), "_weights = []");
-    return get_mapped_dest(command);
+    emit(dest, "_mask = ak.ones_like(events.event, dtype=bool)");
+    emit(dest, "_weights = []");
+
+    region_cutflow_steps[dest] = {}; 
+
+    return dest;
 }
 
 std::string CoffeaConverter::convert_merge_regions(const AnalysisCommand &command) {
     std::string dest = get_mapped_dest(command);
     std::string name_first = get_mapped_source(command, 0);
     std::string name_second = get_mapped_source(command, 1);
-    std::string base_name = get_region_base_name(dest);
-
-    std::string base_first = get_region_base_name(name_first);
-    std::string base_second = get_region_base_name(name_second);
 
     emit_newline();
     emit_comment("Merge regions ", name_first, " and ", name_second);
     emit(dest, "_mask = ", name_first, "_mask & ", name_second, "_mask");
     emit(dest, "_weights = ", name_first, "_weights + ", name_second, "_weights");
 
-    if (region_cutflow_steps.contains(base_first)) {
-        auto first_steps = region_cutflow_steps[base_first];
+    // report every cut from both merged regions.
+    region_cutflow_steps[dest] = {};
+
+    if (region_cutflow_steps.contains(name_first)) {
+        const auto first_steps = region_cutflow_steps[name_first];
         for (const auto &step : first_steps) {
-            track_region_cut(
-                base_name,
-                step.mask_var,
-                name_first + ": " + step.description
-            );
+            region_cutflow_steps[dest].push_back(step);
         }
     }
 
-    if (region_cutflow_steps.contains(base_second)) {
-        auto second_steps = region_cutflow_steps[base_second];
+    if (region_cutflow_steps.contains(name_second)) {
+        const auto second_steps = region_cutflow_steps[name_second];
         for (const auto &step : second_steps) {
-            track_region_cut(
-                base_name,
-                step.mask_var,
-                name_second + ": " + step.description
-            );
+            region_cutflow_steps[dest].push_back(step);
         }
     }
 
@@ -397,14 +391,14 @@ std::string CoffeaConverter::convert_cut_region(const AnalysisCommand &command) 
     std::string dest = get_mapped_dest(command);
     std::string prev = get_mapped_source(command, 0);
     std::string cut = get_mapped_source(command, 1);
-    std::string base_name = get_region_base_name(dest);
 
     emit_newline();
     emit_comment("Apply cut to region");
-    emit(get_mapped_dest(command), "_mask = ", prev, "_mask & (", cut, ")");
-    emit(get_mapped_dest(command), "_weights = ", prev, "_weights.copy()");
+    emit(dest, "_mask = ", prev, "_mask & (", cut, ")");
+    emit(dest, "_weights = ", prev, "_weights.copy()");
     
-    track_region_cut(base_name, dest + "_mask", cut);
+    region_cutflow_steps[dest] = region_cutflow_steps[prev];
+    track_region_cut(dest, dest + "_mask", cut);
 
     return get_mapped_dest(command);
 }
@@ -413,16 +407,16 @@ std::string CoffeaConverter::convert_create_bin_of_region(const AnalysisCommand 
     std::string dest = get_mapped_dest(command);
     std::string prev = get_mapped_source(command, 0);
     std::string cut = get_mapped_source(command, 1);
-    std::string base_name = get_region_base_name(dest);
 
     emit_newline();
     emit_comment("Create bin of region");
-    emit(get_mapped_dest(command), "_mask = ", prev, "_mask & (", cut, ")");
-    emit(get_mapped_dest(command), "_weights = ", prev, "_weights.copy()");
-    
-    track_region_cut(base_name, dest + "_mask", "Bin: " + cut);
+    emit(dest, "_mask = ", prev, "_mask & (", cut, ")");
+    emit(dest, "_weights = ", prev, "_weights.copy()");
 
-    return get_mapped_dest(command);
+    region_cutflow_steps[dest] = region_cutflow_steps[prev];
+    track_region_cut(dest, dest + "_mask", "Bin: " + cut);
+
+    return dest;
 }
 
 std::string CoffeaConverter::convert_add_alias(const AnalysisCommand &command) {
@@ -568,7 +562,7 @@ std::string CoffeaConverter::convert_hist_1d(const AnalysisCommand &command) {
     
     emit(get_mapped_dest(command), " = {");
     emit("    'name': '", get_mapped_dest(command), "',");
-    emit("    'hist': hist.Hist(hist.axis.Regular(", nbins, ", ", low, ", ", high, ", name='x', label=", title, ")),");
+    emit("    'hist': hist.Hist(hist.axis.Regular(", nbins, ", ", low, ", ", high, ", name='x', label=make_histogram_labels(", title, ",1)[1][0]), name=make_histogram_labels(", title ,",1)[0]),");
     emit("    'fill_expr': lambda events: ", fill_var);
     emit("}");
     
@@ -597,8 +591,9 @@ std::string CoffeaConverter::convert_hist_2d(const AnalysisCommand &command) {
     emit(get_mapped_dest(command), " = {");
     emit("    'name': '", get_mapped_dest(command), "',");
     emit("    'hist': hist.Hist(");
-    emit("        hist.axis.Regular(", nbins_x, ", ", low_x, ", ", high_x, ", name='x'),");
-    emit("        hist.axis.Regular(", nbins_y, ", ", low_y, ", ", high_y, ", name='y')");
+    emit("        hist.axis.Regular(", nbins_x, ", ", low_x, ", ", high_x, ", name='x', label=make_histogram_labels(",title,",2)[1][0]),");
+    emit("        hist.axis.Regular(", nbins_y, ", ", low_y, ", ", high_y, ", name='y', label=make_histogram_labels(",title,",2)[1][1]),");
+    emit("        name=make_histogram_labels(",title,",2)[0]");
     emit("    ),");
     emit("    'fill_expr_x': lambda events: ", fill_var_x, ",");
     emit("    'fill_expr_y': lambda events: ", fill_var_y);
@@ -611,30 +606,31 @@ std::string CoffeaConverter::convert_weight_apply(const AnalysisCommand &command
     std::string prev = get_mapped_source(command, 0);
     std::string weight = get_mapped_source(command, 1);
     std::string dest = get_mapped_dest(command);
-    std::string base_name = get_region_base_name(dest);
 
     emit_newline();
     emit_comment("Apply weight correction: ", weight);
     emit(dest, "_mask = ", prev, "_mask");
     emit(dest, "_weights = ", prev, "_weights + ['", weight, "']");
 
-    track_region_cut(base_name, dest + "_mask", "Weight: " + weight);
-    
+    region_cutflow_steps[dest] = region_cutflow_steps[prev];
+    track_region_cut(dest, dest + "_mask", "Weight: " + weight);
+
     return dest;
 }
 
 std::string CoffeaConverter::convert_do_cutflow_on_region(const AnalysisCommand &command) {
     std::string reg_name = get_mapped_source(command, 0);
-    std::string base_name = get_region_base_name(reg_name);
+    std::string display_name = get_region_base_name(reg_name);
 
     emit_newline();
-    emit_comment("Cutflow for region: " + base_name);
+    emit_comment("Cutflow for region: " + display_name);
 
-    // Initial count before any cuts
-    emit("output[\"cutflow_", base_name, "::Initial\"] += float(len(events))");
+    // Initial count before any cuts.
+    emit("output[\"cutflow_", display_name, "::Initial\"] += float(len(events))");
 
-    if (region_cutflow_steps.contains(base_name)) {
-        const auto &steps = region_cutflow_steps[base_name];
+    if (region_cutflow_steps.contains(reg_name)) {
+        const auto &steps = region_cutflow_steps[reg_name];
+
         for (const auto &step : steps) {
             std::string safe;
             for (char c : step.description) {
@@ -642,11 +638,21 @@ std::string CoffeaConverter::convert_do_cutflow_on_region(const AnalysisCommand 
                 else if (c == '"') safe += "\\\"";
                 else safe += c;
             }
-            emit("output[\"cutflow_", base_name, "::", safe, "\"] += float(ak.sum(", step.mask_var, "))");
+
+            emit(
+                "output[\"cutflow_",
+                display_name,
+                "::",
+                safe,
+                "\"] += float(ak.sum(",
+                step.mask_var,
+                "))"
+            );
         }
     }
 
     return "";
+
 }
 
 std::string CoffeaConverter::convert_do_eventlist_on_region(const AnalysisCommand &command) {
@@ -1420,7 +1426,7 @@ void CoffeaConverter::print() {
     emit("if adl_help_dir not in sys.path:");
     emit("    sys.path.append(adl_help_dir)");
     
-    emit("from adl_helpers_coffea import fill_histogram, fill_histogram_list, create_function_from_table, try_create_provenance, concat_provenance, check_distinct, delta_r_cross, delta_phi_cross, cutflow_generate, print_all_cutflows, combine_outputs, write_histograms, ToLV");
+    emit("from adl_helpers_coffea import make_histogram_labels, fill_histogram, fill_histogram_list, create_function_from_table, try_create_provenance, concat_provenance, check_distinct, delta_r_cross, delta_phi_cross, cutflow_generate, print_all_cutflows, combine_outputs, write_histograms, ToLV");
     
     emit_newline();
     if (config.get_argument("cutflowout") == "file") {

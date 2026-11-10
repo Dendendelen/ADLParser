@@ -29,6 +29,24 @@ def _to_flat_numpy(values):
 
     return arr
 
+def make_histogram_labels(labels, dimensions):
+    """Return (title, axis_labels) from [title, x label, (y label)]."""
+    if isinstance(labels, str):
+        labels = [labels]
+    elif labels is None:
+        labels = []
+    else:
+        labels = list(labels)
+
+    if len(labels) > dimensions + 1:
+        raise ValueError(
+            f"Expected at most {dimensions + 1} labels "
+            f"(title, then {dimensions} axis labels); got {len(labels)}"
+        )
+
+    title = labels[0] if labels else ""
+    axis_labels = labels[1:] + [""] * (dimensions - len(labels) + 1)
+    return title, axis_labels[:dimensions]
 
 def fill_histogram(hist_def, events):
     """
@@ -240,8 +258,10 @@ def print_all_cutflows(output, file_out=None):
     for reg_name, steps in regions.items():
         cutflow_generate(reg_name, steps, file_out=file_out)
 
+from collections import defaultdict
+
 def combine_outputs(a, b):
-    result = dict(a)
+    result = defaultdict(float, a)
     for k, v in b.items():
         existing = result.get(k, None)
 
@@ -249,7 +269,6 @@ def combine_outputs(a, b):
             result[k] = result.get(k, 0.0) + v
 
         elif hasattr(v, "axes") and hasattr(v, "values"):
-            # hist.Hist-like object
             if existing is None:
                 result[k] = v.copy()
             else:
