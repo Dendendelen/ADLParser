@@ -48,7 +48,7 @@ def make_histogram_labels(labels, dimensions):
     axis_labels = labels[1:] + [""] * (dimensions - len(labels) + 1)
     return title, axis_labels[:dimensions]
 
-def fill_histogram(hist_def, events, context_kwargs=None):
+def fill_histogram(hist_def, events, context_kwargs=None, weights=None):
     """
     Fill one histogram definition and return it as a processor output fragment.
 
@@ -66,12 +66,24 @@ def fill_histogram(hist_def, events, context_kwargs=None):
         x_values = hist_def["fill_expr_x"](events, **context_kwargs)
         y_values = hist_def["fill_expr_y"](events, **context_kwargs)
 
-        x_values = _to_flat_numpy(x_values)
-        y_values = _to_flat_numpy(y_values)
+        if weights is not None:
+            x_values, y_values, fill_weights = ak.broadcast_arrays(x_values, y_values, weights,)
+            
+            x_values = _to_flat_numpy(x_values)
+            y_values = _to_flat_numpy(y_values)
+            fill_weights = _to_flat_numpy(fill_weights)
 
-        # Protect against mismatched flattening in pathological jagged cases.
-        n = min(len(x_values), len(y_values))
-        hist_obj.fill(x=x_values[:n], y=y_values[:n])
+            # Protect against mismatched flattening in pathological jagged cases.
+            n = min(len(x_values), len(y_values), len(fill_weights))
+            hist_obj.fill(x=x_values[:n], y=y_values[:n], weight=fill_weights[:n])
+
+        else:
+            x_values = _to_flat_numpy(x_values)
+            y_values = _to_flat_numpy(y_values)
+
+            # Protect against mismatched flattening in pathological jagged cases.
+            n = min(len(x_values), len(y_values))
+            hist_obj.fill(x=x_values[:n], y=y_values[:n])
 
         return {hist_name: hist_obj}
 
@@ -79,15 +91,24 @@ def fill_histogram(hist_def, events, context_kwargs=None):
         values = hist_def["fill_expr"](events, **context_kwargs)
     else:
         fill_var = hist_def["fill_var"]
-        values = eval(fill_var, {"events": events, "ak": ak, "np": np})
+        values = eval(fill_var, {"events": events, "ak": ak, "np": np, **context_kwargs,})
 
-    values = _to_flat_numpy(values)
-    hist_obj.fill(x=values)
+    if weights is not None:
+        values, fill_weights = ak.broadcast_arrays(values, weights)
+
+        values = _to_flat_numpy(values)
+        fill_weights = _to_flat_numpy(fill_weights)
+
+        n = min(len(values), len(fill_weights))
+        hist_obj.fill(x=values[:n], weight=fill_weights[:n])
+    else:
+        values = _to_flat_numpy(values)
+        hist_obj.fill(x=values)
 
     return {hist_name: hist_obj}
 
 
-def fill_histogram_list(hist_list, events, context_kwargs=None):
+def fill_histogram_list(hist_list, events, context_kwargs=None, weights=None):
     """
     Fill a list of histogram definitions and return a processor output fragment.
 
@@ -101,7 +122,7 @@ def fill_histogram_list(hist_list, events, context_kwargs=None):
     output = {}
 
     for hist_def in hist_list:
-        filled = fill_histogram(hist_def, events, context_kwargs)
+        filled = fill_histogram(hist_def, events, context_kwargs, weights)
         output = combine_outputs(output, filled)
 
     return output

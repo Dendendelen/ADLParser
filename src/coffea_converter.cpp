@@ -295,16 +295,37 @@ std::string CoffeaConverter::use_within_region(std::string fun_within_node, std:
     emit("_region_events = events[_region_mask]");
     emit("_region_kwargs = {name: value[_region_mask] for name, value in ctx.items()}");    
 
+
+    emit("_region_weights = ak.ones_like(_region_events.event, dtype=float)");
+    emit("for _w in ", reg_mapped, "_weights:");
+    emit("    _region_weights = _region_weights * _w[_region_mask]");
+
+    bool is_hist_function = (fun_within_node == "fill_histogram" || fun_within_node == "fill_histogram_list");
+
     if (merge_return_into_output) {
-        emit(
-            "output = combine_outputs(output, ",
-            fun_within_node,
-            "(",
-            extra_arg,
-            ", _region_events))"
-        );
+        if (is_hist_function) {
+            emit(
+                "output = combine_outputs(output, ",
+                fun_within_node,
+                "(",
+                extra_arg,
+                ", _region_events, _region_kwargs, _region_weights))"
+            );
+        } else {
+            emit(
+                "output = combine_outputs(output, ",
+                fun_within_node,
+                "(",
+                extra_arg,
+                ", _region_events))"
+            );
+        }
     } else {
-        emit(fun_within_node, "(", extra_arg, ", _region_events)");
+        if (is_hist_function) {
+            emit(fun_within_node, "(", extra_arg, ", _region_events, _region_kwargs, _region_weights)");
+        } else {
+            emit(fun_within_node, "(", extra_arg, ", _region_events)");
+        }
     }
 
     return command.has_dest_argument() ? get_mapped_dest(command) : "";
@@ -647,7 +668,7 @@ std::string CoffeaConverter::convert_weight_apply(const AnalysisCommand &command
     emit_newline();
     emit_comment("Apply weight correction: ", weight);
     emit(dest, "_mask = ", prev, "_mask");
-    emit(dest, "_weights = ", prev, "_weights + ['", weight, "']");
+    emit(dest, "_weights = ", prev, "_weights + [", weight, "]");
 
     region_cutflow_steps[dest] = region_cutflow_steps[prev];
     track_region_cut(dest, dest + "_mask", "Weight: " + weight);
