@@ -19,11 +19,11 @@ def use_histo(histo_params, node):
 
     if len(histo_params) < 7:
         node2 = node.Define('_variable_1', histo_params[5])
-        hist = node2.DataFrame.Histo1D((histo_params[0], histo_params[1][0]+";"+(histo_params[1][1] if len(histo_params[1]) > 1 else histo_params[5])+";Events", histo_params[2], histo_params[3], histo_params[4]), '_variable_1')
+        hist = node2.DataFrame.Histo1D((histo_params[0], histo_params[1][0]+";"+(histo_params[1][1] if len(histo_params[1]) > 1 else histo_params[5])+";Events", histo_params[2], histo_params[3], histo_params[4]), '_variable_1', 'weight__nominal')
     else:
         node2 = node.Define('_variable_1', histo_params[5])
         node3 = node2.Define('_variable_2', histo_params[9])
-        hist = node3.DataFrame.Histo2D((histo_params[0], histo_params[1][0]+";"+(histo_params[1][1] if len(histo_params[1]) > 1 else histo_params[5])+";"+(histo_params[1][2] if len(histo_params[1]) > 2 else histo_params[9]), histo_params[2], histo_params[3], histo_params[4], histo_params[6], histo_params[7], histo_params[8]), '_variable_1', '_variable_2')
+        hist = node3.DataFrame.Histo2D((histo_params[0], histo_params[1][0]+";"+(histo_params[1][1] if len(histo_params[1]) > 1 else histo_params[5])+";"+(histo_params[1][2] if len(histo_params[1]) > 2 else histo_params[9]), histo_params[2], histo_params[3], histo_params[4], histo_params[6], histo_params[7], histo_params[8]), '_variable_1', '_variable_2', 'weight__nominal')
     hist.Write()
     print("Created histogram "+ histo_params[0])
 

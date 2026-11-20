@@ -59,6 +59,8 @@ class CoffeaConverter : public ALILToFrameworkCompiler {
         std::unordered_set<std::string> is_attribute;
         std::unordered_set<std::string> known_lorentz;
 
+        std::unordered_set<std::string> context_vars;
+
         std::map<std::string, bool> synthetic_particle_vars;
         std::map<std::string, std::string> provenance_map;
 
@@ -95,6 +97,9 @@ class CoffeaConverter : public ALILToFrameworkCompiler {
         std::string interval(std::string left_bound_op, std::string right_bound_op, const AnalysisCommand &command);
         std::string add_subtract_particles(const AnalysisCommand &command, bool is_subtraction = false);
         std::string use_within_region(std::string fun_within_node, std::string extra_arg, const AnalysisCommand &command, bool merge_return_into_output = false);
+
+        void emit_context_update(const std::string &name);
+        std::string make_lambda_context_args();
 
         void track_region_cut(std::string region_base, std::string mask_var, std::string description);
         std::string get_region_base_name(std::string mapped_name);

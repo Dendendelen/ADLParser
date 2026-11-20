@@ -258,6 +258,13 @@ std::string CoffeaConverter::add_subtract_particles(const AnalysisCommand &comma
          synthetic_attribute(main_names->charge(), last_val), op,
          synthetic_attribute(main_names->charge(), this_val));
     
+    emit_context_update(dest + "_lv");
+    emit_context_update(dest + "_pt");
+    emit_context_update(dest + "_eta");
+    emit_context_update(dest + "_phi");
+    emit_context_update(dest + "_mass");
+    emit_context_update(dest + "_charge");
+
     synthetic_particle_vars[dest] = true;
     
     return dest;
@@ -284,7 +291,9 @@ std::string CoffeaConverter::use_within_region(std::string fun_within_node, std:
 
     emit_newline();
     emit_comment("Apply function within region context: ", reg_name);
-    emit("_region_events = events[", reg_mapped, "_mask]");
+    emit("_region_mask = ", reg_mapped, "_mask");
+    emit("_region_events = events[_region_mask]");
+    emit("_region_kwargs = {name: value[_region_mask] for name, value in ctx.items()}");    
 
     if (merge_return_into_output) {
         emit(
@@ -301,6 +310,29 @@ std::string CoffeaConverter::use_within_region(std::string fun_within_node, std:
     return command.has_dest_argument() ? get_mapped_dest(command) : "";
 }
 
+void CoffeaConverter::emit_context_update(const std::string &name) {
+    std::string clean = strip_collection_marker(name);
+
+    if (clean.empty()) return;
+
+    context_vars.insert(clean);
+    emit("ctx['", clean, "'] = ", clean);
+}
+
+std::string CoffeaConverter::make_lambda_context_args() {
+    std::vector<std::string> names(context_vars.begin(), context_vars.end());
+    std::sort(names.begin(), names.end());
+
+    std::stringstream args;
+
+    for (const std::string &name : names) {
+        args << name << "=None, ";
+    }
+
+    args << "**ctx";
+
+    return args.str();
+}
 
 void CoffeaConverter::track_region_cut(std::string region_base, std::string mask_var, std::string description) {
     region_cutflow_steps[region_base].push_back({mask_var, description});
@@ -522,6 +554,8 @@ std::string CoffeaConverter::convert_apply_mask(const AnalysisCommand &command) 
         provenance_map[dest + "\x1d"] = dest + ".provenance";
     }
 
+    emit_context_update(dest);
+
     return dest + "\x1d";
 }
 
@@ -563,7 +597,7 @@ std::string CoffeaConverter::convert_hist_1d(const AnalysisCommand &command) {
     emit(get_mapped_dest(command), " = {");
     emit("    'name': '", get_mapped_dest(command), "',");
     emit("    'hist': hist.Hist(hist.axis.Regular(", nbins, ", ", low, ", ", high, ", name='x', label=make_histogram_labels(", title, ",1)[1][0]), name=make_histogram_labels(", title ,",1)[0]),");
-    emit("    'fill_expr': lambda events: ", fill_var);
+    emit("    'fill_expr': lambda events, ", make_lambda_context_args(), ": ", fill_var);
     emit("}");
     
     return get_mapped_dest(command);
@@ -595,8 +629,11 @@ std::string CoffeaConverter::convert_hist_2d(const AnalysisCommand &command) {
     emit("        hist.axis.Regular(", nbins_y, ", ", low_y, ", ", high_y, ", name='y', label=make_histogram_labels(",title,",2)[1][1]),");
     emit("        name=make_histogram_labels(",title,",2)[0]");
     emit("    ),");
-    emit("    'fill_expr_x': lambda events: ", fill_var_x, ",");
-    emit("    'fill_expr_y': lambda events: ", fill_var_y);
+
+    std::string lambda_args = make_lambda_context_args();
+
+    emit("    'fill_expr_x': lambda events, ", lambda_args, ": ", fill_var_x, ",");
+    emit("    'fill_expr_y': lambda events, ", lambda_args, ": ", fill_var_y);
     emit("}");
     
     return get_mapped_dest(command);
@@ -727,6 +764,8 @@ std::string CoffeaConverter::convert_obj_sort_ascend(const AnalysisCommand &comm
         provenance_map[dest + "\x1d"] = dest + ".provenance";
     }
 
+    emit_context_update(dest);
+
     return dest + "\x1d";
 }
 
@@ -746,6 +785,8 @@ std::string CoffeaConverter::convert_obj_sort_descend(const AnalysisCommand &com
         provenance_map[dest] = dest + ".provenance";
         provenance_map[dest + "\x1d"] = dest + ".provenance";
     }
+
+    emit_context_update(dest);
 
     return dest + "\x1d";
 }
@@ -1201,6 +1242,8 @@ std::string CoffeaConverter::convert_add_part_to_union(const AnalysisCommand &co
             provenance_map[dest + "\x1d"] = dest + ".provenance";
         }
 
+        emit_context_update(dest);
+
         return dest + "\x1d";
     }
 }
@@ -1323,6 +1366,8 @@ std::string CoffeaConverter::convert_name_element_of_composite(const AnalysisCom
     emit_comment("Create object ", command.get_dest_argument(), " as element ", comb_index_str, " of composite ", clean_comb);
     emit(dest, " = ", clean_source, "[", clean_comb, "_idx", comb_index_str, "]");
     
+    emit_context_update(dest);
+
     // Propagate provenance: index into the source's provenance with the same index array
     std::string source_prov = find_provenance(source_name);
     if (!source_prov.empty()) {
@@ -1457,6 +1502,9 @@ void CoffeaConverter::print() {
     emit_newline();
     emit("from collections import defaultdict");
     emit("output = defaultdict(float)");
+    emit("ctx = {}");
+
+    context_vars.clear();
 
     emit_newline();
     emit_comment("Setup MET as a Lorentz vector compatible object");
@@ -1484,10 +1532,16 @@ void CoffeaConverter::print() {
     emit("    def postprocess(self, accumulator):");
     emit("        return accumulator");
 
+    emit("from concurrent.futures import ProcessPoolExecutor");
+    emit("executor = coffea.processor.FuturesExecutor(workers=8, pool = ProcessPoolExecutor, tailtimeout=120)");
+
     emit("runner = coffea.processor.Runner(");
-    emit("    executor = coffea.processor.IterativeExecutor(),");
+    emit("    executor = executor,");
     emit("    schema = NanoAODSchema,");
-    emit("    chunksize=1_000,");
+    emit("    chunksize=10_000,");
+    emit("    xrootdtimeout=60,");
+    emit("    skipbadfiles=True,");
+
     emit(")");
 
     emit_newline();

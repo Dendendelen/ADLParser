@@ -57,6 +57,10 @@ class Parser : public ADLErrorLogger {
         void parse_integer(PNode parent, std::string error = "");
         void parse_scientific(PNode parent, std::string error = "");
         void parse_decimal(PNode parent, std::string error = "");
+        void parse_signed_number(PNode parent, std::string error = "");
+        void parse_signed_integer(PNode parent, std::string error = "");
+        void parse_signed_scientific(PNode parent, std::string error = "");
+        void parse_signed_decimal(PNode parent, std::string error = "");
 
         void parse_assignment(PNode parent);
 

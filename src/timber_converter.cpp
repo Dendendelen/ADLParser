@@ -250,6 +250,7 @@ std::string TimberConverter::use_within_region(std::string fun_within_node,  std
         emit("print('Applying region ", reg_name, "')");
         emit("_this_reg_node_", reg_name, " = a.Apply(", reg_mapped, "[0])");
         emit("_this_reg_node_", reg_name, " = a.AddCorrections(", reg_mapped, "[1])");
+        emit("_this_reg_node_", reg_name, " = a.MakeWeightCols()");
     
     }
 

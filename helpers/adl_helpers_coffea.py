@@ -48,19 +48,23 @@ def make_histogram_labels(labels, dimensions):
     axis_labels = labels[1:] + [""] * (dimensions - len(labels) + 1)
     return title, axis_labels[:dimensions]
 
-def fill_histogram(hist_def, events):
+def fill_histogram(hist_def, events, context_kwargs=None):
     """
     Fill one histogram definition and return it as a processor output fragment.
 
     Returns:
         dict like {hist_name: hist.Hist}
     """
-    hist_obj = hist_def["hist"]
+
+    if context_kwargs is None:
+        context_kwargs = {}
+
+    hist_obj = hist_def["hist"].copy()
     hist_name = hist_def.get("name", "histogram")
 
     if "fill_expr_x" in hist_def and "fill_expr_y" in hist_def:
-        x_values = hist_def["fill_expr_x"](events)
-        y_values = hist_def["fill_expr_y"](events)
+        x_values = hist_def["fill_expr_x"](events, **context_kwargs)
+        y_values = hist_def["fill_expr_y"](events, **context_kwargs)
 
         x_values = _to_flat_numpy(x_values)
         y_values = _to_flat_numpy(y_values)
@@ -72,7 +76,7 @@ def fill_histogram(hist_def, events):
         return {hist_name: hist_obj}
 
     if "fill_expr" in hist_def:
-        values = hist_def["fill_expr"](events)
+        values = hist_def["fill_expr"](events, **context_kwargs)
     else:
         fill_var = hist_def["fill_var"]
         values = eval(fill_var, {"events": events, "ak": ak, "np": np})
@@ -83,17 +87,21 @@ def fill_histogram(hist_def, events):
     return {hist_name: hist_obj}
 
 
-def fill_histogram_list(hist_list, events):
+def fill_histogram_list(hist_list, events, context_kwargs=None):
     """
     Fill a list of histogram definitions and return a processor output fragment.
 
     Returns:
         dict like {hist_name: hist.Hist, ...}
     """
+
+    if context_kwargs is None:
+        context_kwargs = {}
+    
     output = {}
 
     for hist_def in hist_list:
-        filled = fill_histogram(hist_def, events)
+        filled = fill_histogram(hist_def, events, context_kwargs)
         output = combine_outputs(output, filled)
 
     return output

@@ -996,7 +996,7 @@ void Parser::parse_histogram(PNode parent) {
 /* BINNING productions:
 ---
 
-    BINNING -> INTEGER, NUMBER, NUMBER
+    BINNING -> INTEGER, SIGNED_NUMBER, SIGNED_NUMBER
 
 */
 void Parser::parse_binning(PNode parent) {
@@ -1004,9 +1004,9 @@ void Parser::parse_binning(PNode parent) {
     // BINNING -> INTEGER, NUMBER, NUMBER
     parse_integer(parent, "Only literal integers are allowed to specify binning quantity on histograms");
     expect_and_consume(parent, Token_type::COMMA);
-    parse_number(parent, "Only literal numbers are allowed for the lower bound of a histogram");
+    parse_signed_number(parent, "Only literal numbers are allowed for the lower bound of a histogram");
     expect_and_consume(parent, Token_type::COMMA);
-    parse_number(parent, "Only literal numbers are allowed for the upper bound of a histogram");
+    parse_signed_number(parent, "Only literal numbers are allowed for the upper bound of a histogram");
 
 }
 
@@ -1072,6 +1072,114 @@ void Parser::parse_id(PNode parent, std::string error) {
 
 }
 
+
+/* SIGNED_NUMBER productions
+---
+
+    SIGNED_NUMBER -> NUMBER
+
+    SIGNED_NUMBER -> - NUMBER
+
+*/
+
+void Parser::parse_signed_number(PNode parent, std::string error) {
+
+    PToken tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+        case TOK::MINUS: 
+        {
+            lexer->expect_and_consume(TOK::MINUS);
+            auto node = create_node(AST::NEGATE, parent, tok);
+            parse_number(node, error);
+            return;
+        }
+        default:
+            parse_number(parent, error);
+            return;
+    }
+}
+
+
+/* SIGNED_INTEGER productions
+---
+
+    SIGNED_INTEGER -> INTEGER
+
+    SIGNED_INTEGER -> - INTEGER
+
+*/
+void Parser::parse_signed_integer(PNode parent, std::string error) {
+
+    PToken tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+        case TOK::MINUS: 
+        {
+            lexer->expect_and_consume(TOK::MINUS);
+            auto node = create_node(AST::NEGATE, parent, tok);
+            parse_integer(node, error);
+            return;
+        }
+        default:
+            parse_integer(parent, error);
+            return;
+    }
+}
+
+
+/* SIGNED_SCIENTIFIC productions
+---
+
+    SIGNED_SCIENTIFIC -> SCIENTIFIC
+
+    SIGNED_SCIENTIFIC -> - SCIENTIFIC
+
+*/
+void Parser::parse_signed_scientific(PNode parent, std::string error) {
+
+    PToken tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+        case TOK::MINUS: 
+        {
+            lexer->expect_and_consume(TOK::MINUS);
+            auto node = create_node(AST::NEGATE, parent, tok);
+            parse_scientific(node, error);
+            return;
+        }
+        default:
+            parse_scientific(parent, error);
+            return;
+    }
+}
+
+
+/* SIGNED_DECIMAL productions
+---
+
+    SIGNED_DECIMAL -> DECIMAL
+
+    SIGNED_DECIMAL -> - DECIMAL
+
+*/
+void Parser::parse_signed_decimal(PNode parent, std::string error) {
+
+    PToken tok = lexer->peek(0);
+
+    switch (tok->get_token_type()) {
+        case TOK::MINUS: 
+        {
+            lexer->expect_and_consume(TOK::MINUS);
+            auto node = create_node(AST::NEGATE, parent, tok);
+            parse_decimal(node, error);
+            return;
+        }
+        default:
+            parse_decimal(parent, error);
+            return;
+    }
+}
 
 
 /* NUMBER productions
@@ -1342,21 +1450,21 @@ void Parser::parse_named_particle_list(PNode parent) {
 /* LITERAL_NUMBER_LIST productions:
 ---
 
-    LITERAL_NUMBER_LIST -> NUMBER LITERAL_NUMBER_LIST
+    LITERAL_NUMBER_LIST -> SIGNED_NUMBER LITERAL_NUMBER_LIST
 
-    LITERAL_NUMBER_LIST -> NUMBER
+    LITERAL_NUMBER_LIST -> SIGNED_NUMBER
 
  */
 void Parser::parse_literal_number_list(PNode parent) {
 
     PNode literal_number_list = make_list_root_node(AST::LITERAL_NUMBER_LIST, parent);
 
-    // LITERAL_NUMBER_LIST -> NUMBER LITERAL_NUMBER_LIST
-    // LITERAL_NUMBER_LIST -> NUMBER
-    parse_number(literal_number_list, "Needs a literal numerical value for this partition");
+    // LITERAL_NUMBER_LIST -> SIGNED_NUMBER LITERAL_NUMBER_LIST
+    // LITERAL_NUMBER_LIST -> SIGNED_NUMBER
+    parse_signed_number(literal_number_list, "Needs a literal numerical value for this partition");
 
     auto tok = lexer->peek(0);
-    if (is_numerical(tok->get_token_type())) {
+    if (is_numerical(tok->get_token_type()) || tok->get_token_type() == TOK::MINUS) {
         parse_literal_number_list(literal_number_list);
     }
 }
@@ -1540,7 +1648,7 @@ void Parser::parse_index(PNode parent) {
                 // the only token in the follow set for INDEX is ]
                 if (next2->get_token_type() != TOK::CLOSE_SQUARE_BRACE) {
                     // INDEX -> EXPRESSION :        
-                    parse_integer(index);
+                    parse_expression(index);
                 } else {
                     // INDEX -> EXPRESSION :
                     create_node(AST::UNBOUNDED, index, next);
